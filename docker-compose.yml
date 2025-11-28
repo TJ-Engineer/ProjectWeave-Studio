@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: issuetracker-backend
+    ports:
+      - "3002:5000"
+    volumes:
+      - ./backend:/app
+      - issue-data:/app/instance
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    restart: unless-stopped
+    networks:
+      - issuetracker-network
+
+volumes:
+  issue-data:
+    driver: local
+
+networks:
+  issuetracker-network:
+    driver: bridge

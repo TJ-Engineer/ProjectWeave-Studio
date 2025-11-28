@@ -18,6 +18,19 @@ services:
     networks:
       - issuetracker-network
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: issuetracker-frontend
+    ports:
+      - "3003:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - issuetracker-network
+
 volumes:
   issue-data:
     driver: local

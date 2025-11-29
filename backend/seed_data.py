@@ -20,7 +20,8 @@ def seed_database():
                 'status': 'IN_PROGRESS',
                 'project': 'VectorIQ',
                 'assigned_to': 'Claude',
-                'tags': json.dumps(['deinterleaver', 'signal-processing', 'TIC'])
+                'tags': json.dumps(['deinterleaver', 'signal-processing', 'TIC']),
+                'issue_type': 'Bug'
             },
             {
                 'title': 'Alert Bug - Disabled Threats',
@@ -28,7 +29,8 @@ def seed_database():
                 'priority': 'HIGH',
                 'status': 'OPEN',
                 'project': 'VectorIQ',
-                'tags': json.dumps(['alerts', 'TIC', 'bug'])
+                'tags': json.dumps(['alerts', 'TIC', 'bug']),
+                'issue_type': 'Bug'
             },
             {
                 'title': 'Pulse Width Measurement',
@@ -36,7 +38,8 @@ def seed_database():
                 'priority': 'HIGH',
                 'status': 'OPEN',
                 'project': 'VectorIQ',
-                'tags': json.dumps(['SPD', 'signal-processing', 'measurement'])
+                'tags': json.dumps(['SPD', 'signal-processing', 'measurement']),
+                'issue_type': 'Story'
             },
             {
                 'title': 'Weighted Averaging with Outlier Rejection',
@@ -45,7 +48,8 @@ def seed_database():
                 'status': 'OPEN',
                 'project': 'VectorIQ',
                 'assigned_to': 'Claude',
-                'tags': json.dumps(['deinterleaver', 'TIC', 'enhancement'])
+                'tags': json.dumps(['deinterleaver', 'TIC', 'enhancement']),
+                'issue_type': 'Task'
             },
             {
                 'title': 'Dashboard Histogram Display',
@@ -53,7 +57,8 @@ def seed_database():
                 'priority': 'LOW',
                 'status': 'RESOLVED',
                 'project': 'VectorIQ',
-                'tags': json.dumps(['dashboard', 'UI', 'frontend'])
+                'tags': json.dumps(['dashboard', 'UI', 'frontend']),
+                'issue_type': 'Task'
             },
             {
                 'title': 'Threat Library Web Editor',
@@ -61,7 +66,8 @@ def seed_database():
                 'priority': 'MEDIUM',
                 'status': 'OPEN',
                 'project': 'VectorIQ',
-                'tags': json.dumps(['tools', 'threat-library', 'frontend'])
+                'tags': json.dumps(['tools', 'threat-library', 'frontend']),
+                'issue_type': 'Epic'
             },
             {
                 'title': 'Issue Tracker Frontend',
@@ -70,7 +76,8 @@ def seed_database():
                 'status': 'OPEN',
                 'project': 'IssueTracker',
                 'assigned_to': 'Claude',
-                'tags': json.dumps(['frontend', 'react', 'UI'])
+                'tags': json.dumps(['frontend', 'react', 'UI']),
+                'issue_type': 'Story'
             }
         ]
         

@@ -16,6 +16,7 @@ class Issue(db.Model):
     description = db.Column(db.Text, nullable=True)
     priority = db.Column(db.String(20), nullable=False, default='MEDIUM')  # CRITICAL, HIGH, MEDIUM, LOW
     status = db.Column(db.String(20), nullable=False, default='OPEN')  # OPEN, IN_PROGRESS, RESOLVED, CLOSED
+    issue_type = db.Column(db.String(20), nullable=False, default='Task')  # Epic, Story, Task, Bug
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     assigned_to = db.Column(db.String(100), nullable=True)
@@ -33,6 +34,7 @@ class Issue(db.Model):
             'description': self.description,
             'priority': self.priority,
             'status': self.status,
+            'issue_type': self.issue_type,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'assigned_to': self.assigned_to,
@@ -52,6 +54,8 @@ class Issue(db.Model):
             issue.priority = data['priority']
         if 'status' in data:
             issue.status = data['status']
+        if 'issue_type' in data:
+            issue.issue_type = data['issue_type']
         if 'assigned_to' in data:
             issue.assigned_to = data['assigned_to']
         if 'tags' in data:
@@ -70,6 +74,8 @@ class Issue(db.Model):
             self.priority = data['priority']
         if 'status' in data:
             self.status = data['status']
+        if 'issue_type' in data:
+            self.issue_type = data['issue_type']
         if 'assigned_to' in data:
             self.assigned_to = data['assigned_to']
         if 'tags' in data:

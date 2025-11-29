@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Plus, Search, Filter, Settings } from 'lucide-react';
-import { useIssues, useCreateIssue, useUpdateIssue, useDeleteIssue } from '../hooks/useIssues';
+import { Plus, Search, Filter, Settings, MoreHorizontal } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { useIssues, useCreateIssue, useUpdateIssue, useDeleteIssue, useUpdateIssueStatus } from '../hooks/useIssues';
 import { IssueCard } from '../components/IssueCard';
 import { IssueModal } from '../components/IssueModal';
 
 const COLUMNS = [
-    { id: 'OPEN', title: 'To Do', bg: 'bg-gray-50' },
-    { id: 'IN_PROGRESS', title: 'In Progress', bg: 'bg-blue-50' },
-    { id: 'RESOLVED', title: 'Done', bg: 'bg-green-50' }
+    { id: 'OPEN', title: 'To Do', bg: 'bg-slate-900/50' },
+    { id: 'IN_PROGRESS', title: 'In Progress', bg: 'bg-blue-900/20' },
+    { id: 'RESOLVED', title: 'Done', bg: 'bg-green-900/20' }
 ];
 
 export const Dashboard = () => {
@@ -19,6 +20,7 @@ export const Dashboard = () => {
     const { data: issuesData, isLoading } = useIssues(filters);
     const createMutation = useCreateIssue();
     const updateMutation = useUpdateIssue();
+    const updateStatusMutation = useUpdateIssueStatus();
     const deleteMutation = useDeleteIssue();
 
     const handleCreateIssue = () => {
@@ -47,6 +49,29 @@ export const Dashboard = () => {
         }
     };
 
+    const onDragEnd = async (result) => {
+        const { destination, source, draggableId } = result;
+
+        if (!destination) return;
+
+        if (
+            destination.droppableId === source.droppableId &&
+            destination.index === source.index
+        ) {
+            return;
+        }
+
+        const newStatus = destination.droppableId;
+        const issueId = parseInt(draggableId);
+
+        // Optimistic update could be handled here, but for now we'll rely on React Query invalidation
+        try {
+            await updateStatusMutation.mutateAsync({ id: issueId, status: newStatus });
+        } catch (error) {
+            console.error('Failed to update status:', error);
+        }
+    };
+
     const getIssuesByStatus = (status) => {
         if (!issuesData?.issues) return [];
         // Map RESOLVED and CLOSED to Done column
@@ -57,37 +82,37 @@ export const Dashboard = () => {
     };
 
     return (
-        <div className="h-screen flex flex-col bg-white">
+        <div className="h-screen flex flex-col bg-slate-950 text-slate-200">
             {/* Header */}
-            <header className="border-b border-gray-200 px-6 py-3 flex items-center justify-between bg-white">
+            <header className="border-b border-slate-800 px-6 py-3 flex items-center justify-between bg-slate-900">
                 <div className="flex items-center gap-4">
-                    <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold">
+                    <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold shadow-lg shadow-blue-900/20">
                         IT
                     </div>
                     <div>
-                        <h1 className="text-sm font-semibold text-gray-900">Issue Tracker / Board</h1>
-                        <p className="text-xs text-gray-500">Sprint 1</p>
+                        <h1 className="text-sm font-semibold text-slate-100">Issue Tracker / Board</h1>
+                        <p className="text-xs text-slate-400">Sprint 1</p>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
                     <div className="relative">
-                        <Search className="absolute left-2.5 top-2 text-gray-400" size={16} />
+                        <Search className="absolute left-2.5 top-2 text-slate-400" size={16} />
                         <input
                             type="text"
                             placeholder="Search issues..."
-                            className="pl-9 pr-4 py-1.5 bg-gray-100 border-transparent rounded text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all w-64"
+                            className="pl-9 pr-4 py-1.5 bg-slate-800 border-transparent rounded text-sm text-slate-200 focus:bg-slate-700 focus:ring-2 focus:ring-blue-500 transition-all w-64 placeholder-slate-500"
                         />
                     </div>
-                    <button className="p-2 text-gray-600 hover:bg-gray-100 rounded">
+                    <button className="p-2 text-slate-400 hover:bg-slate-800 rounded hover:text-slate-200 transition-colors">
                         <Filter size={18} />
                     </button>
-                    <button className="p-2 text-gray-600 hover:bg-gray-100 rounded">
+                    <button className="p-2 text-slate-400 hover:bg-slate-800 rounded hover:text-slate-200 transition-colors">
                         <Settings size={18} />
                     </button>
                     <button
                         onClick={handleCreateIssue}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-500 transition shadow-lg shadow-blue-900/20"
                     >
                         <Plus size={16} />
                         Create
@@ -96,48 +121,72 @@ export const Dashboard = () => {
             </header>
 
             {/* Board */}
-            <main className="flex-1 overflow-x-auto overflow-y-hidden p-6">
-                <div className="flex h-full gap-6 min-w-max">
-                    {COLUMNS.map(column => {
-                        const columnIssues = getIssuesByStatus(column.id);
+            <DragDropContext onDragEnd={onDragEnd}>
+                <main className="flex-1 overflow-x-auto overflow-y-hidden p-6">
+                    <div className="flex h-full gap-6 min-w-max">
+                        {COLUMNS.map(column => {
+                            const columnIssues = getIssuesByStatus(column.id);
 
-                        return (
-                            <div key={column.id} className={`w-80 flex flex-col rounded-lg ${column.bg} max-h-full`}>
-                                {/* Column Header */}
-                                <div className="p-3 flex items-center justify-between text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                    <div className="flex items-center gap-2">
-                                        <span>{column.title}</span>
-                                        <span className="bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">
-                                            {columnIssues.length}
-                                        </span>
-                                    </div>
-                                    <div className="flex gap-1">
-                                        <button className="hover:bg-gray-200 p-1 rounded"><Plus size={14} /></button>
-                                        <button className="hover:bg-gray-200 p-1 rounded"><MoreHorizontal size={14} /></button>
-                                    </div>
-                                </div>
+                            return (
+                                <Droppable key={column.id} droppableId={column.id}>
+                                    {(provided, snapshot) => (
+                                        <div
+                                            ref={provided.innerRef}
+                                            {...provided.droppableProps}
+                                            className={`w-80 flex flex-col rounded-lg ${column.bg} max-h-full border border-slate-800/50 transition-colors ${snapshot.isDraggingOver ? 'ring-2 ring-blue-500/50' : ''}`}
+                                        >
+                                            {/* Column Header */}
+                                            <div className="p-3 flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                                <div className="flex items-center gap-2">
+                                                    <span>{column.title}</span>
+                                                    <span className="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded-full text-[10px]">
+                                                        {columnIssues.length}
+                                                    </span>
+                                                </div>
+                                                <div className="flex gap-1">
+                                                    <button className="hover:bg-slate-800 p-1 rounded text-slate-500 hover:text-slate-300"><Plus size={14} /></button>
+                                                    <button className="hover:bg-slate-800 p-1 rounded text-slate-500 hover:text-slate-300"><MoreHorizontal size={14} /></button>
+                                                </div>
+                                            </div>
 
-                                {/* Issues List */}
-                                <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                                    {isLoading ? (
-                                        [...Array(3)].map((_, i) => (
-                                            <div key={i} className="bg-white h-24 rounded shadow-sm animate-pulse"></div>
-                                        ))
-                                    ) : (
-                                        columnIssues.map(issue => (
-                                            <IssueCard
-                                                key={issue.id}
-                                                issue={issue}
-                                                onClick={handleEditIssue}
-                                            />
-                                        ))
+                                            {/* Issues List */}
+                                            <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[100px]">
+                                                {isLoading ? (
+                                                    [...Array(3)].map((_, i) => (
+                                                        <div key={i} className="bg-slate-800 h-24 rounded shadow-sm animate-pulse"></div>
+                                                    ))
+                                                ) : (
+                                                    columnIssues.map((issue, index) => (
+                                                        <Draggable key={issue.id} draggableId={issue.id.toString()} index={index}>
+                                                            {(provided, snapshot) => (
+                                                                <div
+                                                                    ref={provided.innerRef}
+                                                                    {...provided.draggableProps}
+                                                                    {...provided.dragHandleProps}
+                                                                    style={{
+                                                                        ...provided.draggableProps.style,
+                                                                        opacity: snapshot.isDragging ? 0.8 : 1,
+                                                                    }}
+                                                                >
+                                                                    <IssueCard
+                                                                        issue={issue}
+                                                                        onClick={handleEditIssue}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </Draggable>
+                                                    ))
+                                                )}
+                                                {provided.placeholder}
+                                            </div>
+                                        </div>
                                     )}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </main>
+                                </Droppable>
+                            );
+                        })}
+                    </div>
+                </main>
+            </DragDropContext>
 
             {/* Issue Modal */}
             {isModalOpen && (
@@ -154,23 +203,3 @@ export const Dashboard = () => {
         </div>
     );
 };
-
-function MoreHorizontal({ size }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width={size}
-            height={size}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <circle cx="12" cy="12" r="1" />
-            <circle cx="19" cy="12" r="1" />
-            <circle cx="5" cy="12" r="1" />
-        </svg>
-    );
-}

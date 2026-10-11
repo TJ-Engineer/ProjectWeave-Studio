@@ -1,47 +1,80 @@
 "use client";
 
+import type { Page, ProjectSummary } from "@vibe/contracts";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { LogoutButton } from "./logout-button";
-
-interface ProjectSummary {
-  id: string;
-  key: string;
-  name: string;
-  boardId: string;
-}
 
 export function ProjectHub({
   displayName,
   initialProjects,
+  initialNextCursor,
 }: {
   displayName: string;
   initialProjects: ProjectSummary[];
+  initialNextCursor: string | null;
 }) {
   const router = useRouter();
+  const createIdempotencyKey = useRef<string | null>(null);
+  const [projects, setProjects] = useState(initialProjects);
+  const [nextCursor, setNextCursor] = useState(initialNextCursor);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
     setError("");
     const form = new FormData(event.currentTarget);
-    const response = await fetch("/api/v1/projects", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: form.get("name"), key: form.get("key") }),
-    });
-    const body = (await response.json()) as ProjectSummary & {
-      error?: { message?: string };
-    };
-    if (!response.ok) {
-      setError(body.error?.message ?? "Could not create project");
+    createIdempotencyKey.current ??= crypto.randomUUID();
+    try {
+      const response = await fetch("/api/v1/projects", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": createIdempotencyKey.current,
+        },
+        body: JSON.stringify({ name: form.get("name"), key: form.get("key") }),
+      });
+      const body = (await response.json()) as ProjectSummary & {
+        error?: { message?: string };
+      };
+      if (!response.ok) {
+        setError(body.error?.message ?? "Could not create project");
+        return;
+      }
+      router.push(`/projects/${body.key}/boards/${body.boardId}`);
+    } catch {
+      setError("The project request could not be completed. Try again.");
+    } finally {
       setPending(false);
-      return;
     }
-    router.push(`/projects/${body.key}/boards/${body.boardId}`);
+  }
+
+  async function loadMore() {
+    if (!nextCursor) return;
+    setLoadingMore(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/v1/projects?limit=25&cursor=${encodeURIComponent(nextCursor)}`,
+      );
+      const body = (await response.json()) as Page<ProjectSummary> & {
+        error?: { message?: string };
+      };
+      if (!response.ok) {
+        setError(body.error?.message ?? "Could not load more projects");
+        return;
+      }
+      setProjects((current) => [...current, ...body.items]);
+      setNextCursor(body.nextCursor);
+    } catch {
+      setError("More projects could not be loaded. Try again.");
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   return (
@@ -61,7 +94,7 @@ export function ProjectHub({
           <h1>Projects</h1>
           <p className="muted">Choose a board or start a focused workspace.</p>
           <div className="project-list">
-            {initialProjects.map((project) => (
+            {projects.map((project) => (
               <Link
                 className="project-card"
                 href={`/projects/${project.key}/boards/${project.boardId}`}
@@ -78,6 +111,16 @@ export function ProjectHub({
               </Link>
             ))}
           </div>
+          {nextCursor && (
+            <button
+              className="secondary-button"
+              disabled={loadingMore}
+              type="button"
+              onClick={() => void loadMore()}
+            >
+              {loadingMore ? "Loading…" : "Load more projects"}
+            </button>
+          )}
         </section>
         <aside className="create-panel">
           <h2>Create a project</h2>

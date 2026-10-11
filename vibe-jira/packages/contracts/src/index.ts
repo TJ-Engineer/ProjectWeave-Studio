@@ -60,6 +60,16 @@ export const loginSchema = z.object({
   password: z.string().min(8).max(200),
 });
 
+export const paginationQuerySchema = z.object({
+  cursor: z.string().trim().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+});
+
+export interface Page<T> {
+  items: T[];
+  nextCursor: string | null;
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;
@@ -75,6 +85,13 @@ export interface UserIdentity {
   email: string;
   displayName: string;
   organizationRole: "ADMIN" | "MEMBER";
+}
+
+export interface ProjectSummary {
+  id: string;
+  key: string;
+  name: string;
+  boardId: string;
 }
 
 export interface StatusView {
@@ -116,7 +133,7 @@ export interface BoardColumnView {
   statusIds: string[];
 }
 
-export interface ProjectMemberView {
+export interface AssignableUserView {
   id: string;
   displayName: string;
 }
@@ -127,7 +144,7 @@ export interface BoardView {
   project: { id: string; key: string; name: string };
   columns: BoardColumnView[];
   statuses: StatusView[];
-  members: ProjectMemberView[];
+  assignees: AssignableUserView[];
   issues: IssueView[];
 }
 

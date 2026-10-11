@@ -1,7 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-test("create a task, move it, and see persisted history", async ({ page }) => {
+test("create, move, and edit a task with persisted history", async ({
+  page,
+}) => {
   const summary = `Browser slice ${Date.now()}`;
   await page.goto("/login");
   await page
@@ -52,6 +54,15 @@ test("create a task, move it, and see persisted history", async ({ page }) => {
   const editedSummary = `${summary} edited`;
   const editedDescription = "Edited through the issue drawer";
   await refreshedDrawer.getByRole("button", { name: "Edit issue" }).click();
+  const editAccessibility = await new AxeBuilder({ page })
+    .include(".issue-drawer")
+    .analyze();
+  expect(
+    editAccessibility.violations.filter(
+      (violation) =>
+        violation.impact === "serious" || violation.impact === "critical",
+    ),
+  ).toEqual([]);
   await refreshedDrawer.getByLabel("Summary").fill(editedSummary);
   await refreshedDrawer.getByLabel("Description").fill(editedDescription);
   await refreshedDrawer.getByLabel("Priority").selectOption("CRITICAL");
@@ -65,9 +76,10 @@ test("create a task, move it, and see persisted history", async ({ page }) => {
   await expect(
     updatedDrawer.getByText("CRITICAL", { exact: true }),
   ).toBeVisible();
-  await expect(
-    updatedDrawer.getByText("Vibe Admin", { exact: true }),
-  ).toBeVisible();
+  const assigneeField = updatedDrawer
+    .locator(".issue-fields > div")
+    .filter({ hasText: "Assignee" });
+  await expect(assigneeField.getByRole("definition")).toHaveText("Vibe Admin");
   await expect(
     updatedDrawer.getByText(
       /updated summary, description, priority, and assignee/,

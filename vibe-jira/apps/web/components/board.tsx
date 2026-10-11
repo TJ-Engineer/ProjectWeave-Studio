@@ -12,12 +12,12 @@ import {
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import type {
+  AssignableUserView,
   BoardColumnView,
   BoardView,
   IssueDetailView,
   IssueView,
   Priority,
-  ProjectMemberView,
 } from "@vibe/contracts";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -151,16 +151,22 @@ export function Board({
     if (issue && destination) void move(issue, destination);
   }
 
-  async function createIssue(input: {
-    summary: string;
-    description: string;
-    priority: string;
-  }) {
+  async function createIssue(
+    input: {
+      summary: string;
+      description: string;
+      priority: string;
+    },
+    idempotencyKey: string,
+  ) {
     const response = await fetch(
       `/api/v1/projects/${board.project.key}/issues`,
       {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": idempotencyKey,
+        },
         body: JSON.stringify({ ...input, issueType: "TASK" }),
       },
     );
@@ -416,13 +422,17 @@ function CreateIssueDialog({
   onCreate,
 }: {
   onClose: () => void;
-  onCreate: (input: {
-    summary: string;
-    description: string;
-    priority: string;
-  }) => Promise<void>;
+  onCreate: (
+    input: {
+      summary: string;
+      description: string;
+      priority: string;
+    },
+    idempotencyKey: string,
+  ) => Promise<void>;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const idempotencyKey = useRef<string | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   useEffect(() => {
@@ -434,11 +444,15 @@ function CreateIssueDialog({
     setError("");
     const form = new FormData(event.currentTarget);
     try {
-      await onCreate({
-        summary: String(form.get("summary") ?? ""),
-        description: String(form.get("description") ?? ""),
-        priority: String(form.get("priority") ?? "MEDIUM"),
-      });
+      idempotencyKey.current ??= crypto.randomUUID();
+      await onCreate(
+        {
+          summary: String(form.get("summary") ?? ""),
+          description: String(form.get("description") ?? ""),
+          priority: String(form.get("priority") ?? "MEDIUM"),
+        },
+        idempotencyKey.current,
+      );
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Could not create issue",
@@ -550,7 +564,7 @@ function IssueDrawer({
         <EditIssueForm
           key={`${issue.id}:${issue.version}`}
           issue={issue}
-          members={board.members}
+          members={board.assignees}
           onCancel={() => setEditing(false)}
           onReload={onReload}
           onSave={async (input) => {
@@ -613,7 +627,7 @@ function EditIssueForm({
   onCancel,
 }: {
   issue: IssueDetailView;
-  members: ProjectMemberView[];
+  members: AssignableUserView[];
   onSave: (input: {
     summary: string;
     description: string;

@@ -10,7 +10,10 @@ describe("capability resolution", () => {
 
   it("does not allow viewers to edit issues", () => {
     expect(can("MEMBER", "VIEWER", "issue:view")).toBe(true);
+    expect(can("MEMBER", "VIEWER", "issue:create")).toBe(false);
     expect(can("MEMBER", "VIEWER", "issue:edit")).toBe(false);
+    expect(can("MEMBER", "VIEWER", "issue:transition")).toBe(false);
+    expect(can("MEMBER", "VIEWER", "project:admin")).toBe(false);
   });
 
   it("does not grant access without project membership", () => {
@@ -25,5 +28,9 @@ describe("capability resolution", () => {
 
   it("allows an organization administrator to create projects", () => {
     expect(can("ADMIN", null, "project:create")).toBe(true);
+    expect(can("ADMIN", null, "project:admin")).toBe(true);
+    expect(can("ADMIN", null, "issue:create")).toBe(true);
+    expect(can("ADMIN", null, "issue:edit")).toBe(true);
+    expect(can("ADMIN", null, "issue:transition")).toBe(true);
   });
 });

@@ -28,22 +28,22 @@ Stories marked `DONE` on 2026-10-11 were accepted against the first-slice scope 
 | -------------------- | ------------------------------------------------------------------ |
 | Delivery gate        | First architecture-proving vertical slice complete                 |
 | Current milestone    | M1 — Complete the issue lifecycle                                  |
-| Active product story | `ISS-02` — Edit an issue                                           |
+| Active product story | `ISS-05` — Issue API hardening                                    |
 | Blocking issues      | None                                                               |
-| Story roll-up        | 13 done, 10 partial, 1 in progress, 1 next, 30 planned             |
+| Story roll-up        | 14 done, 10 partial, 1 in progress, 30 planned                     |
 | Release readiness    | Not ready; the first slice is a reliable foundation, not Release 1 |
 | Running path         | `docker compose up --build` → `http://localhost:3000`              |
 
 ### Verified baseline
 
-| Gate                                                  | Result                     | Evidence                                                                                              |
-| ----------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Formatting, lint, types, unit tests, production build | Passing                    | `npm run check` (skips integration tests when `TEST_DATABASE_URL` is unset)                           |
-| Real PostgreSQL transition concurrency                | Passing                    | `docker compose --profile test run --rm test` runs `tests/integration/transition.integration.test.ts` |
-| Browser create/move/refresh/history journey           | Passing                    | `tests/e2e/first-slice.spec.ts`                                                                       |
-| Serious/critical automated accessibility findings     | Zero in the tested journey | Axe assertion in the browser test                                                                     |
-| Dependency vulnerabilities                            | Zero at last audit         | `npm audit` and production-image audit                                                                |
-| Container startup and health                          | Passing                    | Healthy application and PostgreSQL; migration and seed exit successfully                              |
+| Gate                                                      | Result                     | Evidence                                                                                              |
+| --------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Formatting, lint, types, unit tests, production build     | Passing                    | `npm run check` (skips integration tests when `TEST_DATABASE_URL` is unset)                           |
+| Real PostgreSQL transition/edit atomicity and concurrency | Passing                    | `docker compose --profile test run --rm test` runs `tests/integration/transition.integration.test.ts` |
+| Browser create/move/edit/refresh/history journey          | Passing                    | `tests/e2e/first-slice.spec.ts`                                                                       |
+| Serious/critical automated accessibility findings         | Zero in the tested journey | Axe assertion in the browser test                                                                     |
+| Dependency vulnerabilities                                | Zero at last audit         | `npm audit` and production-image audit                                                                |
+| Container startup and health                              | Passing                    | Healthy application and PostgreSQL; migration and seed exit successfully                              |
 
 ## Delivery storyline
 
@@ -86,13 +86,13 @@ A project member can create, open, edit, organize, and retire an issue while the
 
 ### Proposed execution order
 
-| Order | Story                                        | Status        | Acceptance summary                                                                                                                                                                   |
-| ----- | -------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1     | `ISS-02` Edit an issue                       | `IN PROGRESS` | Edit summary, plain-text description, priority, and assignee (current project members only); stale writes conflict; one field-change event is appended; refresh shows canonical data |
-| 2     | `ISS-05` Issue API hardening                 | `NEXT`        | Stable error codes, cursor pagination, idempotent creates, and expanded authorization tests land before more endpoints are added                                                     |
-| 3     | `IAM-03` Manage project membership and roles | `PLANNED`     | Project admin adds/removes members and assigns roles; APIs and UI enforce the same capability matrix                                                                                 |
-| 4     | `ISS-03` Issue types, labels, and hierarchy  | `PARTIAL`     | Model and UI support the Release 1 hierarchy and reject invalid parent relationships                                                                                                 |
-| 5     | `ISS-04` Soft delete and restore             | `PLANNED`     | Authorized deletion hides work without losing history; an administrator can restore it                                                                                               |
+| Order | Story                                        | Status    | Acceptance summary                                                                                                                                                       |
+| ----- | -------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1     | `ISS-02` Edit an issue                       | `DONE`    | Summary, plain-text description, priority, and active admin/member assignee edits are versioned; one atomic field-change event is appended; refresh shows canonical data |
+| 2     | `ISS-05` Issue API hardening                 | `IN PROGRESS` | Stable error codes, cursor pagination, idempotent creates, and expanded authorization tests land before more endpoints are added                                    |
+| 3     | `IAM-03` Manage project membership and roles | `PLANNED` | Project admin adds/removes members and assigns roles; APIs and UI enforce the same capability matrix                                                                     |
+| 4     | `ISS-03` Issue types, labels, and hierarchy  | `PARTIAL` | Model and UI support the Release 1 hierarchy and reject invalid parent relationships                                                                                     |
+| 5     | `ISS-04` Soft delete and restore             | `PLANNED` | Authorized deletion hides work without losing history; an administrator can restore it                                                                                   |
 
 Engineering enablers carried alongside the product stories (they do not count against the one-primary-story WIP limit):
 
@@ -137,16 +137,16 @@ Comments, attachments, notifications, reporting, custom fields, realtime deliver
 
 ### E3 — Projects and issues
 
-| ID       | Story/outcome                                                   | Status        | Evidence or remaining work                                                                                                                            |
-| -------- | --------------------------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PRJ-01` | Create/list a project with stable key and seeded workflow/board | `DONE`        | Project UI, API, transactional defaults, and deep links exist                                                                                         |
-| `ISS-01` | Create and view a task with stable key and activity             | `DONE`        | Create dialog, detail drawer, event history, and refresh persistence exist                                                                            |
-| `ISS-02` | Edit issue fields with concurrency and history                  | `IN PROGRESS` | Repository update, `PATCH` route, and unit test exist; integration conflict test, browser coverage, and evidence remain. Description stays plain text |
-| `ISS-03` | Issue types, priority, assignee, labels, and parent rules       | `PARTIAL`     | Core task/type/priority fields exist; richer type, assignment, label, and hierarchy workflows remain                                                  |
-| `ISS-04` | Soft delete and administrative restore                          | `PLANNED`     | Schema seam exists; API, UI, permissions, and restore workflow remain                                                                                 |
-| `ISS-05` | Pagination, stable errors, and idempotent vulnerable creates    | `NEXT`        | Apply across existing issue/project endpoints so later stories inherit the contract                                                                   |
-| `ISS-06` | Estimate and due-date fields                                    | `PLANNED`     | Schema, validation, create/edit UI, history events, and card/detail display                                                                           |
-| `ISS-07` | Sanitized Markdown descriptions                                 | `PLANNED`     | Depends on the description-format decision; sanitized rendering with XSS tests and safe preview                                                       |
+| ID       | Story/outcome                                                   | Status    | Evidence or remaining work                                                                                                                                                                                                                  |
+| -------- | --------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PRJ-01` | Create/list a project with stable key and seeded workflow/board | `DONE`    | Project UI, API, transactional defaults, and deep links exist                                                                                                                                                                               |
+| `ISS-01` | Create and view a task with stable key and activity             | `DONE`    | Create dialog, detail drawer, event history, and refresh persistence exist                                                                                                                                                                  |
+| `ISS-02` | Edit issue fields with concurrency and history                  | `DONE`    | `PATCH` contract/UI, `issue:edit`, version conflict, active assignable-user validation, atomic history/audit/outbox, no-op behavior, PostgreSQL integration, browser refresh, and edit-form Axe coverage pass. Description stays plain text |
+| `ISS-03` | Issue types, priority, assignee, labels, and parent rules       | `PARTIAL` | Core task/type/priority fields exist; richer type, assignment, label, and hierarchy workflows remain                                                                                                                                        |
+| `ISS-04` | Soft delete and administrative restore                          | `PLANNED` | Schema seam exists; API, UI, permissions, and restore workflow remain                                                                                                                                                                       |
+| `ISS-05` | Pagination, stable errors, and idempotent vulnerable creates    | `IN PROGRESS` | Hardening the existing project/issue endpoints and adding contract, database, and adversarial authorization coverage                                                                                                                 |
+| `ISS-06` | Estimate and due-date fields                                    | `PLANNED` | Schema, validation, create/edit UI, history events, and card/detail display                                                                                                                                                                 |
+| `ISS-07` | Sanitized Markdown descriptions                                 | `PLANNED` | Depends on the description-format decision; sanitized rendering with XSS tests and safe preview                                                                                                                                             |
 
 ### E4 — Workflow engine
 
@@ -219,7 +219,7 @@ Comments, attachments, notifications, reporting, custom fields, realtime deliver
 | 1. Admin creates project, invites members, assigns roles             | `PARTIAL` | Project creation works; invitation and role administration remain                      |
 | 2. Member creates hierarchy and attachments                          | `PARTIAL` | Basic task creation works; hierarchy and attachments remain                            |
 | 3. Admin configures workflow, columns, filters, and WIP              | `PARTIAL` | Seeded defaults and WIP rendering exist; configuration surfaces remain                 |
-| 4. Concurrent users move and edit without lost updates               | `PARTIAL` | Transition concurrency is proven; edit concurrency and two-browser coverage remain     |
+| 4. Concurrent users move and edit without lost updates               | `PARTIAL` | Transition and edit version conflicts are proven; two-browser coverage remains         |
 | 5. Invalid/unauthorized transitions have no partial history          | `PARTIAL` | Domain and authorization checks exist; expand transaction-level negative-path coverage |
 | 6. Comment, mention, watch, search, filter, notify                   | `PLANNED` | E6 and E7                                                                              |
 | 7. Leads view validated Kanban metrics                               | `PLANNED` | E9                                                                                     |
@@ -242,7 +242,7 @@ Comments, attachments, notifications, reporting, custom fields, realtime deliver
 | Import compatibility                     | `ADM-03`             | Generic CSV plus documented JIRA CSV mapping               | `OPEN`    |
 | Production target and operational budget | `FND-06`, `PRD-04`   | Not selected                                               | `OPEN`    |
 
-No open decision currently blocks `ISS-02`, `ISS-05`, or `IAM-03`. `ISS-02` avoids the description-format decision by storing and rendering plain text (React-escaped).
+No open decision currently blocks `ISS-05` or `IAM-03`. `ISS-02` avoided the description-format decision by storing and rendering plain text (React-escaped).
 
 ## Risks to watch
 
@@ -282,8 +282,10 @@ When a story moves to `IN PROGRESS`, record these fields in its evidence cell or
 
 ## Changelog
 
-| Date       | Change                                                                                                                                                                                                 |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2026-10-11 | Created the storyboard and recorded the completed first vertical slice, current gaps, next milestone, release gates, decisions, and risks.                                                             |
-| 2026-10-11 | Started `ISS-02`: issue field editing with capability checks, optimistic concurrency, atomic history/audit/outbox writes, and browser coverage.                                                        |
-| 2026-10-11 | Closed plan-tracking gaps: added `FND-09`–`FND-13`, `IAM-05`, `ISS-06`, `ISS-07`, and `BRD-08`; moved `ISS-05` to `NEXT`; downgraded `BRD-02` and gate 11 to `PARTIAL`; added decision rows and risks. |
+| Date       | Change                                                                                                                                                                                                                          |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-11 | Created the storyboard and recorded the completed first vertical slice, current gaps, next milestone, release gates, decisions, and risks.                                                                                      |
+| 2026-10-11 | Started `ISS-02`: issue field editing with capability checks, optimistic concurrency, atomic history/audit/outbox writes, and browser coverage.                                                                                 |
+| 2026-10-11 | Closed plan-tracking gaps: added `FND-09`–`FND-13`, `IAM-05`, `ISS-06`, `ISS-07`, and `BRD-08`; moved `ISS-05` to `NEXT`; downgraded `BRD-02` and gate 11 to `PARTIAL`; added decision rows and risks.                          |
+| 2026-10-11 | Completed `ISS-02`: editable summary/description/priority/assignee, `issue:edit` enforcement, stale-write and viewer-assignee rejection, atomic history/audit/outbox, refresh persistence, and accessibility coverage all pass. |
+| 2026-10-11 | Started `ISS-05`: stable API errors, cursor pagination, idempotent project/issue creates, and adversarial authorization coverage. |

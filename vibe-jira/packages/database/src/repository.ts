@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
 import type {
+  AssignableUserView,
   BoardColumnView,
   BoardView,
   IssueDetailView,
   IssueEventView,
   IssueView,
+  Page,
   Priority,
-  ProjectMemberView,
+  ProjectSummary,
   StatusView,
   TransitionView,
   UserIdentity,
@@ -39,6 +41,7 @@ export interface ProjectAccess {
 
 interface IssueRow extends QueryResultRow {
   id: string;
+  issue_number: number;
   issue_key: string;
   summary: string;
   description: string | null;
@@ -52,6 +55,135 @@ interface IssueRow extends QueryResultRow {
   assignee_id: string | null;
   assignee_name: string | null;
   updated_at: Date;
+}
+
+export interface PageOptions {
+  cursor?: string | undefined;
+  limit: number;
+}
+
+export interface IdempotencyRequest {
+  key: string;
+  requestHash: string;
+}
+
+interface CursorPayload {
+  version: 1;
+  kind: string;
+  values: Array<string | number>;
+}
+
+function encodeCursor(kind: string, values: Array<string | number>): string {
+  const payload: CursorPayload = { version: 1, kind, values };
+  return Buffer.from(JSON.stringify(payload)).toString("base64url");
+}
+
+function decodeCursor(cursor: string, kind: string): CursorPayload["values"] {
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(cursor, "base64url").toString("utf8"),
+    ) as Partial<CursorPayload>;
+    if (
+      parsed.version !== 1 ||
+      parsed.kind !== kind ||
+      !Array.isArray(parsed.values)
+    ) {
+      throw new Error("Cursor shape does not match");
+    }
+    return parsed.values;
+  } catch {
+    throw new DomainError(
+      "INVALID_CURSOR",
+      "The pagination cursor is invalid or expired",
+      400,
+    );
+  }
+}
+
+async function claimIdempotency<T>(
+  client: PoolClient,
+  identity: UserIdentity,
+  operation: string,
+  request: IdempotencyRequest,
+): Promise<T | null> {
+  const claimed = await client.query(
+    `INSERT INTO idempotency_records
+      (organization_id, actor_id, operation, idempotency_key, request_hash)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT DO NOTHING`,
+    [
+      identity.organizationId,
+      identity.id,
+      operation,
+      request.key,
+      request.requestHash,
+    ],
+  );
+  if (claimed.rowCount === 1) return null;
+
+  const existing = await client.query<{
+    request_hash: string;
+    response_body: T | null;
+  }>(
+    `SELECT request_hash, response_body
+       FROM idempotency_records
+      WHERE organization_id = $1 AND actor_id = $2
+        AND operation = $3 AND idempotency_key = $4
+      FOR UPDATE`,
+    [identity.organizationId, identity.id, operation, request.key],
+  );
+  const record = existing.rows[0];
+  if (!record) {
+    throw new DomainError(
+      "IDEMPOTENCY_CONFLICT",
+      "The idempotency request could not be resolved",
+      409,
+    );
+  }
+  if (record.request_hash !== request.requestHash) {
+    throw new DomainError(
+      "IDEMPOTENCY_KEY_REUSED",
+      "That Idempotency-Key was already used with a different request",
+      409,
+    );
+  }
+  if (!record.response_body) {
+    throw new DomainError(
+      "IDEMPOTENCY_IN_PROGRESS",
+      "A request with that Idempotency-Key is still in progress",
+      409,
+    );
+  }
+  return record.response_body;
+}
+
+async function completeIdempotency(
+  client: PoolClient,
+  identity: UserIdentity,
+  operation: string,
+  request: IdempotencyRequest,
+  response: unknown,
+): Promise<void> {
+  const completed = await client.query(
+    `UPDATE idempotency_records
+        SET response_body = $1
+      WHERE organization_id = $2 AND actor_id = $3
+        AND operation = $4 AND idempotency_key = $5`,
+    [
+      JSON.stringify(response),
+      identity.organizationId,
+      identity.id,
+      operation,
+      request.key,
+    ],
+  );
+  if (completed.rowCount !== 1) {
+    throw new DomainError(
+      "IDEMPOTENCY_CONFLICT",
+      "The idempotency request could not be completed",
+      409,
+    );
+  }
 }
 
 function toAccess(row: AccessRow): ProjectAccess {
@@ -113,7 +245,7 @@ export async function getIdentity(
 
 export async function listProjects(
   identity: UserIdentity,
-): Promise<Array<{ id: string; key: string; name: string; boardId: string }>> {
+): Promise<ProjectSummary[]> {
   const result = await getPool().query<{
     id: string;
     project_key: string;
@@ -136,6 +268,72 @@ export async function listProjects(
     name: row.name,
     boardId: row.board_id,
   }));
+}
+
+export async function listProjectsPage(
+  identity: UserIdentity,
+  options: PageOptions,
+): Promise<Page<ProjectSummary>> {
+  const cursorValues = options.cursor
+    ? decodeCursor(options.cursor, "projects")
+    : null;
+  if (
+    cursorValues &&
+    (cursorValues.length !== 2 ||
+      typeof cursorValues[0] !== "string" ||
+      typeof cursorValues[1] !== "string")
+  ) {
+    throw new DomainError(
+      "INVALID_CURSOR",
+      "The pagination cursor is invalid or expired",
+      400,
+    );
+  }
+  const limit = Math.min(Math.max(Math.trunc(options.limit), 1), 100);
+  const values: unknown[] = [
+    identity.organizationId,
+    identity.id,
+    identity.organizationRole,
+  ];
+  let cursorSql = "";
+  if (cursorValues) {
+    values.push(cursorValues[0], cursorValues[1]);
+    cursorSql = "AND (p.name, p.id) > ($4, $5)";
+  }
+  values.push(limit + 1);
+  const result = await getPool().query<{
+    id: string;
+    project_key: string;
+    name: string;
+    board_id: string;
+  }>(
+    `SELECT p.id, p.project_key, p.name, b.id AS board_id
+       FROM projects p
+       JOIN boards b ON b.project_id = p.id
+       LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $2
+      WHERE p.organization_id = $1
+        AND p.archived_at IS NULL
+        AND ($3 = 'ADMIN' OR pm.user_id IS NOT NULL)
+        ${cursorSql}
+      ORDER BY p.name, p.id
+      LIMIT $${values.length}`,
+    values,
+  );
+  const hasNextPage = result.rows.length > limit;
+  const rows = result.rows.slice(0, limit);
+  const last = rows.at(-1);
+  return {
+    items: rows.map((row) => ({
+      id: row.id,
+      key: row.project_key,
+      name: row.name,
+      boardId: row.board_id,
+    })),
+    nextCursor:
+      hasNextPage && last
+        ? encodeCursor("projects", [last.name, last.id])
+        : null,
+  };
 }
 
 export async function getProjectAccess(
@@ -235,8 +433,20 @@ export async function createProject(
   identity: UserIdentity,
   input: { key: string; name: string },
   requestCorrelationId: string = randomUUID(),
-): Promise<{ id: string; key: string; name: string; boardId: string }> {
+  idempotency?: IdempotencyRequest,
+): Promise<ProjectSummary> {
   return inTransaction(async (client) => {
+    const operation = "project.create";
+    if (idempotency) {
+      const replay = await claimIdempotency<ProjectSummary>(
+        client,
+        identity,
+        operation,
+        idempotency,
+      );
+      if (replay) return replay;
+    }
+
     const projectId = randomUUID();
     const workflowId = randomUUID();
     const boardId = randomUUID();
@@ -355,7 +565,22 @@ export async function createProject(
         requestCorrelationId,
       ],
     );
-    return { id: projectId, key: input.key, name: input.name, boardId };
+    const project = {
+      id: projectId,
+      key: input.key,
+      name: input.name,
+      boardId,
+    };
+    if (idempotency) {
+      await completeIdempotency(
+        client,
+        identity,
+        operation,
+        idempotency,
+        project,
+      );
+    }
+    return project;
   });
 }
 
@@ -369,9 +594,21 @@ export async function createIssue(
     issueType: string;
   },
   requestCorrelationId: string = randomUUID(),
+  idempotency?: IdempotencyRequest,
 ): Promise<IssueView> {
-  const issueId = randomUUID();
-  await inTransaction(async (client) => {
+  return inTransaction(async (client) => {
+    const operation = `issue.create:${access.projectId}`;
+    if (idempotency) {
+      const replay = await claimIdempotency<IssueView>(
+        client,
+        identity,
+        operation,
+        idempotency,
+      );
+      if (replay) return replay;
+    }
+
+    const issueId = randomUUID();
     const project = await client.query<{ sequence_counter: number }>(
       `UPDATE projects SET sequence_counter = sequence_counter + 1
         WHERE id = $1 AND organization_id = $2
@@ -455,15 +692,25 @@ export async function createIssue(
         }),
       ],
     );
+    const issue = await getIssueById(issueId, identity.organizationId, client);
+    if (!issue) {
+      throw new DomainError(
+        "ISSUE_NOT_FOUND",
+        "Issue not found after creation",
+        500,
+      );
+    }
+    if (idempotency) {
+      await completeIdempotency(
+        client,
+        identity,
+        operation,
+        idempotency,
+        issue,
+      );
+    }
+    return issue;
   });
-  const issue = await getIssueById(issueId, identity.organizationId);
-  if (!issue)
-    throw new DomainError(
-      "ISSUE_NOT_FOUND",
-      "Issue not found after creation",
-      500,
-    );
-  return issue;
 }
 
 async function issueRows(
@@ -471,9 +718,11 @@ async function issueRows(
   organizationId: string,
   whereSql: string,
   values: unknown[],
+  suffixSql = "ORDER BY i.rank, i.id",
 ): Promise<IssueRow[]> {
   const result = await client.query<IssueRow>(
-    `SELECT i.id, p.project_key || '-' || i.number AS issue_key, i.summary,
+    `SELECT i.id, i.number AS issue_number,
+            p.project_key || '-' || i.number AS issue_key, i.summary,
             i.description, i.priority, it.name AS issue_type, i.status_id,
             i.rank::text, i.version, reporter.id AS reporter_id,
             reporter.display_name AS reporter_name, assignee.id AS assignee_id,
@@ -484,7 +733,7 @@ async function issueRows(
        JOIN users reporter ON reporter.id = i.reporter_id
        LEFT JOIN users assignee ON assignee.id = i.assignee_id
       WHERE i.organization_id = $1 AND i.deleted_at IS NULL AND ${whereSql}
-      ORDER BY i.rank, i.id`,
+      ${suffixSql}`,
     [organizationId, ...values],
   );
   return result.rows;
@@ -537,19 +786,71 @@ function toIssue(row: IssueRow, transitions: TransitionView[]): IssueView {
   };
 }
 
+export async function listIssuesPage(
+  access: ProjectAccess,
+  options: PageOptions,
+): Promise<Page<IssueView>> {
+  const cursorKind = `project-issues:${access.projectId}`;
+  const cursorValues = options.cursor
+    ? decodeCursor(options.cursor, cursorKind)
+    : null;
+  if (
+    cursorValues &&
+    (cursorValues.length !== 2 ||
+      typeof cursorValues[0] !== "number" ||
+      !Number.isInteger(cursorValues[0]) ||
+      cursorValues[0] < 1 ||
+      typeof cursorValues[1] !== "string")
+  ) {
+    throw new DomainError(
+      "INVALID_CURSOR",
+      "The pagination cursor is invalid or expired",
+      400,
+    );
+  }
+
+  const limit = Math.min(Math.max(Math.trunc(options.limit), 1), 100);
+  const values: unknown[] = [access.projectId];
+  let whereSql = "i.project_id = $2";
+  if (cursorValues) {
+    values.push(cursorValues[0], cursorValues[1]);
+    whereSql += " AND (i.number, i.id) > ($3, $4)";
+  }
+  values.push(limit + 1);
+  const rows = await issueRows(
+    getPool(),
+    access.organizationId,
+    whereSql,
+    values,
+    `ORDER BY i.number, i.id LIMIT $${values.length + 1}`,
+  );
+  const hasNextPage = rows.length > limit;
+  const pageRows = rows.slice(0, limit);
+  const transitions = await transitionsForWorkflow(getPool(), access.projectId);
+  const last = pageRows.at(-1);
+  return {
+    items: pageRows.map((row) => toIssue(row, transitions)),
+    nextCursor:
+      hasNextPage && last
+        ? encodeCursor(cursorKind, [last.issue_number, last.id])
+        : null,
+  };
+}
+
 async function getIssueById(
   id: string,
   organizationId: string,
+  client: Pick<PoolClient, "query"> = getPool(),
 ): Promise<IssueView | null> {
-  const rows = await issueRows(getPool(), organizationId, "i.id = $2", [id]);
+  const rows = await issueRows(client, organizationId, "i.id = $2", [id]);
   const row = rows[0];
   if (!row) return null;
-  const project = await getPool().query<{ project_id: string }>(
+  const project = await client.query<{ project_id: string }>(
     "SELECT project_id FROM issues WHERE id = $1 AND organization_id = $2",
     [id, organizationId],
   );
   const transitions = await transitionsForWorkflow(
-    getPool(),
+    client,
     project.rows[0]!.project_id,
   );
   return toIssue(row, transitions);
@@ -621,6 +922,7 @@ export async function getBoard(
        FROM project_members pm
        JOIN users u ON u.id = pm.user_id
       WHERE pm.project_id = $1 AND pm.organization_id = $2
+        AND pm.role IN ('ADMIN', 'MEMBER')
         AND u.organization_id = $2 AND u.state = 'ACTIVE'
       ORDER BY u.display_name, u.id`,
     [board.project_id, access.organizationId],
@@ -642,7 +944,7 @@ export async function getBoard(
     },
     columns: [...columnsById.values()].sort((a, b) => a.position - b.position),
     statuses: statusResult.rows,
-    members: memberResult.rows.map((row): ProjectMemberView => ({
+    assignees: memberResult.rows.map((row): AssignableUserView => ({
       id: row.id,
       displayName: row.display_name,
     })),
@@ -849,13 +1151,14 @@ export async function updateIssue(
            JOIN users u ON u.id = pm.user_id
           WHERE pm.organization_id = $1 AND pm.project_id = $2
             AND pm.user_id = $3 AND u.organization_id = $1
+            AND pm.role IN ('ADMIN', 'MEMBER')
             AND u.state = 'ACTIVE'`,
         [access.organizationId, access.projectId, input.assigneeId],
       );
       if (!assignee.rows[0]) {
         throw new DomainError(
           "INVALID_ASSIGNEE",
-          "Assignee must be an active member of this project",
+          "Assignee must be an active project administrator or member",
           422,
         );
       }

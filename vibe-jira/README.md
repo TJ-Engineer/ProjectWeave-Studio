@@ -11,6 +11,7 @@ This first vertical slice supports:
 - project creation with a default workflow and three-column Kanban board;
 - stable project issue keys;
 - task creation;
+- issue editing for summary, description, priority, and active assignable project members;
 - pointer, touch, and keyboard-accessible issue movement;
 - server-validated, optimistic transitions with version conflict detection;
 - atomic status/rank/version/history/outbox writes;
@@ -52,7 +53,7 @@ npm run test:e2e
 docker compose --profile test run --rm test
 ```
 
-The browser test covers authentication, task creation, a board transition, refresh-persisted history, and a serious/critical Axe accessibility scan. Integration tests refuse to run against a database whose name does not end in `_test`.
+The browser test covers authentication, task creation, a board transition, issue editing, refresh-persisted history, and serious/critical Axe accessibility scans. Integration tests refuse to run against a database whose name does not end in `_test`.
 
 ## Current boundary
 

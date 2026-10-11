@@ -1,0 +1,11 @@
+.git
+**/.next
+**/node_modules
+**/*.tsbuildinfo
+coverage
+playwright-report
+test-results
+.env
+.env.*
+npm-debug.log*
+IMPLEMENTATION_PLAN.md

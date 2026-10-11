@@ -112,7 +112,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-The API will be available at `http://localhost:5000`
+The API will be available at `http://localhost:5001`
 
 ## 📝 Usage Examples
 
@@ -194,7 +194,7 @@ IssueTracker/
 
 The application uses the following default configuration:
 
-- **Port**: 3001 (mapped from container port 5000)
+- **Port**: 3001 (mapped from container port 5000) for frontend (dev value), backend mapped to 5001
 - **Database**: SQLite (stored in Docker volume `issue-data`)
 - **CORS**: Enabled for all origins (development mode)
 

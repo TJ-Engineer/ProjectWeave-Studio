@@ -3,8 +3,32 @@ name: vibe-jira
 x-app-environment: &app-environment
   DATABASE_URL: ${DATABASE_URL:-postgresql://vibe:vibe-development-only@postgres:5432/vibe_jira}
   SESSION_SECRET: ${SESSION_SECRET:-development-session-secret-change-me-now}
+  TRUST_PROXY: ${TRUST_PROXY:-false}
+  PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
+  ALLOW_PASSWORD_AUTH: ${ALLOW_PASSWORD_AUTH:-true}
+  LOGIN_RATE_LIMIT_MAX: ${LOGIN_RATE_LIMIT_MAX:-100}
+  OIDC_ISSUER: ${OIDC_ISSUER:-}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+  OIDC_ALLOWED_DOMAIN: ${OIDC_ALLOWED_DOMAIN:-}
+  OIDC_AUTO_PROVISION: ${OIDC_AUTO_PROVISION:-false}
   DEMO_ADMIN_EMAIL: ${DEMO_ADMIN_EMAIL:-admin@vibe.local}
   DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-vibe-development-only}
+  DEMO_MEMBER_EMAIL: ${DEMO_MEMBER_EMAIL:-member@vibe.local}
+  DEMO_MEMBER_PASSWORD: ${DEMO_MEMBER_PASSWORD:-vibe-development-only}
+  DEMO_VIEWER_EMAIL: ${DEMO_VIEWER_EMAIL:-viewer@vibe.local}
+  DEMO_VIEWER_PASSWORD: ${DEMO_VIEWER_PASSWORD:-vibe-development-only}
+  OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT:-http://object-storage:8333}
+  OBJECT_STORAGE_PUBLIC_ENDPOINT: ${OBJECT_STORAGE_PUBLIC_ENDPOINT:-http://localhost:8333}
+  OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+  OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-vibe-jira-attachments}
+  OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-vibe-development-access}
+  OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-vibe-development-secret-change-me}
+  CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+  CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+  OUTBOX_POLL_MS: ${OUTBOX_POLL_MS:-1000}
+  OUTBOX_MAX_ATTEMPTS: ${OUTBOX_MAX_ATTEMPTS:-8}
+  OUTBOX_HEALTH_MAX_AGE_SECONDS: ${OUTBOX_HEALTH_MAX_AGE_SECONDS:-120}
 
 services:
   postgres:
@@ -26,9 +50,53 @@ services:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  object-storage:
+    image: chrislusf/seaweedfs:3.80
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        printf '{"identities":[{"name":"vibe-jira","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","List","Write"]}]}'
+        "$${AWS_ACCESS_KEY_ID}" "$${AWS_SECRET_ACCESS_KEY}" > /tmp/s3.json;
+        exec weed server -s3 -dir=/data -s3.port=8333 -s3.config=/tmp/s3.json
+    environment:
+      AWS_ACCESS_KEY_ID: ${OBJECT_STORAGE_ACCESS_KEY:-vibe-development-access}
+      AWS_SECRET_ACCESS_KEY: ${OBJECT_STORAGE_SECRET_KEY:-vibe-development-secret-change-me}
+    ports:
+      - "${OBJECT_STORAGE_PORT:-8333}:8333"
+    volumes:
+      - object-storage-data:/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://$$(hostname -i):9333/cluster/status >/dev/null && nc -z $$(hostname -i) 8333",
+        ]
+      interval: 5s
+      timeout: 3s
+      start_period: 25s
+      retries: 20
+    restart: unless-stopped
+
+  clamav:
+    image: clamav/clamav:1.4.3
+    platform: linux/amd64
+    volumes:
+      - clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdscan", "--ping", "1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 45s
+      retries: 20
+    restart: unless-stopped
+
   migrate:
-    build: .
-    command: ["npm", "run", "db:migrate"]
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-development}
+        APP_REVISION: ${APP_REVISION:-unknown}
+    command: ["migrate"]
     environment: *app-environment
     depends_on:
       postgres:
@@ -36,8 +104,12 @@ services:
     restart: "no"
 
   seed:
-    build: .
-    command: ["npm", "run", "db:seed"]
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-development}
+        APP_REVISION: ${APP_REVISION:-unknown}
+    command: ["seed"]
     environment: *app-environment
     depends_on:
       migrate:
@@ -45,7 +117,11 @@ services:
     restart: "no"
 
   app:
-    build: .
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-development}
+        APP_REVISION: ${APP_REVISION:-unknown}
     environment:
       <<: *app-environment
       PORT: ${PORT:-3000}
@@ -54,9 +130,53 @@ services:
     depends_on:
       seed:
         condition: service_completed_successfully
+      object-storage:
+        condition: service_healthy
+      clamav:
+        condition: service_healthy
     read_only: true
     tmpfs:
       - /tmp
+    restart: unless-stopped
+
+  notification-worker:
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-development}
+        APP_REVISION: ${APP_REVISION:-unknown}
+    command: ["notification-worker"]
+    environment: *app-environment
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  outbox-worker:
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-development}
+        APP_REVISION: ${APP_REVISION:-unknown}
+    command: ["outbox-worker"]
+    environment: *app-environment
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "/app/infra/docker/entrypoint.sh", "outbox-health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 4
     restart: unless-stopped
 
   postgres-test:
@@ -79,7 +199,8 @@ services:
       context: .
       target: build
     profiles: ["test"]
-    command: ["npm", "run", "db:migrate"]
+    entrypoint: ["node", "--import", "tsx"]
+    command: ["packages/database/src/migrate.ts"]
     environment:
       DATABASE_URL: postgresql://vibe:test-only@postgres-test:5432/vibe_jira_test
     depends_on:
@@ -91,7 +212,8 @@ services:
       context: .
       target: build
     profiles: ["test"]
-    command: ["npm", "run", "test:integration"]
+    entrypoint: ["npm"]
+    command: ["run", "test:integration"]
     environment:
       DATABASE_URL: postgresql://vibe:test-only@postgres-test:5432/vibe_jira_test
       TEST_DATABASE_URL: postgresql://vibe:test-only@postgres-test:5432/vibe_jira_test
@@ -101,3 +223,5 @@ services:
 
 volumes:
   postgres-data:
+  object-storage-data:
+  clamav-data:

@@ -47,3 +47,16 @@ export async function closePool(): Promise<void> {
     globalThis.__vibePool = undefined;
   }
 }
+
+export function databasePoolMetrics(): {
+  total: number;
+  idle: number;
+  waiting: number;
+} {
+  const pool = getPool();
+  return {
+    total: pool.totalCount,
+    idle: pool.idleCount,
+    waiting: pool.waitingCount,
+  };
+}

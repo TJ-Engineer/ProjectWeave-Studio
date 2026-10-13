@@ -1,5 +1,10 @@
-import { updateIssueSchema } from "@vibe/contracts";
-import { getIssueAccess, getIssueDetail, updateIssue } from "@vibe/database";
+import { issueLifecycleSchema, updateIssueSchema } from "@vibe/contracts";
+import {
+  deleteIssue,
+  getIssueAccess,
+  getIssueDetail,
+  updateIssue,
+} from "@vibe/database";
 import { assertCapability, DomainError } from "@vibe/domain";
 import { NextResponse } from "next/server";
 import {
@@ -57,6 +62,34 @@ export async function PATCH(
       requestId,
     );
     return NextResponse.json(issue, {
+      headers: { "x-correlation-id": requestId },
+    });
+  } catch (error) {
+    return handleApiError(error, requestId);
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  context: Context,
+): Promise<NextResponse> {
+  const requestId = correlationId(request);
+  try {
+    const identity = await requireIdentity();
+    const { issueKey } = await context.params;
+    const access = await getIssueAccess(identity.id, issueKey);
+    if (!access) {
+      throw new DomainError("ISSUE_NOT_FOUND", "Issue not found", 404);
+    }
+    assertCapability(
+      access.organizationRole,
+      access.projectRole,
+      "issue:delete",
+    );
+    const input = await parseBody(request, issueLifecycleSchema);
+    await deleteIssue(identity, access, issueKey, input.version, requestId);
+    return new NextResponse(null, {
+      status: 204,
       headers: { "x-correlation-id": requestId },
     });
   } catch (error) {

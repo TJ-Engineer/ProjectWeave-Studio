@@ -52,6 +52,55 @@ async function seed(): Promise<void> {
 
   const identity = await getIdentity(userId);
   if (!identity) throw new Error("Seeded user could not be loaded");
+  const demoUsers = [
+    {
+      email: (
+        process.env.DEMO_MEMBER_EMAIL ?? "member@vibe.local"
+      ).toLowerCase(),
+      displayName: "Vibe Member",
+      password: process.env.DEMO_MEMBER_PASSWORD ?? password,
+    },
+    {
+      email: (
+        process.env.DEMO_VIEWER_EMAIL ?? "viewer@vibe.local"
+      ).toLowerCase(),
+      displayName: "Vibe Viewer",
+      password: process.env.DEMO_VIEWER_PASSWORD ?? password,
+    },
+  ];
+  for (const demoUser of demoUsers) {
+    if (demoUser.password.length < 12) {
+      throw new Error(
+        `Password for ${demoUser.email} must contain 12 characters`,
+      );
+    }
+    const existingDemoUser = await pool.query<{ id: string }>(
+      `SELECT id FROM users
+        WHERE organization_id = $1 AND lower(email) = lower($2)`,
+      [identity.organizationId, demoUser.email],
+    );
+    const demoUserId = existingDemoUser.rows[0]?.id ?? randomUUID();
+    if (!existingDemoUser.rows[0]) {
+      await pool.query(
+        `INSERT INTO users
+          (id, organization_id, email, display_name, password_hash)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          demoUserId,
+          identity.organizationId,
+          demoUser.email,
+          demoUser.displayName,
+          await hashPassword(demoUser.password),
+        ],
+      );
+    }
+    await pool.query(
+      `INSERT INTO memberships (organization_id, user_id, organization_role)
+       VALUES ($1, $2, 'MEMBER')
+       ON CONFLICT (organization_id, user_id) DO NOTHING`,
+      [identity.organizationId, demoUserId],
+    );
+  }
   const projects = await listProjects(identity);
   if (projects.length === 0) {
     await createProject(identity, { key: "ENG", name: "Engineering" });

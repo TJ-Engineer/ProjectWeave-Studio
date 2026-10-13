@@ -1,0 +1,32 @@
+:root {
+  color-scheme: dark;
+  --ink: #f4f7fb;
+  --muted: #8c9aae;
+  --surface: #111821;
+  --surface-2: #18212d;
+  --surface-3: #202c3a;
+  --line: #2b3949;
+  --accent: #6f8cff;
+  --accent-strong: #8ca1ff;
+  --action: #4059c7;
+  --action-hover: #4b65dc;
+  --danger: #ff7186;
+  --success: #40d49d;
+  --focus: #b7c3ff;
+  --shadow: 0 24px 60px rgb(0 0 0 / 28%);
+  --radius-sm: 0.45rem;
+  --radius-md: 0.75rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+:where(button, input, select, textarea) {
+  min-height: 2.5rem;
+}

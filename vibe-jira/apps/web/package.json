@@ -13,6 +13,8 @@
     "@vibe/contracts": "0.1.0",
     "@vibe/database": "0.1.0",
     "@vibe/domain": "0.1.0",
+    "@vibe/observability": "0.1.0",
+    "@vibe/ui": "0.1.0",
     "next": "16.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",

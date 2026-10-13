@@ -1,7 +1,13 @@
-import { getBoard, getBoardAccess } from "@vibe/database";
+import { boardIssuesQuerySchema } from "@vibe/contracts";
+import { getBoardAccess, getBoardPage } from "@vibe/database";
 import { assertCapability, DomainError } from "@vibe/domain";
 import { NextResponse } from "next/server";
-import { correlationId, handleApiError, requireIdentity } from "@/lib/api";
+import {
+  correlationId,
+  handleApiError,
+  parseQuery,
+  requireIdentity,
+} from "@/lib/api";
 
 interface Context {
   params: Promise<{ boardId: string }>;
@@ -19,7 +25,11 @@ export async function GET(
     if (!access)
       throw new DomainError("BOARD_NOT_FOUND", "Board not found", 404);
     assertCapability(access.organizationRole, access.projectRole, "issue:view");
-    const board = await getBoard(boardId, access);
+    const board = await getBoardPage(
+      boardId,
+      access,
+      parseQuery(request, boardIssuesQuerySchema),
+    );
     if (!board)
       throw new DomainError("BOARD_NOT_FOUND", "Board not found", 404);
     return NextResponse.json(board, {

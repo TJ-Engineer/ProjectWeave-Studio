@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/login-form";
 import { currentIdentity } from "@/lib/session";
+import { oidcEnabled } from "@/lib/oidc";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export default async function LoginPage() {
         <p className="eyebrow">Vibe JIRA</p>
         <h1 id="login-heading">Welcome back</h1>
         <p className="muted">Sign in to your engineering workspace.</p>
-        <LoginForm />
+        <LoginForm oidcEnabled={oidcEnabled()} />
       </section>
     </main>
   );

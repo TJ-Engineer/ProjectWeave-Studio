@@ -5,15 +5,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { LogoutButton } from "./logout-button";
+import { NotificationLink } from "./notification-link";
+import { SearchLink } from "./search-link";
 
 export function ProjectHub({
   displayName,
   initialProjects,
   initialNextCursor,
+  canAdminister,
 }: {
   displayName: string;
   initialProjects: ProjectSummary[];
   initialNextCursor: string | null;
+  canAdminister: boolean;
 }) {
   const router = useRouter();
   const createIdempotencyKey = useRef<string | null>(null);
@@ -36,7 +40,11 @@ export function ProjectHub({
           "content-type": "application/json",
           "idempotency-key": createIdempotencyKey.current,
         },
-        body: JSON.stringify({ name: form.get("name"), key: form.get("key") }),
+        body: JSON.stringify({
+          name: form.get("name"),
+          key: form.get("key"),
+          template: form.get("template"),
+        }),
       });
       const body = (await response.json()) as ProjectSummary & {
         error?: { message?: string };
@@ -84,6 +92,13 @@ export function ProjectHub({
           <span>V</span> Vibe JIRA
         </Link>
         <div className="user-actions">
+          {canAdminister && (
+            <Link className="notification-link" href="/administration/audit">
+              Administration
+            </Link>
+          )}
+          <SearchLink />
+          <NotificationLink />
           <span>{displayName}</span>
           <LogoutButton />
         </div>
@@ -141,6 +156,13 @@ export function ProjectHub({
                 placeholder="ENG"
                 required
               />
+            </label>
+            <label>
+              Workflow template
+              <select defaultValue="FIVE_STATUS" name="template">
+                <option value="FIVE_STATUS">Delivery (five statuses)</option>
+                <option value="SIMPLE">Simple (three statuses)</option>
+              </select>
             </label>
             {error && (
               <p className="form-error" role="alert">

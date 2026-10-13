@@ -1,0 +1,19 @@
+services:
+  app:
+    build:
+      context: .
+      target: build
+    entrypoint: ["/bin/sh", "/app/infra/docker/entrypoint.sh"]
+    command: ["dev"]
+    environment:
+      NODE_ENV: development
+      NEXT_TELEMETRY_DISABLED: "1"
+    read_only: false
+    volumes:
+      - .:/app
+      - dev-node-modules:/app/node_modules
+      - dev-next-cache:/app/apps/web/.next
+
+volumes:
+  dev-node-modules:
+  dev-next-cache:

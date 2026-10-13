@@ -12,6 +12,7 @@ export default async function ProjectsPage() {
   return (
     <ProjectHub
       displayName={identity.displayName}
+      canAdminister={identity.organizationRole === "ADMIN"}
       initialProjects={projects.items}
       initialNextCursor={projects.nextCursor}
     />

@@ -19,9 +19,16 @@ async function migrate(): Promise<void> {
     )
   `);
 
-  const files = (await readdir(migrationDirectory))
+  let files = (await readdir(migrationDirectory))
     .filter((name) => name.endsWith(".sql"))
     .sort();
+  const target = process.env.MIGRATION_TARGET?.trim();
+  if (target) {
+    if (!files.includes(target)) {
+      throw new Error(`Migration target ${target} does not exist`);
+    }
+    files = files.filter((name) => name <= target);
+  }
 
   for (const name of files) {
     const sql = await readFile(join(migrationDirectory, name), "utf8");

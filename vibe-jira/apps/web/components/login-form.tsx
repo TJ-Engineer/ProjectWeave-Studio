@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
-export function LoginForm() {
+export function LoginForm({ oidcEnabled }: { oidcEnabled: boolean }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -33,6 +33,17 @@ export function LoginForm() {
 
   return (
     <form className="stack-form" onSubmit={submit}>
+      {oidcEnabled && (
+        <a
+          className="secondary-button oidc-button"
+          href="/api/v1/auth/oidc/start"
+        >
+          Sign in with your identity provider
+        </a>
+      )}
+      {oidcEnabled && (
+        <p className="auth-divider">or use local development credentials</p>
+      )}
       <label>
         Email
         <input name="email" type="email" autoComplete="email" required />

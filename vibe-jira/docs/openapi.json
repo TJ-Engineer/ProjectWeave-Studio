@@ -1,0 +1,3809 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Vibe JIRA API",
+    "version": "0.1.0",
+    "description": "Same-origin Release 1 API. Runtime bodies are validated by the Zod schemas in @vibe/contracts."
+  },
+  "servers": [{ "url": "/", "description": "Application origin" }],
+  "paths": {
+    "/api/v1/administration/audit": {
+      "get": {
+        "tags": ["administration"],
+        "summary": "GET /api/v1/administration/audit",
+        "operationId": "get__api_v1_administration_audit",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "put": {
+        "tags": ["administration"],
+        "summary": "PUT /api/v1/administration/audit",
+        "operationId": "put__api_v1_administration_audit",
+        "security": [{ "sessionCookie": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateAuditRetentionSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/administration/invitations": {
+      "post": {
+        "tags": ["administration"],
+        "summary": "POST /api/v1/administration/invitations",
+        "operationId": "post__api_v1_administration_invitations",
+        "security": [{ "sessionCookie": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/inviteOrganizationUserSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/administration/outbox/retry": {
+      "post": {
+        "tags": ["administration"],
+        "summary": "POST /api/v1/administration/outbox/retry",
+        "operationId": "post__api_v1_administration_outbox_retry",
+        "security": [{ "sessionCookie": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/retryOutboxEventSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/administration/outbox": {
+      "get": {
+        "tags": ["administration"],
+        "summary": "GET /api/v1/administration/outbox",
+        "operationId": "get__api_v1_administration_outbox",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/administration/projects/{projectId}": {
+      "put": {
+        "tags": ["administration"],
+        "summary": "PUT /api/v1/administration/projects/{projectId}",
+        "operationId": "put__api_v1_administration_projects_projectId_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateAdminProjectSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/administration/settings": {
+      "get": {
+        "tags": ["administration"],
+        "summary": "GET /api/v1/administration/settings",
+        "operationId": "get__api_v1_administration_settings",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "put": {
+        "tags": ["administration"],
+        "summary": "PUT /api/v1/administration/settings",
+        "operationId": "put__api_v1_administration_settings",
+        "security": [{ "sessionCookie": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateOrganizationSettingsSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/administration/teams/{teamId}": {
+      "put": {
+        "tags": ["administration"],
+        "summary": "PUT /api/v1/administration/teams/{teamId}",
+        "operationId": "put__api_v1_administration_teams_teamId_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "teamId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/updateTeamSchema" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/administration/teams": {
+      "get": {
+        "tags": ["administration"],
+        "summary": "GET /api/v1/administration/teams",
+        "operationId": "get__api_v1_administration_teams",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "post": {
+        "tags": ["administration"],
+        "summary": "POST /api/v1/administration/teams",
+        "operationId": "post__api_v1_administration_teams",
+        "security": [{ "sessionCookie": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/createTeamSchema" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/administration/users/{userId}": {
+      "put": {
+        "tags": ["administration"],
+        "summary": "PUT /api/v1/administration/users/{userId}",
+        "operationId": "put__api_v1_administration_users_userId_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateOrganizationUserSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/auth/invitations/accept": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "POST /api/v1/auth/invitations/accept",
+        "operationId": "post__api_v1_auth_invitations_accept",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/acceptInvitationSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "POST /api/v1/auth/login",
+        "operationId": "post__api_v1_auth_login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/loginSchema" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "POST /api/v1/auth/logout",
+        "operationId": "post__api_v1_auth_logout",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/auth/oidc/callback": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "GET /api/v1/auth/oidc/callback",
+        "operationId": "get__api_v1_auth_oidc_callback",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/auth/oidc/start": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "GET /api/v1/auth/oidc/start",
+        "operationId": "get__api_v1_auth_oidc_start",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/boards/{boardId}/columns/{columnId}/issues": {
+      "get": {
+        "tags": ["boards"],
+        "summary": "GET /api/v1/boards/{boardId}/columns/{columnId}/issues",
+        "operationId": "get__api_v1_boards_boardId_columns_columnId_issues",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "boardId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "columnId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/boards/{boardId}/events": {
+      "get": {
+        "tags": ["boards"],
+        "summary": "GET /api/v1/boards/{boardId}/events",
+        "operationId": "get__api_v1_boards_boardId_events",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "boardId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/boards/{boardId}/issues": {
+      "get": {
+        "tags": ["boards"],
+        "summary": "GET /api/v1/boards/{boardId}/issues",
+        "operationId": "get__api_v1_boards_boardId_issues",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "boardId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/filters/{filterId}": {
+      "get": {
+        "tags": ["filters"],
+        "summary": "GET /api/v1/filters/{filterId}",
+        "operationId": "get__api_v1_filters_filterId_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "filterId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "put": {
+        "tags": ["filters"],
+        "summary": "PUT /api/v1/filters/{filterId}",
+        "operationId": "put__api_v1_filters_filterId_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "filterId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateSavedFilterSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "delete": {
+        "tags": ["filters"],
+        "summary": "DELETE /api/v1/filters/{filterId}",
+        "operationId": "delete__api_v1_filters_filterId_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "filterId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/issueLifecycleSchema" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/filters": {
+      "get": {
+        "tags": ["filters"],
+        "summary": "GET /api/v1/filters",
+        "operationId": "get__api_v1_filters",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "post": {
+        "tags": ["filters"],
+        "summary": "POST /api/v1/filters",
+        "operationId": "post__api_v1_filters",
+        "security": [{ "sessionCookie": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/createSavedFilterSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/issues/{issueKey}/attachments/{attachmentId}": {
+      "delete": {
+        "tags": ["issues"],
+        "summary": "DELETE /api/v1/issues/{issueKey}/attachments/{attachmentId}",
+        "operationId": "delete__api_v1_issues_issueKey_attachments_attachmentId_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "issueKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "attachmentId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/issues/{issueKey}/attachments": {
+      "get": {
+        "tags": ["issues"],
+        "summary": "GET /api/v1/issues/{issueKey}/attachments",
+        "operationId": "get__api_v1_issues_issueKey_attachments",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "issueKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "post": {
+        "tags": ["issues"],
+        "summary": "POST /api/v1/issues/{issueKey}/attachments",
+        "operationId": "post__api_v1_issues_issueKey_attachments",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "issueKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/issues/{issueKey}/comments": {
+      "get": {
+        "tags": ["issues"],
+        "summary": "GET /api/v1/issues/{issueKey}/comments",
+        "operationId": "get__api_v1_issues_issueKey_comments",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "issueKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "post": {
+        "tags": ["issues"],
+        "summary": "POST /api/v1/issues/{issueKey}/comments",
+        "operationId": "post__api_v1_issues_issueKey_comments",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "issueKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/createCommentSchema" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/issues/{issueKey}/restore": {
+      "post": {
+        "tags": ["issues"],
+        "summary": "POST /api/v1/issues/{issueKey}/restore",
+        "operationId": "post__api_v1_issues_issueKey_restore",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "issueKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/issueLifecycleSchema" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/issues/{issueKey}": {
+      "get": {
+        "tags": ["issues"],
+        "summary": "GET /api/v1/issues/{issueKey}",
+        "operationId": "get__api_v1_issues_issueKey_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "issueKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "patch": {
+        "tags": ["issues"],
+        "summary": "PATCH /api/v1/issues/{issueKey}",
+        "operationId": "patch__api_v1_issues_issueKey_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "issueKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/updateIssueSchema" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "delete": {
+        "tags": ["issues"],
+        "summary": "DELETE /api/v1/issues/{issueKey}",
+        "operationId": "delete__api_v1_issues_issueKey_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "issueKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/issueLifecycleSchema" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/issues/{issueKey}/transitions": {
+      "post": {
+        "tags": ["issues"],
+        "summary": "POST /api/v1/issues/{issueKey}/transitions",
+        "operationId": "post__api_v1_issues_issueKey_transitions",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "issueKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/transitionIssueSchema" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/issues/{issueKey}/watch": {
+      "put": {
+        "tags": ["issues"],
+        "summary": "PUT /api/v1/issues/{issueKey}/watch",
+        "operationId": "put__api_v1_issues_issueKey_watch",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "issueKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "delete": {
+        "tags": ["issues"],
+        "summary": "DELETE /api/v1/issues/{issueKey}/watch",
+        "operationId": "delete__api_v1_issues_issueKey_watch",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "issueKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/notification-preferences": {
+      "get": {
+        "tags": ["notification-preferences"],
+        "summary": "GET /api/v1/notification-preferences",
+        "operationId": "get__api_v1_notification_preferences",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "put": {
+        "tags": ["notification-preferences"],
+        "summary": "PUT /api/v1/notification-preferences",
+        "operationId": "put__api_v1_notification_preferences",
+        "security": [{ "sessionCookie": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/notificationPreferencesSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/notifications/{notificationId}/read": {
+      "put": {
+        "tags": ["notifications"],
+        "summary": "PUT /api/v1/notifications/{notificationId}/read",
+        "operationId": "put__api_v1_notifications_notificationId_read",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "notificationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "put": {
+        "tags": ["notifications"],
+        "summary": "PUT /api/v1/notifications/read-all",
+        "operationId": "put__api_v1_notifications_read_all",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": ["notifications"],
+        "summary": "GET /api/v1/notifications",
+        "operationId": "get__api_v1_notifications",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/board/columns/{columnId}": {
+      "put": {
+        "tags": ["projects"],
+        "summary": "PUT /api/v1/projects/{projectKey}/board/columns/{columnId}",
+        "operationId": "put__api_v1_projects_projectKey_board_columns_columnId_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "columnId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateBoardColumnWipLimitSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/board": {
+      "get": {
+        "tags": ["projects"],
+        "summary": "GET /api/v1/projects/{projectKey}/board",
+        "operationId": "get__api_v1_projects_projectKey_board",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/data-jobs/{jobId}/download": {
+      "get": {
+        "tags": ["projects"],
+        "summary": "GET /api/v1/projects/{projectKey}/data-jobs/{jobId}/download",
+        "operationId": "get__api_v1_projects_projectKey_data_jobs_jobId_download",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/data-jobs/export": {
+      "post": {
+        "tags": ["projects"],
+        "summary": "POST /api/v1/projects/{projectKey}/data-jobs/export",
+        "operationId": "post__api_v1_projects_projectKey_data_jobs_export",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/data-jobs/import/dry-run": {
+      "post": {
+        "tags": ["projects"],
+        "summary": "POST /api/v1/projects/{projectKey}/data-jobs/import/dry-run",
+        "operationId": "post__api_v1_projects_projectKey_data_jobs_import_dry_run",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/csvDryRunSchema" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/data-jobs/import": {
+      "post": {
+        "tags": ["projects"],
+        "summary": "POST /api/v1/projects/{projectKey}/data-jobs/import",
+        "operationId": "post__api_v1_projects_projectKey_data_jobs_import",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/createCsvImportJobSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/data-jobs": {
+      "get": {
+        "tags": ["projects"],
+        "summary": "GET /api/v1/projects/{projectKey}/data-jobs",
+        "operationId": "get__api_v1_projects_projectKey_data_jobs",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/issues/deleted": {
+      "get": {
+        "tags": ["projects"],
+        "summary": "GET /api/v1/projects/{projectKey}/issues/deleted",
+        "operationId": "get__api_v1_projects_projectKey_issues_deleted",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/issues": {
+      "get": {
+        "tags": ["projects"],
+        "summary": "GET /api/v1/projects/{projectKey}/issues",
+        "operationId": "get__api_v1_projects_projectKey_issues",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "post": {
+        "tags": ["projects"],
+        "summary": "POST /api/v1/projects/{projectKey}/issues",
+        "operationId": "post__api_v1_projects_projectKey_issues",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/createIssueSchema" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/members/{userId}": {
+      "put": {
+        "tags": ["projects"],
+        "summary": "PUT /api/v1/projects/{projectKey}/members/{userId}",
+        "operationId": "put__api_v1_projects_projectKey_members_userId_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateProjectMemberSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "delete": {
+        "tags": ["projects"],
+        "summary": "DELETE /api/v1/projects/{projectKey}/members/{userId}",
+        "operationId": "delete__api_v1_projects_projectKey_members_userId_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/members": {
+      "get": {
+        "tags": ["projects"],
+        "summary": "GET /api/v1/projects/{projectKey}/members",
+        "operationId": "get__api_v1_projects_projectKey_members",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/reports": {
+      "get": {
+        "tags": ["projects"],
+        "summary": "GET /api/v1/projects/{projectKey}/reports",
+        "operationId": "get__api_v1_projects_projectKey_reports",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/teams/{teamId}": {
+      "put": {
+        "tags": ["projects"],
+        "summary": "PUT /api/v1/projects/{projectKey}/teams/{teamId}",
+        "operationId": "put__api_v1_projects_projectKey_teams_teamId_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "teamId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateProjectTeamSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "delete": {
+        "tags": ["projects"],
+        "summary": "DELETE /api/v1/projects/{projectKey}/teams/{teamId}",
+        "operationId": "delete__api_v1_projects_projectKey_teams_teamId_",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "teamId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/teams": {
+      "get": {
+        "tags": ["projects"],
+        "summary": "GET /api/v1/projects/{projectKey}/teams",
+        "operationId": "get__api_v1_projects_projectKey_teams",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects/{projectKey}/workflow": {
+      "get": {
+        "tags": ["projects"],
+        "summary": "GET /api/v1/projects/{projectKey}/workflow",
+        "operationId": "get__api_v1_projects_projectKey_workflow",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "put": {
+        "tags": ["projects"],
+        "summary": "PUT /api/v1/projects/{projectKey}/workflow",
+        "operationId": "put__api_v1_projects_projectKey_workflow",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "projectKey",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateWorkflowConfigurationSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/projects": {
+      "get": {
+        "tags": ["projects"],
+        "summary": "GET /api/v1/projects",
+        "operationId": "get__api_v1_projects",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      },
+      "post": {
+        "tags": ["projects"],
+        "summary": "POST /api/v1/projects",
+        "operationId": "post__api_v1_projects",
+        "security": [{ "sessionCookie": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/createProjectSchema" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/api/v1/search/issues": {
+      "get": {
+        "tags": ["search"],
+        "summary": "GET /api/v1/search/issues",
+        "operationId": "get__api_v1_search_issues",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "headers": {
+              "x-correlation-id": {
+                "schema": { "type": "string", "format": "uuid" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "422": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "vibe_session"
+      }
+    },
+    "schemas": {
+      "acceptInvitationSchema": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string", "minLength": 32, "maxLength": 256 },
+          "password": { "type": "string", "minLength": 12, "maxLength": 256 }
+        },
+        "required": ["token", "password"],
+        "additionalProperties": false
+      },
+      "attachmentScanStateSchema": {
+        "type": "string",
+        "enum": ["PENDING", "CLEAN", "REJECTED", "ERROR"]
+      },
+      "auditEventsQuerySchema": {
+        "type": "object",
+        "properties": {
+          "cursor": { "type": "string", "maxLength": 2000 },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "actorId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "action": { "type": "string", "maxLength": 100 },
+          "targetType": { "type": "string", "maxLength": 100 },
+          "targetId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "correlationId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "from": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "to": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+        },
+        "required": ["limit"],
+        "additionalProperties": false
+      },
+      "boardChangeEventSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "entity": { "type": "string", "enum": ["issue", "board_column"] },
+          "entityId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "operation": {
+            "type": "string",
+            "enum": ["INSERT", "UPDATE", "DELETE"]
+          }
+        },
+        "required": ["projectId", "entity", "entityId", "version", "operation"],
+        "additionalProperties": false
+      },
+      "boardIssuesQuerySchema": {
+        "type": "object",
+        "properties": {
+          "cursor": { "type": "string", "minLength": 1 },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "q": { "type": "string", "maxLength": 200 },
+          "issueType": {
+            "type": "string",
+            "enum": ["EPIC", "STORY", "TASK", "BUG", "SUBTASK"]
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+          },
+          "assignee": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              { "type": "string", "const": "unassigned" }
+            ]
+          },
+          "label": { "type": "string", "minLength": 1, "maxLength": 50 },
+          "epicKey": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]{1,9}-[1-9]\\d*$"
+          }
+        },
+        "required": ["limit"],
+        "additionalProperties": false
+      },
+      "capabilitySchema": {
+        "type": "string",
+        "enum": [
+          "project:create",
+          "project:view",
+          "project:admin",
+          "issue:view",
+          "issue:create",
+          "issue:edit",
+          "issue:delete",
+          "issue:restore",
+          "issue:transition",
+          "comment:create",
+          "issue:watch",
+          "attachment:create",
+          "attachment:delete",
+          "filter:create",
+          "filter:manage-shared",
+          "outbox:monitor",
+          "audit:read",
+          "organization:admin",
+          "data:manage"
+        ]
+      },
+      "createCommentSchema": {
+        "type": "object",
+        "properties": {
+          "body": { "type": "string", "minLength": 1, "maxLength": 10000 }
+        },
+        "required": ["body"],
+        "additionalProperties": false
+      },
+      "createCsvImportJobSchema": {
+        "type": "object",
+        "properties": {
+          "csv": { "type": "string", "minLength": 1, "maxLength": 1000000 },
+          "invalidRowPolicy": {
+            "type": "string",
+            "enum": ["ATOMIC", "SKIP_INVALID"]
+          }
+        },
+        "required": ["csv", "invalidRowPolicy"],
+        "additionalProperties": false
+      },
+      "createIssueSchema": {
+        "type": "object",
+        "properties": {
+          "summary": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "description": {
+            "default": "",
+            "type": "string",
+            "maxLength": 20000
+          },
+          "priority": {
+            "default": "MEDIUM",
+            "type": "string",
+            "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+          },
+          "issueType": {
+            "default": "TASK",
+            "type": "string",
+            "enum": ["EPIC", "STORY", "TASK", "BUG", "SUBTASK"]
+          },
+          "assigneeId": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              { "type": "null" }
+            ]
+          },
+          "labels": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 50 }
+          },
+          "parentIssueKey": {
+            "default": null,
+            "anyOf": [
+              { "type": "string", "pattern": "^[A-Z][A-Z0-9]{1,9}-[1-9]\\d*$" },
+              { "type": "null" }
+            ]
+          },
+          "estimatePoints": {
+            "default": null,
+            "anyOf": [
+              { "type": "integer", "minimum": 0, "maximum": 1000000 },
+              { "type": "null" }
+            ]
+          },
+          "dueDate": {
+            "default": null,
+            "anyOf": [
+              { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": [
+          "summary",
+          "description",
+          "priority",
+          "issueType",
+          "assigneeId",
+          "labels",
+          "parentIssueKey",
+          "estimatePoints",
+          "dueDate"
+        ],
+        "additionalProperties": false
+      },
+      "createProjectSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "key": { "type": "string", "pattern": "^[A-Z][A-Z0-9]{1,9}$" },
+          "template": {
+            "default": "FIVE_STATUS",
+            "type": "string",
+            "enum": ["FIVE_STATUS", "SIMPLE"]
+          }
+        },
+        "required": ["name", "key", "template"],
+        "additionalProperties": false
+      },
+      "createSavedFilterSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "visibility": {
+            "type": "string",
+            "enum": ["PRIVATE", "PROJECT", "ORGANIZATION"]
+          },
+          "projectKey": {
+            "default": null,
+            "anyOf": [
+              { "type": "string", "pattern": "^[A-Z][A-Z0-9]{1,9}$" },
+              { "type": "null" }
+            ]
+          },
+          "query": {
+            "type": "object",
+            "properties": {
+              "cursor": { "type": "string", "minLength": 1 },
+              "limit": {
+                "default": 25,
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "q": { "default": "", "type": "string", "maxLength": 200 },
+              "projects": {
+                "default": [],
+                "maxItems": 25,
+                "type": "array",
+                "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9]{1,9}$" }
+              },
+              "issueTypes": {
+                "default": [],
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["EPIC", "STORY", "TASK", "BUG", "SUBTASK"]
+                }
+              },
+              "statuses": {
+                "default": [],
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "statusCategories": {
+                "default": [],
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["TODO", "IN_PROGRESS", "DONE"]
+                }
+              },
+              "priorities": {
+                "default": [],
+                "maxItems": 4,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+                }
+              },
+              "assignees": {
+                "default": [],
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    { "type": "string", "const": "unassigned" }
+                  ]
+                }
+              },
+              "reporters": {
+                "default": [],
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "labels": {
+                "default": [],
+                "maxItems": 20,
+                "type": "array",
+                "items": { "type": "string", "minLength": 1, "maxLength": 50 }
+              },
+              "parents": {
+                "default": [],
+                "maxItems": 25,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9]{1,9}-[1-9]\\d*$"
+                }
+              },
+              "createdFrom": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "createdTo": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "updatedFrom": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "updatedTo": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "sort": {
+                "default": "relevance",
+                "type": "string",
+                "enum": [
+                  "relevance",
+                  "rank",
+                  "priority",
+                  "created",
+                  "updated",
+                  "key"
+                ]
+              },
+              "direction": { "type": "string", "enum": ["asc", "desc"] }
+            },
+            "required": [
+              "limit",
+              "q",
+              "projects",
+              "issueTypes",
+              "statuses",
+              "statusCategories",
+              "priorities",
+              "assignees",
+              "reporters",
+              "labels",
+              "parents",
+              "sort"
+            ],
+            "additionalProperties": false
+          },
+          "isQuick": { "default": false, "type": "boolean" }
+        },
+        "required": ["name", "visibility", "projectKey", "query", "isQuick"],
+        "additionalProperties": false
+      },
+      "createTeamSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      },
+      "csvDryRunSchema": {
+        "type": "object",
+        "properties": {
+          "csv": { "type": "string", "minLength": 1, "maxLength": 1000000 }
+        },
+        "required": ["csv"],
+        "additionalProperties": false
+      },
+      "csvImportPolicySchema": {
+        "type": "string",
+        "enum": ["ATOMIC", "SKIP_INVALID"]
+      },
+      "dueDateSchema": {
+        "type": "string",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+      },
+      "estimatePointsSchema": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000
+      },
+      "inviteOrganizationUserSchema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "organizationRole": {
+            "default": "MEMBER",
+            "type": "string",
+            "enum": ["ADMIN", "MEMBER"]
+          }
+        },
+        "required": ["email", "displayName", "organizationRole"],
+        "additionalProperties": false
+      },
+      "issueKeySchema": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{1,9}-[1-9]\\d*$"
+      },
+      "issueLifecycleSchema": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["version"],
+        "additionalProperties": false
+      },
+      "issueSearchQuerySchema": {
+        "type": "object",
+        "properties": {
+          "cursor": { "type": "string", "minLength": 1 },
+          "limit": {
+            "default": 25,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "q": { "default": "", "type": "string", "maxLength": 200 },
+          "projects": {
+            "default": [],
+            "maxItems": 25,
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9]{1,9}$" }
+          },
+          "issueTypes": {
+            "default": [],
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["EPIC", "STORY", "TASK", "BUG", "SUBTASK"]
+            }
+          },
+          "statuses": {
+            "default": [],
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "statusCategories": {
+            "default": [],
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["TODO", "IN_PROGRESS", "DONE"]
+            }
+          },
+          "priorities": {
+            "default": [],
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+            }
+          },
+          "assignees": {
+            "default": [],
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                { "type": "string", "const": "unassigned" }
+              ]
+            }
+          },
+          "reporters": {
+            "default": [],
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "labels": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 50 }
+          },
+          "parents": {
+            "default": [],
+            "maxItems": 25,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9]{1,9}-[1-9]\\d*$"
+            }
+          },
+          "createdFrom": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "createdTo": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "updatedFrom": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "updatedTo": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "sort": {
+            "default": "relevance",
+            "type": "string",
+            "enum": [
+              "relevance",
+              "rank",
+              "priority",
+              "created",
+              "updated",
+              "key"
+            ]
+          },
+          "direction": { "type": "string", "enum": ["asc", "desc"] }
+        },
+        "required": [
+          "limit",
+          "q",
+          "projects",
+          "issueTypes",
+          "statuses",
+          "statusCategories",
+          "priorities",
+          "assignees",
+          "reporters",
+          "labels",
+          "parents",
+          "sort"
+        ],
+        "additionalProperties": false
+      },
+      "issueSearchSortSchema": {
+        "type": "string",
+        "enum": ["relevance", "rank", "priority", "created", "updated", "key"]
+      },
+      "issueTypeSchema": {
+        "type": "string",
+        "enum": ["EPIC", "STORY", "TASK", "BUG", "SUBTASK"]
+      },
+      "labelListSchema": {
+        "maxItems": 20,
+        "type": "array",
+        "items": { "type": "string", "minLength": 1, "maxLength": 50 }
+      },
+      "labelSchema": { "type": "string", "minLength": 1, "maxLength": 50 },
+      "loginSchema": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "password": { "type": "string", "minLength": 8, "maxLength": 200 }
+        },
+        "required": ["email", "password"],
+        "additionalProperties": false
+      },
+      "notificationEventClassSchema": {
+        "type": "string",
+        "enum": ["MENTION", "ISSUE_COMMENTED"]
+      },
+      "notificationPreferencesSchema": {
+        "type": "object",
+        "properties": {
+          "mentions": { "type": "boolean" },
+          "issueComments": { "type": "boolean" }
+        },
+        "required": ["mentions", "issueComments"],
+        "additionalProperties": false
+      },
+      "organizationRoleSchema": {
+        "type": "string",
+        "enum": ["ADMIN", "MEMBER"]
+      },
+      "paginationQuerySchema": {
+        "type": "object",
+        "properties": {
+          "cursor": { "type": "string", "minLength": 1 },
+          "limit": {
+            "default": 25,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["limit"],
+        "additionalProperties": false
+      },
+      "prioritySchema": {
+        "type": "string",
+        "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+      },
+      "projectKeySchema": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{1,9}$"
+      },
+      "projectRoleSchema": {
+        "type": "string",
+        "enum": ["ADMIN", "MEMBER", "VIEWER"]
+      },
+      "projectTemplateSchema": {
+        "type": "string",
+        "enum": ["FIVE_STATUS", "SIMPLE"]
+      },
+      "reportsQuerySchema": {
+        "type": "object",
+        "properties": {
+          "from": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "to": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+        },
+        "additionalProperties": false
+      },
+      "retryOutboxEventSchema": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["eventId"],
+        "additionalProperties": false
+      },
+      "savedFilterVisibilitySchema": {
+        "type": "string",
+        "enum": ["PRIVATE", "PROJECT", "ORGANIZATION"]
+      },
+      "savedFiltersQuerySchema": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string", "pattern": "^[A-Z][A-Z0-9]{1,9}$" }
+        },
+        "additionalProperties": false
+      },
+      "statusCategorySchema": {
+        "type": "string",
+        "enum": ["TODO", "IN_PROGRESS", "DONE"]
+      },
+      "swimlaneModeSchema": {
+        "type": "string",
+        "enum": ["none", "assignee", "epic"]
+      },
+      "transitionIssueSchema": {
+        "type": "object",
+        "properties": {
+          "transitionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              { "type": "null" }
+            ]
+          },
+          "destinationColumnId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "destinationStatusId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "beforeIssueId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              { "type": "null" }
+            ]
+          },
+          "afterIssueId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              { "type": "null" }
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "transitionId",
+          "destinationColumnId",
+          "destinationStatusId",
+          "beforeIssueId",
+          "afterIssueId",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "updateAdminProjectSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "boardName": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "archived": { "type": "boolean" },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "boardVersion": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "name",
+          "boardName",
+          "archived",
+          "version",
+          "boardVersion"
+        ],
+        "additionalProperties": false
+      },
+      "updateAuditRetentionSchema": {
+        "type": "object",
+        "properties": {
+          "days": { "type": "integer", "minimum": 30, "maximum": 3650 },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["days", "version"],
+        "additionalProperties": false
+      },
+      "updateBoardColumnWipLimitSchema": {
+        "type": "object",
+        "properties": {
+          "wipLimit": {
+            "anyOf": [
+              { "type": "integer", "minimum": 1, "maximum": 10000 },
+              { "type": "null" }
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["wipLimit", "version"],
+        "additionalProperties": false
+      },
+      "updateIssueSchema": {
+        "type": "object",
+        "properties": {
+          "summary": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "description": { "type": "string", "maxLength": 20000 },
+          "priority": {
+            "type": "string",
+            "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+          },
+          "issueType": {
+            "type": "string",
+            "enum": ["EPIC", "STORY", "TASK", "BUG", "SUBTASK"]
+          },
+          "assigneeId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              { "type": "null" }
+            ]
+          },
+          "labels": {
+            "maxItems": 20,
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 50 }
+          },
+          "parentIssueKey": {
+            "anyOf": [
+              { "type": "string", "pattern": "^[A-Z][A-Z0-9]{1,9}-[1-9]\\d*$" },
+              { "type": "null" }
+            ]
+          },
+          "estimatePoints": {
+            "default": null,
+            "anyOf": [
+              { "type": "integer", "minimum": 0, "maximum": 1000000 },
+              { "type": "null" }
+            ]
+          },
+          "dueDate": {
+            "default": null,
+            "anyOf": [
+              { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+              { "type": "null" }
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "summary",
+          "description",
+          "priority",
+          "issueType",
+          "assigneeId",
+          "labels",
+          "parentIssueKey",
+          "estimatePoints",
+          "dueDate",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "updateOrganizationSettingsSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["name", "version"],
+        "additionalProperties": false
+      },
+      "updateOrganizationUserSchema": {
+        "type": "object",
+        "properties": {
+          "state": { "type": "string", "enum": ["ACTIVE", "INACTIVE"] },
+          "organizationRole": { "type": "string", "enum": ["ADMIN", "MEMBER"] },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["state", "organizationRole", "version"],
+        "additionalProperties": false
+      },
+      "updateProjectMemberSchema": {
+        "type": "object",
+        "properties": {
+          "role": { "type": "string", "enum": ["ADMIN", "MEMBER", "VIEWER"] }
+        },
+        "required": ["role"],
+        "additionalProperties": false
+      },
+      "updateProjectTeamSchema": {
+        "type": "object",
+        "properties": {
+          "role": { "type": "string", "enum": ["ADMIN", "MEMBER", "VIEWER"] }
+        },
+        "required": ["role"],
+        "additionalProperties": false
+      },
+      "updateSavedFilterSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "visibility": {
+            "type": "string",
+            "enum": ["PRIVATE", "PROJECT", "ORGANIZATION"]
+          },
+          "projectKey": {
+            "default": null,
+            "anyOf": [
+              { "type": "string", "pattern": "^[A-Z][A-Z0-9]{1,9}$" },
+              { "type": "null" }
+            ]
+          },
+          "query": {
+            "type": "object",
+            "properties": {
+              "cursor": { "type": "string", "minLength": 1 },
+              "limit": {
+                "default": 25,
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "q": { "default": "", "type": "string", "maxLength": 200 },
+              "projects": {
+                "default": [],
+                "maxItems": 25,
+                "type": "array",
+                "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9]{1,9}$" }
+              },
+              "issueTypes": {
+                "default": [],
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["EPIC", "STORY", "TASK", "BUG", "SUBTASK"]
+                }
+              },
+              "statuses": {
+                "default": [],
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "statusCategories": {
+                "default": [],
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["TODO", "IN_PROGRESS", "DONE"]
+                }
+              },
+              "priorities": {
+                "default": [],
+                "maxItems": 4,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+                }
+              },
+              "assignees": {
+                "default": [],
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    { "type": "string", "const": "unassigned" }
+                  ]
+                }
+              },
+              "reporters": {
+                "default": [],
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "labels": {
+                "default": [],
+                "maxItems": 20,
+                "type": "array",
+                "items": { "type": "string", "minLength": 1, "maxLength": 50 }
+              },
+              "parents": {
+                "default": [],
+                "maxItems": 25,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9]{1,9}-[1-9]\\d*$"
+                }
+              },
+              "createdFrom": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "createdTo": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "updatedFrom": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "updatedTo": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "sort": {
+                "default": "relevance",
+                "type": "string",
+                "enum": [
+                  "relevance",
+                  "rank",
+                  "priority",
+                  "created",
+                  "updated",
+                  "key"
+                ]
+              },
+              "direction": { "type": "string", "enum": ["asc", "desc"] }
+            },
+            "required": [
+              "limit",
+              "q",
+              "projects",
+              "issueTypes",
+              "statuses",
+              "statusCategories",
+              "priorities",
+              "assignees",
+              "reporters",
+              "labels",
+              "parents",
+              "sort"
+            ],
+            "additionalProperties": false
+          },
+          "isQuick": { "default": false, "type": "boolean" },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "name",
+          "visibility",
+          "projectKey",
+          "query",
+          "isQuick",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "updateTeamSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "memberIds": {
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["name", "memberIds", "version"],
+        "additionalProperties": false
+      },
+      "updateWorkflowConfigurationSchema": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "statuses": {
+            "minItems": 3,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+                "category": {
+                  "type": "string",
+                  "enum": ["TODO", "IN_PROGRESS", "DONE"]
+                },
+                "color": { "type": "string", "pattern": "^#[0-9a-f]{6}$" },
+                "columnId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": ["id", "name", "category", "color", "columnId"],
+              "additionalProperties": false
+            }
+          },
+          "transitions": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fromStatusId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "toStatusId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": ["fromStatusId", "toStatusId"],
+              "additionalProperties": false
+            }
+          },
+          "removedStatusMigrations": {
+            "default": [],
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fromStatusId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "toStatusId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              },
+              "required": ["fromStatusId", "toStatusId"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "version",
+          "statuses",
+          "transitions",
+          "removedStatusMigrations"
+        ],
+        "additionalProperties": false
+      },
+      "ApiError": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message", "correlationId"],
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "correlationId": { "type": "string" },
+              "fields": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "ApiError": {
+        "description": "Stable machine-readable error",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ApiError" }
+          }
+        }
+      }
+    }
+  }
+}

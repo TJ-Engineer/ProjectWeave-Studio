@@ -22,9 +22,15 @@
     "test:watch": "vitest",
     "test:integration": "vitest run tests/integration",
     "test:e2e": "playwright test",
+    "test:load": "node tests/load/release-load.mjs",
     "db:migrate": "tsx packages/database/src/migrate.ts",
     "db:seed": "tsx packages/database/src/seed.ts",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
+    "worker:notifications": "tsx packages/database/src/notification-worker.ts",
+    "worker:outbox": "tsx packages/database/src/outbox-worker.ts",
+    "worker:outbox:health": "tsx packages/database/src/outbox-worker-health.ts",
+    "openapi:generate": "node --import tsx scripts/generate-openapi.mjs",
+    "openapi:check": "node --import tsx scripts/generate-openapi.mjs --check",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run openapi:check && npm run build"
   },
   "dependencies": {
     "tsx": "4.23.15"

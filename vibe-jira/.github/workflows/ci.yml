@@ -1,0 +1,105 @@
+name: release-quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm audit --audit-level=high
+
+  postgres:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose --profile test up -d postgres-test
+      - name: Upgrade from the previous schema boundary
+        run: |
+          docker compose --profile test run --rm -e MIGRATION_TARGET=0018_reporting_snapshots.sql migrate-test
+          docker compose --profile test run --rm migrate-test
+      - run: docker compose --profile test run --rm --build test
+      - if: always()
+        run: docker compose --profile test down -v
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: docker compose up --build -d
+      - name: Wait for readiness
+        run: |
+          for attempt in $(seq 1 60); do
+            curl --fail --silent http://127.0.0.1:3000/health/ready && exit 0
+            sleep 2
+          done
+          docker compose logs
+          exit 1
+      - run: npm run test:e2e
+        env:
+          PLAYWRIGHT_MATRIX: "true"
+      - if: always()
+        run: docker compose down -v
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,format=long
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: vibe-jira:scan
+          build-args: |
+            APP_VERSION=${{ github.ref_name }}
+            APP_REVISION=${{ github.sha }}
+      - uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: vibe-jira:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - uses: docker/build-push-action@v6
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ github.ref_name }}
+            APP_REVISION=${{ github.sha }}

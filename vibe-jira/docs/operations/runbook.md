@@ -5,7 +5,7 @@
 Use an immutable semantic-version or digest, never `latest`:
 
 ```sh
-export VIBE_IMAGE=ghcr.io/OWNER/REPOSITORY@sha256:REPLACE_ME
+export VIBE_IMAGE=ghcr.io/tj-engineer/vibe-jira@sha256:REPLACE_ME
 cp .env.example .env
 docker compose pull
 docker compose up -d

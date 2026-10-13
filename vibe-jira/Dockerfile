@@ -29,7 +29,7 @@ ARG APP_REVISION=unknown
 LABEL org.opencontainers.image.title="Vibe JIRA" \
       org.opencontainers.image.version="${APP_VERSION}" \
       org.opencontainers.image.revision="${APP_REVISION}" \
-      org.opencontainers.image.source="https://github.com/example/vibe-jira"
+      org.opencontainers.image.source="https://github.com/TJ-Engineer/ProjectWeave-Studio"
 
 RUN addgroup -S vibe && adduser -S vibe -G vibe
 WORKDIR /app

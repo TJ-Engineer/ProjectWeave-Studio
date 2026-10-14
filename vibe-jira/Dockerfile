@@ -31,7 +31,17 @@ LABEL org.opencontainers.image.title="Vibe JIRA" \
       org.opencontainers.image.revision="${APP_REVISION}" \
       org.opencontainers.image.source="https://github.com/TJ-Engineer/ProjectWeave-Studio"
 
-RUN addgroup -S vibe && adduser -S vibe -G vibe
+RUN addgroup -S vibe && adduser -S vibe -G vibe \
+    && rm -rf \
+      /usr/local/lib/node_modules/npm \
+      /usr/local/lib/node_modules/corepack \
+      /opt/yarn-v1.22.22 \
+    && rm -f \
+      /usr/local/bin/npm \
+      /usr/local/bin/npx \
+      /usr/local/bin/corepack \
+      /usr/local/bin/yarn \
+      /usr/local/bin/yarnpkg
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

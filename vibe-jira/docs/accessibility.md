@@ -20,15 +20,15 @@ Record the browser, assistive technology/version, viewport/zoom, tester, date, f
 
 Use this table against the release image, not the development server. Replace every `PENDING` value and link any defect before approving the release.
 
-| Field                        | Result                                                                                                                  |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Tester                       | TJ The Test Director                                                                                                    |
-| Date and time zone           | 2026-10-12, America/Chicago                                                                                             |
-| Release image digest         | `sha256:76d0dafb313bc6be8afccfd7e4bc8826e05a2e1e9dd6d9fc63d5d958054e0bb9` (local candidate; promotion approval pending) |
-| Operating system/version     | macOS 26.6.2 (build 25G83)                                                                                              |
-| Browser/version              | Safari 26.6.2                                                                                                           |
-| Assistive technology/version | VoiceOver 10                                                                                                            |
-| Viewport and zoom            | Current Safari window at 100% and 200% zoom; automated evidence separately covers 320 CSS pixels.                       |
+| Field                        | Result                                                                                                                                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Tester                       | TJ The Test Director                                                                                                                                                                             |
+| Date and time zone           | 2026-10-12, America/Chicago                                                                                                                                                                      |
+| Release image digest         | Human pass: local candidate `sha256:76d0dafb313bc6be8afccfd7e4bc8826e05a2e1e9dd6d9fc63d5d958054e0bb9`; promoted image: `sha256:90a72b2133389f5e5927ccf93f87ac393946909c21bb24548c465c75dad9dc55` |
+| Operating system/version     | macOS 26.6.2 (build 25G83)                                                                                                                                                                       |
+| Browser/version              | Safari 26.6.2                                                                                                                                                                                    |
+| Assistive technology/version | VoiceOver 10                                                                                                                                                                                     |
+| Viewport and zoom            | Current Safari window at 100% and 200% zoom; automated evidence separately covers 320 CSS pixels.                                                                                                |
 
 Sign in as the demo administrator for administrative scenarios and as a member for everyday issue work. Test with speech enabled and avoid using the pointer unless a scenario explicitly calls for the visual contrast review.
 
@@ -47,9 +47,9 @@ Sign in as the demo administrator for administrative scenarios and as a member f
 
 ### Approval
 
-- Overall result: `PASS` — all scenarios passed and the release owner accepted the accessibility evidence; release-image promotion remains pending.
+- Overall result: `PASS` — all scenarios passed, the release owner accepted the accessibility evidence, and the equivalent UI artifact was promoted as `v0.1.0` after the tagged three-browser matrix passed.
 - Accepted exceptions and owner: None reported.
 - Tester signature/date: TJ The Test Director — 2026-10-12
 - Release owner signature/date: TJ The Test Director — 2026-10-12
 
-Every accessibility scenario is recorded as passing and the tester signature closes `PRD-01`. M5 remains subject to the separate release-owner signature, immutable release-image promotion, and deployment checklist.
+Every accessibility scenario is recorded as passing and the tester signature closes `PRD-01`. The immutable release-image promotion is complete; production activation remains subject to the deployment-specific checklist.

@@ -1,8 +1,11 @@
-# Vibe JIRA 0.1.0 — Release 1 candidate
+# Vibe JIRA 0.1.0 — Release 1
 
-Status: Release candidate; not approved for production  
-Release date: `PENDING`  
-Release image digest: `PENDING`
+- Status: Release candidate approved and published; production activation pending
+- Release date: 2026-10-13
+- Release owner: TJ The Test Director
+- Release tag/revision: `v0.1.0` / `9d04490227bd405b37332fdadd58938276a44df3`
+- Release image: `ghcr.io/tj-engineer/vibe-jira@sha256:90a72b2133389f5e5927ccf93f87ac393946909c21bb24548c465c75dad9dc55`
+- Release workflow: [successful tag run, attempt 2](https://github.com/TJ-Engineer/ProjectWeave-Studio/actions/runs/38491265813/attempts/2)
 
 Release 1 is the first supported Vibe JIRA release. It delivers the single-organization Kanban product described in `IMPLEMENTATION_PLAN.md`, including issue lifecycle and hierarchy, workflow-aware boards, collaboration, search, administration, reporting, teams, OIDC, operational telemetry, private attachments, and recovery tooling.
 
@@ -42,7 +45,8 @@ Before launch, create and verify a quiescent PostgreSQL/object-storage backup. I
 
 ## Residual risks and required approvals
 
-- Human VoiceOver/Safari and final visual contrast-state validation passed on the local candidate image; the release owner must promote that candidate to an immutable release image or require a targeted retest if the artifact changes.
+- Human VoiceOver/Safari and final visual contrast-state validation passed on the local candidate. Promotion changed CI/repository packaging and removed unused npm/Corepack/Yarn tooling from the runtime image; it did not change UI source. The exact release tag then passed the complete three-browser automation matrix before publication.
+- The published image currently targets Linux/AMD64. An ARM64 deployment requires a separately built and verified multi-platform release.
 - The production host, capacity budget, public origin, identity provider, TLS/reverse proxy, secret store, backup destination, monitoring receivers, and support owners are deployment decisions.
 - Local password authentication is intentionally convenient for development and must not remain enabled in production without an accepted exception.
 - Release-sized performance evidence is currently local; repeat it on the selected production hardware if its capacity differs materially.

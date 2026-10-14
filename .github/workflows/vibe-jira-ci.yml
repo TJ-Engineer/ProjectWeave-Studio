@@ -1,6 +1,7 @@
 name: vibe-jira-release-quality
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - "vibe-jira/**"

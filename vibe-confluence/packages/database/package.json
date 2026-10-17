@@ -1,0 +1,14 @@
+{
+  "name": "@knowledge/database",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@knowledge/contracts": "0.0.1",
+    "@knowledge/domain": "0.0.1",
+    "pg": "8.23.1"
+  }
+}

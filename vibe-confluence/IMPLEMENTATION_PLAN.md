@@ -295,13 +295,13 @@ Use named capabilities rather than scattering role-name checks:
 
 Initial roles:
 
-| Role | Typical rights |
-|---|---|
-| Organization admin | Manage organization, users, policies, all spaces, audit, and export |
-| Space admin | Configure one space, members, templates, permissions, and trash |
-| Editor | View, create, edit, publish, comment, and attach within allowed spaces |
-| Commenter | View and comment but not edit page content |
-| Viewer | Read allowed published content |
+| Role               | Typical rights                                                         |
+| ------------------ | ---------------------------------------------------------------------- |
+| Organization admin | Manage organization, users, policies, all spaces, audit, and export    |
+| Space admin        | Configure one space, members, templates, permissions, and trash        |
+| Editor             | View, create, edit, publish, comment, and attach within allowed spaces |
+| Commenter          | View and comment but not edit page content                             |
+| Viewer             | Read allowed published content                                         |
 
 Permission precedence:
 
@@ -411,33 +411,33 @@ Production uses an external managed or independently backed-up PostgreSQL servic
 
 ## 9. Initial data model
 
-| Entity | Important fields and relationships |
-|---|---|
-| Organization | id, name, slug, settings, retention_policy |
-| User | id, email, display_name, avatar, state |
-| Group | id, organization_id, name; many-to-many users |
-| Space | id, organization_id, key, name, type, description, archived_at |
-| SpaceGrant | space_id, principal_type/id, role/capabilities |
-| Page | id, space_id, parent_id, current_revision_id, title, slug, sibling_rank, state, version |
-| PageGrant | page_id, principal_type/id, capabilities, inheritance_mode |
-| Draft | id, page_id, owner/collaboration_id, base_revision_id, body_json, schema_version, saved_at |
-| PageRevision | id, page_id, number, author_id, title, body_json, body_text, schema_version, summary, created_at |
-| PageAlias | page_id, prior_slug/path, created_at |
-| PageLink | source_page_id, target_page_id or unresolved_target, revision_id |
-| Label | id, organization_id, normalized_name, display_name |
-| PageLabel | page_id, label_id |
-| Comment | id, page_id, revision_context, parent_comment_id, author_id, body, state, timestamps |
-| CommentAnchor | comment_id, structured_position, quoted_text, context_hash, state |
-| Attachment | id, page_id, filename, media_type, uploader_id, current_version_id, state |
-| AttachmentVersion | id, attachment_id, object_key, size, checksum, scan_state, created_at |
-| Watch | user_id, target_type/id, notification_level |
-| Template | id, scope_type/id, name, body_json, schema_version, current_version |
-| Notification | id, recipient_id, event_id, read_at, delivery_state |
-| ActivityEvent | id, actor_id, space_id, page_id, type, safe_metadata, created_at |
-| AuditEvent | id, actor_id, action, target_type/id, metadata, correlation_id, created_at |
-| OutboxEvent | id, topic, aggregate_id, payload, attempts, published_at |
-| SearchDocument | page_id, revision_id, weighted_vector, indexed_at |
-| CollaborationUpdate | Release 2: page/draft id, sequence, update bytes, created_at |
+| Entity              | Important fields and relationships                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------ |
+| Organization        | id, name, slug, settings, retention_policy                                                       |
+| User                | id, email, display_name, avatar, state                                                           |
+| Group               | id, organization_id, name; many-to-many users                                                    |
+| Space               | id, organization_id, key, name, type, description, archived_at                                   |
+| SpaceGrant          | space_id, principal_type/id, role/capabilities                                                   |
+| Page                | id, space_id, parent_id, current_revision_id, title, slug, sibling_rank, state, version          |
+| PageGrant           | page_id, principal_type/id, capabilities, inheritance_mode                                       |
+| Draft               | id, page_id, owner/collaboration_id, base_revision_id, body_json, schema_version, saved_at       |
+| PageRevision        | id, page_id, number, author_id, title, body_json, body_text, schema_version, summary, created_at |
+| PageAlias           | page_id, prior_slug/path, created_at                                                             |
+| PageLink            | source_page_id, target_page_id or unresolved_target, revision_id                                 |
+| Label               | id, organization_id, normalized_name, display_name                                               |
+| PageLabel           | page_id, label_id                                                                                |
+| Comment             | id, page_id, revision_context, parent_comment_id, author_id, body, state, timestamps             |
+| CommentAnchor       | comment_id, structured_position, quoted_text, context_hash, state                                |
+| Attachment          | id, page_id, filename, media_type, uploader_id, current_version_id, state                        |
+| AttachmentVersion   | id, attachment_id, object_key, size, checksum, scan_state, created_at                            |
+| Watch               | user_id, target_type/id, notification_level                                                      |
+| Template            | id, scope_type/id, name, body_json, schema_version, current_version                              |
+| Notification        | id, recipient_id, event_id, read_at, delivery_state                                              |
+| ActivityEvent       | id, actor_id, space_id, page_id, type, safe_metadata, created_at                                 |
+| AuditEvent          | id, actor_id, action, target_type/id, metadata, correlation_id, created_at                       |
+| OutboxEvent         | id, topic, aggregate_id, payload, attempts, published_at                                         |
+| SearchDocument      | page_id, revision_id, weighted_vector, indexed_at                                                |
+| CollaborationUpdate | Release 2: page/draft id, sequence, update bytes, created_at                                     |
 
 Important constraints:
 
@@ -717,20 +717,20 @@ Likely Release 1 total: 11–13 weeks for a small experienced team. Realtime col
 
 ## 17. Epic backlog
 
-| Epic | Outcome | Exit test |
-|---|---|---|
-| E1 Foundation | Repeatable local and production-like environments | Clean host reaches seeded UI through Docker Compose |
-| E2 Identity and access | Authorized users see only permitted knowledge | Adversarial matrix passes across all read/write paths |
-| E3 Spaces and tree | Knowledge is organized and durable | Deep subtrees move/restore without cycles or broken links |
-| E4 Editor | Authors create validated rich documents | Supported nodes round-trip without loss or unsafe output |
-| E5 Drafts and revisions | Work is never silently lost or overwritten | Autosave, conflict, diff, and restore scenarios pass |
-| E6 Conversation | Teams review and discuss in context | Page/inline threads and mentions behave correctly |
-| E7 Attachments | Files are safely versioned and accessible | Upload/scan/version/download respects permissions |
-| E8 Search and links | Readers quickly discover relevant knowledge | Relevance fixtures pass with zero restricted-data leakage |
-| E9 Templates and macros | Teams standardize content safely | Versioned templates and approved macros render deterministically |
-| E10 Portability/admin | Operators can control and recover the system | Import/export/audit/backup/restore drills pass |
-| E11 Production readiness | Release can be safely operated | Security, accessibility, load, and rollback gates pass |
-| E12 Realtime collaboration | Multiple authors converge safely | Disconnect/reconnect/schema/publication tests pass |
+| Epic                       | Outcome                                           | Exit test                                                        |
+| -------------------------- | ------------------------------------------------- | ---------------------------------------------------------------- |
+| E1 Foundation              | Repeatable local and production-like environments | Clean host reaches seeded UI through Docker Compose              |
+| E2 Identity and access     | Authorized users see only permitted knowledge     | Adversarial matrix passes across all read/write paths            |
+| E3 Spaces and tree         | Knowledge is organized and durable                | Deep subtrees move/restore without cycles or broken links        |
+| E4 Editor                  | Authors create validated rich documents           | Supported nodes round-trip without loss or unsafe output         |
+| E5 Drafts and revisions    | Work is never silently lost or overwritten        | Autosave, conflict, diff, and restore scenarios pass             |
+| E6 Conversation            | Teams review and discuss in context               | Page/inline threads and mentions behave correctly                |
+| E7 Attachments             | Files are safely versioned and accessible         | Upload/scan/version/download respects permissions                |
+| E8 Search and links        | Readers quickly discover relevant knowledge       | Relevance fixtures pass with zero restricted-data leakage        |
+| E9 Templates and macros    | Teams standardize content safely                  | Versioned templates and approved macros render deterministically |
+| E10 Portability/admin      | Operators can control and recover the system      | Import/export/audit/backup/restore drills pass                   |
+| E11 Production readiness   | Release can be safely operated                    | Security, accessibility, load, and rollback gates pass           |
+| E12 Realtime collaboration | Multiple authors converge safely                  | Disconnect/reconnect/schema/publication tests pass               |
 
 ## 18. Vibe-coding execution protocol
 
@@ -785,37 +785,39 @@ Mandatory human review areas:
 
 ## 19. Key risks and mitigations
 
-| Risk | Mitigation |
-|---|---|
-| Rich editor consumes the schedule | Freeze a Release 1 schema and isolate the editor behind an adapter |
-| Autosave is mistaken for durable publication | Explicit states, recovery UI, immutable publication transaction |
-| Concurrent editing loses work | Optimistic conflict flow first; CRDT only after revision model is proven |
-| Schema upgrades corrupt old pages | Version every document, keep golden fixtures, write forward migrations |
-| Restricted content leaks through search/tree | Permission scope before ranking, counts, snippets, suggestions, and links |
-| Inline comments lose their anchors | Store structural position plus quote/context; retain orphaned threads |
-| Page moves break URLs | Immutable page IDs, aliases, link graph, and redirect tests |
-| Macro flexibility creates code execution | Declarative allowlist; no arbitrary user code or network access |
-| Attachments become a security boundary failure | Private storage, short-lived access, scanning, limits, reauthorization |
-| PostgreSQL search relevance plateaus | Maintain search abstraction and migrate only after measured need |
-| AI changes erase rare document nodes | Round-trip fixtures, schema validation, diff review, no silent fallback |
-| Product expands toward all of Confluence | Release gates, explicit non-goals, and measurable user journeys |
+| Risk                                           | Mitigation                                                                |
+| ---------------------------------------------- | ------------------------------------------------------------------------- |
+| Rich editor consumes the schedule              | Freeze a Release 1 schema and isolate the editor behind an adapter        |
+| Autosave is mistaken for durable publication   | Explicit states, recovery UI, immutable publication transaction           |
+| Concurrent editing loses work                  | Optimistic conflict flow first; CRDT only after revision model is proven  |
+| Schema upgrades corrupt old pages              | Version every document, keep golden fixtures, write forward migrations    |
+| Restricted content leaks through search/tree   | Permission scope before ranking, counts, snippets, suggestions, and links |
+| Inline comments lose their anchors             | Store structural position plus quote/context; retain orphaned threads     |
+| Page moves break URLs                          | Immutable page IDs, aliases, link graph, and redirect tests               |
+| Macro flexibility creates code execution       | Declarative allowlist; no arbitrary user code or network access           |
+| Attachments become a security boundary failure | Private storage, short-lived access, scanning, limits, reauthorization    |
+| PostgreSQL search relevance plateaus           | Maintain search abstraction and migrate only after measured need          |
+| AI changes erase rare document nodes           | Round-trip fixtures, schema validation, diff review, no silent fallback   |
+| Product expands toward all of Confluence       | Release gates, explicit non-goals, and measurable user journeys           |
 
-## 20. Decisions required before coding
+## 20. Resolved product decisions
 
-1. Self-hosted only, hosted SaaS, or both?
-2. Is Release 1 single-organization per installation?
-3. Which production OIDC provider(s) must be supported first?
-4. Is explicit publish required, or should edits auto-publish revisions?
-5. Which rich-content nodes are truly required in Release 1?
-6. Which import source matters most: Markdown, HTML, Notion, or Confluence export?
-7. Are page-level restrictions required in Release 1 or are space roles sufficient?
-8. Must anonymous/guest sharing exist before Release 2?
-9. Which attachment preview formats are required?
-10. Is realtime co-editing a launch requirement despite its schedule and operational cost?
-11. What production deployment target and backup service are required?
-12. Does Vibe JIRA integration belong in Release 1 or Release 2?
+Resolved on 2026-10-15:
 
-Recommended defaults: hosted-ready self-hosting; one organization in Release 1; managed OIDC; explicit publish; space roles plus restrictive page overrides; no anonymous links; common image/PDF previews; generic Markdown/HTML import first; realtime collaboration and Vibe JIRA embeds in Release 2.
+1. Release 1 is hosted-ready self-hosting; operating a SaaS control plane is deferred.
+2. Release 1 supports one organization per installation while retaining `organization_id` on every tenant-owned row.
+3. Production identity uses provider-neutral OIDC Authorization Code with PKCE. Local login is development-only.
+4. Autosave writes a private draft; publishing is always an explicit action that creates an immutable revision.
+5. Release 1 freezes a bounded schema: paragraphs, headings, basic marks, ordered/unordered/task lists, links and page links, quotes, code blocks, tables, and image/attachment references. Richer macros and presentation nodes are deferred.
+6. Markdown import ships first. Sanitized generic HTML follows after revision correctness; Confluence-specific mapping is a later compatibility milestone.
+7. Release 1 combines inherited space roles with restrictive page overrides inherited by descendants. Page grants cannot reopen restricted content.
+8. Anonymous and guest links are deferred beyond Release 1.
+9. Scanned JPEG, PNG, WebP, and PDF files may be previewed inline. Other formats download through an authorized path; SVG and HTML never render inline.
+10. Realtime collaborative editing is Release 2. Release 1 uses per-user drafts and optimistic publication conflicts.
+11. Production runs as portable containers behind a reverse proxy with external PostgreSQL and S3-compatible storage. Compose remains the evaluation and small-install path; PostgreSQL recovery and object versioning are tested together.
+12. Vibe JIRA embeds and bidirectional links are Release 2. Both products preserve stable URLs and compatible external identity claims now.
+
+Vibe Knowledge is a separately deployable sibling application with its own database and migrations. It may use the same OIDC provider and stable subject claims as Vibe JIRA, but neither application reads the other's database.
 
 ## 21. Release 1 acceptance gate
 

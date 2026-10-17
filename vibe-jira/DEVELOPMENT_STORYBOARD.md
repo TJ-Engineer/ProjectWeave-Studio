@@ -1,6 +1,6 @@
 # Vibe JIRA Development Storyboard
 
-Last updated: 2026-10-13
+Last updated: 2026-10-14
 Plan of record: [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)  
 Current release target: Release 1 — Usable Kanban MVP
 
@@ -40,7 +40,7 @@ Stories marked `DONE` on 2026-10-11 were accepted against the first-slice scope 
 | Gate                                                                | Result                   | Evidence                                                                                                                    |
 | ------------------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
 | Formatting, lint, types, unit tests, OpenAPI, production build      | Passing                  | `npm run check`; 50 unit tests pass                                                                                         |
-| Real PostgreSQL lifecycle, hierarchy, identity, teams, and recovery | Passing                  | 23 PostgreSQL integration tests pass against the current schema                                                             |
+| Real PostgreSQL lifecycle, hierarchy, identity, teams, and recovery | Passing                  | 24 PostgreSQL integration tests pass against the current schema                                                             |
 | Cross-browser Release 1 journeys                                    | Passing                  | 70 pass across Chromium, Firefox, and WebKit; two raw-touch cases intentionally skip outside Chromium                       |
 | Serious/critical automated accessibility findings                   | Zero across tested pages | Axe plus focused keyboard/reflow/preference gates cover board, dialogs, search, backlog, administration, reports, and teams |
 | Performance budgets                                                 | Passing                  | Local p95: board 30.7 ms, search 52.3 ms, CSV dry run 17.5 ms, realtime connect 18.1 ms                                     |
@@ -333,3 +333,5 @@ When a story moves to `IN PROGRESS`, record these fields in its evidence cell or
 | 2026-10-12 | Final isolated Compose validation passed: 50 unit tests, 23 PostgreSQL integration tests, dependency audit, recovery drill, performance budgets, and 70 Playwright cases across Chromium, Firefox, and WebKit; two raw-touch cases intentionally skip on non-Chromium engines.                                                                                                 |
 | 2026-10-12 | Completed `PRD-01`: TJ The Test Director signed the VoiceOver 10/Safari 26.6.2 and visual-state review after all ten scenarios passed, then countersigned the accessibility evidence as release owner. All 55 implementation stories are done; M5 remains partial for immutable image promotion and the deployment checklist.                                                  |
 | 2026-10-13 | Completed M5: hardened the runtime image by removing unused package-manager tooling, passed the main and tagged quality/migration/integration/browser/Trivy gates, published `v0.1.0` and immutable GHCR digest `sha256:90a72b2133389f5e5927ccf93f87ac393946909c21bb24548c465c75dad9dc55`, and separated production activation from the completed release-candidate milestone. |
+| 2026-10-14 | Fixed the empty development board: the demo seed now creates seven Release 1 launch issues across the default workflow, resumes safely after interruption, preserves completed seed data on restart, and has PostgreSQL regression coverage.                                                                                                                                   |
+| 2026-10-14 | Renamed the seeded development project's display label from Engineering to ProjectWeave while retaining the stable `ENG` issue-key prefix.                                                                                                                                                                                                                                     |

@@ -94,7 +94,7 @@ docker compose up --build
 
 Open `http://localhost:3000` and sign in with `DEMO_ADMIN_EMAIL` and `DEMO_ADMIN_PASSWORD` from `.env`.
 
-The demo seed also creates `DEMO_MEMBER_EMAIL` and `DEMO_VIEWER_EMAIL` users for exercising member and viewer boundaries. Their development-only passwords are configured by `DEMO_MEMBER_PASSWORD` and `DEMO_VIEWER_PASSWORD`.
+The demo seed also creates `DEMO_MEMBER_EMAIL` and `DEMO_VIEWER_EMAIL` users for exercising member and viewer boundaries. Their development-only passwords are configured by `DEMO_MEMBER_PASSWORD` and `DEMO_VIEWER_PASSWORD`. When the seeded `ProjectWeave` (`ENG`) project has no user-created work, the seed adds a small, idempotent set of Release 1 launch issues across the board workflow. Once that dataset is complete, later seed runs preserve its contents and card positions.
 
 Migrations and seed data run as one-shot services using the same application image. PostgreSQL data is stored in `postgres-data`, attachment objects in `object-storage-data`, and scanner signatures in `clamav-data`; rebuilding the application image does not remove them.
 

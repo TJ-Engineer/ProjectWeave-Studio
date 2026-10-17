@@ -4094,4 +4094,68 @@ describe.skipIf(!testDatabaseUrl)("atomic issue writes", () => {
     durations.sort((left, right) => left - right);
     expect(durations[4]).toBeLessThan(500);
   });
+
+  it("seeds an empty development board once with launch work", async () => {
+    const {
+      createProject,
+      getBoard,
+      getBoardAccess,
+      getPool,
+      seedDevelopmentBoard,
+    } = await import("@vibe/database");
+    const organizationId = randomUUID();
+    const userId = randomUUID();
+    await getPool().query(
+      `INSERT INTO organizations (id, name, slug)
+       VALUES ($1, 'Development Seed Test', $2)`,
+      [organizationId, `development-seed-${organizationId}`],
+    );
+    await getPool().query(
+      `INSERT INTO users (id, organization_id, email, display_name, password_hash)
+       VALUES ($1, $2, $3, 'Development Admin', 'unused')`,
+      [userId, organizationId, `${userId}@example.test`],
+    );
+    await getPool().query(
+      `INSERT INTO memberships (organization_id, user_id, organization_role)
+       VALUES ($1, $2, 'ADMIN')`,
+      [organizationId, userId],
+    );
+    const identity = {
+      id: userId,
+      organizationId,
+      email: `${userId}@example.test`,
+      displayName: "Development Admin",
+      organizationRole: "ADMIN" as const,
+    };
+    const project = await createProject(identity, {
+      key: "DEV",
+      name: "Development",
+    });
+
+    await expect(seedDevelopmentBoard(identity, project)).resolves.toBe(7);
+    await expect(seedDevelopmentBoard(identity, project)).resolves.toBe(0);
+
+    const access = await getBoardAccess(userId, project.boardId);
+    expect(access).not.toBeNull();
+    const board = await getBoard(project.boardId, access!);
+    expect(board).not.toBeNull();
+    expect(board!.issues).toHaveLength(7);
+    expect(
+      board!.columns.map((column) => ({
+        name: column.name,
+        count: board!.issues.filter((issue) =>
+          column.statusIds.includes(issue.statusId),
+        ).length,
+      })),
+    ).toEqual([
+      { name: "To Do", count: 3 },
+      { name: "In Progress", count: 3 },
+      { name: "Done", count: 1 },
+    ]);
+    expect(
+      board!.issues.find(
+        (issue) => issue.summary === "Publish the v0.1.0 release candidate",
+      ),
+    ).toMatchObject({ issueType: "TASK" });
+  });
 });

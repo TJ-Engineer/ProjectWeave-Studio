@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { hashPassword } from "@vibe/domain";
 import { closePool, getPool } from "./client";
+import { seedDevelopmentBoard } from "./demo-seed";
 import { createProject, getIdentity, listProjects } from "./repository";
 
 async function seed(): Promise<void> {
@@ -102,8 +103,23 @@ async function seed(): Promise<void> {
     );
   }
   const projects = await listProjects(identity);
-  if (projects.length === 0) {
-    await createProject(identity, { key: "ENG", name: "Engineering" });
+  let developmentProject = projects.find((project) => project.key === "ENG");
+  if (!developmentProject && projects.length === 0) {
+    developmentProject = await createProject(identity, {
+      key: "ENG",
+      name: "ProjectWeave",
+    });
+  }
+  if (developmentProject) {
+    const createdIssues = await seedDevelopmentBoard(
+      identity,
+      developmentProject,
+    );
+    console.log(
+      createdIssues > 0
+        ? `Seeded ${createdIssues} development board issues.`
+        : "Development board already contains issues; seed data was preserved.",
+    );
   }
   console.log(`Seed complete. Sign in as ${email}.`);
 }

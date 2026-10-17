@@ -28,11 +28,11 @@ documentation must agree.
 
 | Item                 | Current state                                                                       |
 | -------------------- | ----------------------------------------------------------------------------------- |
-| Delivery gate        | M0 validation passes on the KNW-8 branch; review and merge remain                   |
-| Current milestone    | M0 — Safe publication foundation                                                    |
-| Active product story | `KNW-01` Draft, publish, compare, and restore first slice                           |
-| Blocking issues      | None; the KNW-8 Compose fix awaits review and merge                                 |
-| Story roll-up        | 0 done, 5 partial, 1 in progress, 6 planned                                         |
+| Delivery gate        | M0 architecture proof is complete                                                   |
+| Current milestone    | M1 — Spaces and authoring                                                           |
+| Active product story | None; the next story requires confirmation before implementation begins             |
+| Blocking issues      | None                                                                                |
+| Story roll-up        | 1 done, 5 partial, 0 in progress, 6 planned                                         |
 | Release readiness    | Not ready; no release candidate exists                                              |
 | Running path         | `docker compose up --build -d`; local Node/PostgreSQL development remains supported |
 
@@ -40,38 +40,38 @@ documentation must agree.
 
 ```mermaid
 flowchart LR
-  M0["M0 Publication proof<br/>IN PROGRESS"] --> M1["M1 Spaces and authoring<br/>PLANNED"]
+  M0["M0 Publication proof<br/>DONE"] --> M1["M1 Spaces and authoring<br/>PLANNED"]
   M1 --> M2["M2 Collaboration<br/>PLANNED"]
   M2 --> M3["M3 Search and portability<br/>PLANNED"]
   M3 --> M4["M4 Release candidate<br/>PLANNED"]
 ```
 
-| Milestone                   | Outcome                                                                                                                         | Status        | Exit gate                                                                             |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------- |
-| M0 — Publication proof      | A signed-in author creates a space and page, autosaves, publishes immutable revisions, detects conflict, compares, and restores | `IN PROGRESS` | Focused unit/integration/browser checks and clean Compose startup pass                |
-| M1 — Spaces and authoring   | Teams organize permission-aware page trees and author the frozen Release 1 document schema                                      | `PLANNED`     | Hierarchy, editor round-trip, page restrictions, accessibility, and scale checks pass |
-| M2 — Collaboration          | Teams discuss, mention, watch, and attach files safely                                                                          | `PLANNED`     | Exactly-once notifications and authorized scan/version/download paths pass            |
-| M3 — Search and portability | Permitted knowledge is discoverable, templated, importable, exportable, and recoverable                                         | `PLANNED`     | Leakage, relevance, job, export, backup, and restore gates pass                       |
-| M4 — Release candidate      | A secure, accessible, supportable Release 1 can be operated                                                                     | `PLANNED`     | Full quality, migration, browser, security, performance, and human gates pass         |
+| Milestone                   | Outcome                                                                                                                         | Status    | Exit gate                                                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------- |
+| M0 — Publication proof      | A signed-in author creates a space and page, autosaves, publishes immutable revisions, detects conflict, compares, and restores | `DONE`    | Focused unit/integration/browser checks and clean Compose startup pass                |
+| M1 — Spaces and authoring   | Teams organize permission-aware page trees and author the frozen Release 1 document schema                                      | `PLANNED` | Hierarchy, editor round-trip, page restrictions, accessibility, and scale checks pass |
+| M2 — Collaboration          | Teams discuss, mention, watch, and attach files safely                                                                          | `PLANNED` | Exactly-once notifications and authorized scan/version/download paths pass            |
+| M3 — Search and portability | Permitted knowledge is discoverable, templated, importable, exportable, and recoverable                                         | `PLANNED` | Leakage, relevance, job, export, backup, and restore gates pass                       |
+| M4 — Release candidate      | A secure, accessible, supportable Release 1 can be operated                                                                     | `PLANNED` | Full quality, migration, browser, security, performance, and human gates pass         |
 
 ## Release 1 story board
 
-| ID       | Story/outcome                                                           | Status        | Acceptance evidence or remaining work                                                                                     |
-| -------- | ----------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `KNW-01` | Draft, publish, compare, and restore first slice                        | `IN PROGRESS` | All implementation and clean Compose evidence passes on the KNW-8 branch; review and merge remain                         |
-| `FND-01` | Strict TypeScript workspaces, CI gate, and one-image runtime            | `PARTIAL`     | Workspace gate and clean Compose app, worker, migration, seed, health, and object-store startup pass; CI remains          |
-| `IAM-01` | Development login and provider-neutral production OIDC                  | `PARTIAL`     | Development login uses signed HTTP-only sessions and origin checks; deactivation and OIDC remain                          |
-| `SPC-01` | Space membership and restrictive page inheritance                       | `PARTIAL`     | Space capabilities and private unpublished drafts pass PostgreSQL tests; restrictive inheritance remains                  |
-| `PGE-01` | Concurrent page tree create, move, reorder, archive, trash, and restore | `PARTIAL`     | Root/child creation and durable ID routes work; move, reorder, archive, trash, restore, and scale remain                  |
-| `EDT-01` | Accessible editor for the frozen Release 1 schema                       | `PARTIAL`     | Versioned heading/paragraph schema, safe rendering, autosave states, and responsive keyboard UI pass; full schema remains |
-| `COL-01` | Page and inline comments, mentions, watches, and notifications          | `PLANNED`     | Re-anchor/orphan behavior and deduplicated fan-out pass                                                                   |
-| `ATT-01` | Private scanned and versioned attachments                               | `PLANNED`     | Authorization, quarantine, preview allowlist, replacement, and retention pass                                             |
-| `SRC-01` | Permission-filtered PostgreSQL search and link graph                    | `PLANNED`     | Counts, snippets, suggestions, backlinks, and stale-index cases reveal nothing restricted                                 |
-| `TPL-01` | Versioned templates and bounded first-party macros                      | `PLANNED`     | Deterministic render, complexity, permission, and migration checks pass                                                   |
-| `PRT-01` | Markdown import, portable exports, and durable jobs                     | `PLANNED`     | Dry run, idempotency, partial errors, archive manifest, and backpressure pass                                             |
-| `PRD-01` | Release hardening and operations                                        | `PLANNED`     | Accessibility, load, migration, recovery, rollback, documentation, and image scans pass                                   |
+| ID       | Story/outcome                                                           | Status    | Acceptance evidence or remaining work                                                                                     |
+| -------- | ----------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `KNW-01` | Draft, publish, compare, and restore first slice                        | `DONE`    | Implementation, PostgreSQL, desktop, responsive, keyboard, and merged clean Compose evidence pass                         |
+| `FND-01` | Strict TypeScript workspaces, CI gate, and one-image runtime            | `PARTIAL` | Workspace gate and clean Compose app, worker, migration, seed, health, and object-store startup pass; CI remains          |
+| `IAM-01` | Development login and provider-neutral production OIDC                  | `PARTIAL` | Development login uses signed HTTP-only sessions and origin checks; deactivation and OIDC remain                          |
+| `SPC-01` | Space membership and restrictive page inheritance                       | `PARTIAL` | Space capabilities and private unpublished drafts pass PostgreSQL tests; restrictive inheritance remains                  |
+| `PGE-01` | Concurrent page tree create, move, reorder, archive, trash, and restore | `PARTIAL` | Root/child creation and durable ID routes work; move, reorder, archive, trash, restore, and scale remain                  |
+| `EDT-01` | Accessible editor for the frozen Release 1 schema                       | `PARTIAL` | Versioned heading/paragraph schema, safe rendering, autosave states, and responsive keyboard UI pass; full schema remains |
+| `COL-01` | Page and inline comments, mentions, watches, and notifications          | `PLANNED` | Re-anchor/orphan behavior and deduplicated fan-out pass                                                                   |
+| `ATT-01` | Private scanned and versioned attachments                               | `PLANNED` | Authorization, quarantine, preview allowlist, replacement, and retention pass                                             |
+| `SRC-01` | Permission-filtered PostgreSQL search and link graph                    | `PLANNED` | Counts, snippets, suggestions, backlinks, and stale-index cases reveal nothing restricted                                 |
+| `TPL-01` | Versioned templates and bounded first-party macros                      | `PLANNED` | Deterministic render, complexity, permission, and migration checks pass                                                   |
+| `PRT-01` | Markdown import, portable exports, and durable jobs                     | `PLANNED` | Dry run, idempotency, partial errors, archive manifest, and backpressure pass                                             |
+| `PRD-01` | Release hardening and operations                                        | `PLANNED` | Accessibility, load, migration, recovery, rollback, documentation, and image scans pass                                   |
 
-## Active story: KNW-01
+## Completed story: KNW-01
 
 User outcome: a development user creates a space and child page, edits a
 versioned heading-and-paragraph document, sees autosave state, publishes twice,
@@ -122,3 +122,4 @@ Non-goals:
 | 2026-10-16 | Browser-verified development sign-in, space creation, parent/child page creation, debounced autosave, refresh persistence, two publications, structural/plain-text comparison, and restore of revision 1 as revision 3 at desktop and 390 × 844 responsive widths; keyboard focus moved from Publish to the title field.                                                                                        |
 | 2026-10-16 | Production container verification remains open: two builds reached Docker BuildKit but failed on external registry networking (`ECONNRESET`, then Docker Hub `no route to host`). No container gate is claimed.                                                                                                                                                                                                 |
 | 2026-10-17 | On the isolated `projectweave-knw8-gate` Compose project, a fresh build and startup completed: PostgreSQL and the SeaweedFS S3 API became healthy, migration `0001` and the seed job exited 0, the app and worker stayed running, `/health/live` and `/health/ready` returned 200, the login page and seeded login returned 200, and `npm run check` passed. KNW-01 remains in progress until review and merge. |
+| 2026-10-17 | Reviewed and merged GitHub pull request [#2](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/2) as `8448d4e`. Review added a signed AWS SigV4 `ListBuckets` check that returned 200 against the configured SeaweedFS S3 endpoint. With the final Compose change on `main`, `KNW-01` and M0 satisfy their recorded exit gates.                                                                           |

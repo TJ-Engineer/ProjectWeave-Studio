@@ -6,8 +6,9 @@ evidence. The target application's plan and storyboard own the product story;
 Vibe JIRA owns execution tracking; GitHub owns branches, commits, and pull
 requests.
 
-The first pilot is Vibe Knowledge story `KNW-01`, whose remaining release gate
-is a clean Docker Compose startup.
+The first pilot was Vibe Knowledge story `KNW-01`. It completed on 2026-10-17
+after the clean Docker Compose gate passed and its implementation change was
+reviewed and merged.
 
 ## Sources of truth
 
@@ -147,22 +148,24 @@ state, add the `blocked` label, and name the dependency in the description.
 Project: **Vibe Knowledge (`KNW`)**  
 Epic: **`KNW-1` — `[KNW-01] Draft, publish, compare, and restore first slice`**
 
-Workflow change: [`docs/knw-2-grill-with-docs`](https://github.com/TJ-Engineer/ProjectWeave-Studio/tree/docs/knw-2-grill-with-docs) · [pull request #1](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/1)
+Workflow change: [`docs/knw-2-grill-with-docs`](https://github.com/TJ-Engineer/ProjectWeave-Studio/tree/docs/knw-2-grill-with-docs) · [superseded pull request #1](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/1)
 
-| Key     | Pilot issue                                              | Evidence/state intent                                                          |
-| ------- | -------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `KNW-2` | Record the confirmed grill-with-docs delivery contract   | Documentation branch and pull request; active until reviewed.                  |
-| `KNW-3` | Prove development auth and scoped publication access     | Backfill as done from recorded PostgreSQL/browser evidence.                    |
-| `KNW-4` | Prove validated draft autosave and stale-write safety    | Backfill as done from recorded unit, integration, build, and browser evidence. |
-| `KNW-5` | Prove atomic immutable publication and conflict handling | Backfill as done from recorded unit and PostgreSQL evidence.                   |
-| `KNW-6` | Prove revision comparison and restore-as-new             | Backfill as done from the verified browser journey.                            |
-| `KNW-7` | Record PostgreSQL and browser acceptance evidence        | Backfill as done while preserving the open Compose caveat.                     |
-| `KNW-8` | Close the clean Compose startup gate                     | Selected and labeled `blocked` until registry access permits a clean run.      |
+Final gate: [`ops/knw-8-compose-gate`](https://github.com/TJ-Engineer/ProjectWeave-Studio/tree/ops/knw-8-compose-gate) · [merged pull request #2](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/2)
+
+| Key     | Pilot issue                                              | Completion evidence                                                               |
+| ------- | -------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `KNW-2` | Record the confirmed grill-with-docs delivery contract   | Done; exact documentation is on `main`; redundant pull request #1 was superseded. |
+| `KNW-3` | Prove development auth and scoped publication access     | Done from recorded PostgreSQL and browser evidence.                               |
+| `KNW-4` | Prove validated draft autosave and stale-write safety    | Done from recorded unit, integration, build, and browser evidence.                |
+| `KNW-5` | Prove atomic immutable publication and conflict handling | Done from recorded unit and PostgreSQL evidence.                                  |
+| `KNW-6` | Prove revision comparison and restore-as-new             | Done from the verified browser journey.                                           |
+| `KNW-7` | Record PostgreSQL and browser acceptance evidence        | Done from recorded PostgreSQL, desktop, responsive, and keyboard evidence.        |
+| `KNW-8` | Close the clean Compose startup gate                     | Done by reviewed and merged pull request #2 plus authenticated S3 evidence.       |
 
 Historical implementation predates this tracking pilot, so `KNW-3` through
-`KNW-7` explicitly cite storyboard evidence instead of inventing retroactive
-branches or pull requests. `KNW-8` is the only remaining product gate and must
-not be closed without a successful clean Compose startup.
+`KNW-7` cite storyboard evidence instead of inventing retroactive branches or
+pull requests. `KNW-8` closed the only remaining product gate with a successful
+clean Compose startup, review evidence, and a merged change.
 
 ## Pull-request checklist
 

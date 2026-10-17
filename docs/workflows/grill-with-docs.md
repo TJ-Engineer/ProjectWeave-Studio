@@ -11,13 +11,13 @@ is a clean Docker Compose startup.
 
 ## Sources of truth
 
-| Concern | Owner | Rule |
-| --- | --- | --- |
-| Product scope and release claim | Target application's `IMPLEMENTATION_PLAN.md` and `DEVELOPMENT_STORYBOARD.md` | A tracker or pull request cannot silently broaden scope or close a release gate. |
-| Resolved delivery language | Root `GLOSSARY.md` | Use canonical terms in storyboards, issues, branches, and pull requests. |
-| Consequential architecture | Target application's `docs/decisions/` | Add an ADR only for a hard-to-reverse, surprising decision made between real alternatives. |
-| Work state, ownership, and blockers | Vibe JIRA | The issue state must describe the work that is actually active. |
-| Proposed repository change and review | GitHub branch and pull request | A pull request contains one focused, reviewable change and its verification. |
+| Concern                               | Owner                                                                         | Rule                                                                                       |
+| ------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Product scope and release claim       | Target application's `IMPLEMENTATION_PLAN.md` and `DEVELOPMENT_STORYBOARD.md` | A tracker or pull request cannot silently broaden scope or close a release gate.           |
+| Resolved delivery language            | Root `GLOSSARY.md`                                                            | Use canonical terms in storyboards, issues, branches, and pull requests.                   |
+| Consequential architecture            | Target application's `docs/decisions/`                                        | Add an ADR only for a hard-to-reverse, surprising decision made between real alternatives. |
+| Work state, ownership, and blockers   | Vibe JIRA                                                                     | The issue state must describe the work that is actually active.                            |
+| Proposed repository change and review | GitHub branch and pull request                                                | A pull request contains one focused, reviewable change and its verification.               |
 
 `KNW-01` is a canonical story ID. Vibe JIRA generates unpadded tracker keys, so
 the pilot uses `KNW-1`, `KNW-2`, and so on. Keep `KNW-01` in each summary,
@@ -131,13 +131,13 @@ closed. Preserve historical issue, branch, pull-request, and evidence links.
 
 ## Status mapping
 
-| Vibe JIRA status | Meaning in this workflow |
-| --- | --- |
-| Backlog | Captured but not yet refined or scheduled. |
-| Selected | Confirmed story contract; ready to start, or waiting on a named external prerequisite. |
-| In Progress | Active work exists on a named branch. |
-| Review | A non-draft pull request is ready and required checks are available. |
-| Done | Acceptance evidence is complete and the change is merged, or a documented no-code verification is complete. |
+| Vibe JIRA status | Meaning in this workflow                                                                                    |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| Backlog          | Captured but not yet refined or scheduled.                                                                  |
+| Selected         | Confirmed story contract; ready to start, or waiting on a named external prerequisite.                      |
+| In Progress      | Active work exists on a named branch.                                                                       |
+| Review           | A non-draft pull request is ready and required checks are available.                                        |
+| Done             | Acceptance evidence is complete and the change is merged, or a documented no-code verification is complete. |
 
 When Vibe JIRA has no dedicated blocked state, retain the truthful lifecycle
 state, add the `blocked` label, and name the dependency in the description.
@@ -149,15 +149,15 @@ Epic: **`KNW-1` — `[KNW-01] Draft, publish, compare, and restore first slice`*
 
 Workflow change: [`docs/knw-2-grill-with-docs`](https://github.com/TJ-Engineer/ProjectWeave-Studio/tree/docs/knw-2-grill-with-docs) · [pull request #1](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/1)
 
-| Key | Pilot issue | Evidence/state intent |
-| --- | --- | --- |
-| `KNW-2` | Record the confirmed grill-with-docs delivery contract | Documentation branch and pull request; active until reviewed. |
-| `KNW-3` | Prove development auth and scoped publication access | Backfill as done from recorded PostgreSQL/browser evidence. |
-| `KNW-4` | Prove validated draft autosave and stale-write safety | Backfill as done from recorded unit, integration, build, and browser evidence. |
-| `KNW-5` | Prove atomic immutable publication and conflict handling | Backfill as done from recorded unit and PostgreSQL evidence. |
-| `KNW-6` | Prove revision comparison and restore-as-new | Backfill as done from the verified browser journey. |
-| `KNW-7` | Record PostgreSQL and browser acceptance evidence | Backfill as done while preserving the open Compose caveat. |
-| `KNW-8` | Close the clean Compose startup gate | Selected and labeled `blocked` until registry access permits a clean run. |
+| Key     | Pilot issue                                              | Evidence/state intent                                                          |
+| ------- | -------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `KNW-2` | Record the confirmed grill-with-docs delivery contract   | Documentation branch and pull request; active until reviewed.                  |
+| `KNW-3` | Prove development auth and scoped publication access     | Backfill as done from recorded PostgreSQL/browser evidence.                    |
+| `KNW-4` | Prove validated draft autosave and stale-write safety    | Backfill as done from recorded unit, integration, build, and browser evidence. |
+| `KNW-5` | Prove atomic immutable publication and conflict handling | Backfill as done from recorded unit and PostgreSQL evidence.                   |
+| `KNW-6` | Prove revision comparison and restore-as-new             | Backfill as done from the verified browser journey.                            |
+| `KNW-7` | Record PostgreSQL and browser acceptance evidence        | Backfill as done while preserving the open Compose caveat.                     |
+| `KNW-8` | Close the clean Compose startup gate                     | Selected and labeled `blocked` until registry access permits a clean run.      |
 
 Historical implementation predates this tracking pilot, so `KNW-3` through
 `KNW-7` explicitly cite storyboard evidence instead of inventing retroactive

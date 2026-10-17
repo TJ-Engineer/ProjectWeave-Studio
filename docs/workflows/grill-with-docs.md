@@ -147,6 +147,8 @@ state, add the `blocked` label, and name the dependency in the description.
 Project: **Vibe Knowledge (`KNW`)**  
 Epic: **`KNW-1` — `[KNW-01] Draft, publish, compare, and restore first slice`**
 
+Workflow change: [`docs/knw-2-grill-with-docs`](https://github.com/TJ-Engineer/ProjectWeave-Studio/tree/docs/knw-2-grill-with-docs) · [pull request #1](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/1)
+
 | Key | Pilot issue | Evidence/state intent |
 | --- | --- | --- |
 | `KNW-2` | Record the confirmed grill-with-docs delivery contract | Documentation branch and pull request; active until reviewed. |

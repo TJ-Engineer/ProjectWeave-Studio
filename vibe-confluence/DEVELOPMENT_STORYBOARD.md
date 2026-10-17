@@ -1,6 +1,6 @@
 # Vibe Knowledge Development Storyboard
 
-Last updated: 2026-10-16  
+Last updated: 2026-10-17
 Plan of record: [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)  
 Current release target: Release 1 — Safe, useful knowledge workspace
 
@@ -26,15 +26,15 @@ documentation must agree.
 
 ## Current snapshot
 
-| Item                 | Current state                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------- |
-| Delivery gate        | M0 architecture proof is in progress                                                                    |
-| Current milestone    | M0 — Safe publication foundation                                                                        |
-| Active product story | `KNW-01` Draft, publish, compare, and restore first slice                                               |
-| Blocking issues      | Docker Desktop cannot currently reach Docker Hub; production-image verification is pending              |
-| Story roll-up        | 0 done, 5 partial, 1 in progress, 6 planned                                                             |
-| Release readiness    | Not ready; no release candidate exists                                                                  |
-| Running path         | `npm run db:migrate` → `npm run db:seed` → `npm run dev`; Compose is defined but awaits registry access |
+| Item                 | Current state                                                                       |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| Delivery gate        | M0 validation passes on the KNW-8 branch; review and merge remain                   |
+| Current milestone    | M0 — Safe publication foundation                                                    |
+| Active product story | `KNW-01` Draft, publish, compare, and restore first slice                           |
+| Blocking issues      | None; the KNW-8 Compose fix awaits review and merge                                 |
+| Story roll-up        | 0 done, 5 partial, 1 in progress, 6 planned                                         |
+| Release readiness    | Not ready; no release candidate exists                                              |
+| Running path         | `docker compose up --build -d`; local Node/PostgreSQL development remains supported |
 
 ## Delivery storyline
 
@@ -58,8 +58,8 @@ flowchart LR
 
 | ID       | Story/outcome                                                           | Status        | Acceptance evidence or remaining work                                                                                     |
 | -------- | ----------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `KNW-01` | Draft, publish, compare, and restore first slice                        | `IN PROGRESS` | Local, PostgreSQL, desktop, responsive, and keyboard evidence passes; clean Compose startup remains                       |
-| `FND-01` | Strict TypeScript workspaces, CI gate, and one-image runtime            | `PARTIAL`     | Workspace gate, standalone build/start, health, migration, seed, and worker exist; clean Compose/CI remain                |
+| `KNW-01` | Draft, publish, compare, and restore first slice                        | `IN PROGRESS` | All implementation and clean Compose evidence passes on the KNW-8 branch; review and merge remain                         |
+| `FND-01` | Strict TypeScript workspaces, CI gate, and one-image runtime            | `PARTIAL`     | Workspace gate and clean Compose app, worker, migration, seed, health, and object-store startup pass; CI remains          |
 | `IAM-01` | Development login and provider-neutral production OIDC                  | `PARTIAL`     | Development login uses signed HTTP-only sessions and origin checks; deactivation and OIDC remain                          |
 | `SPC-01` | Space membership and restrictive page inheritance                       | `PARTIAL`     | Space capabilities and private unpublished drafts pass PostgreSQL tests; restrictive inheritance remains                  |
 | `PGE-01` | Concurrent page tree create, move, reorder, archive, trash, and restore | `PARTIAL`     | Root/child creation and durable ID routes work; move, reorder, archive, trash, restore, and scale remain                  |
@@ -115,9 +115,10 @@ Non-goals:
 
 ## Evidence log
 
-| Date       | Evidence                                                                                                                                                                                                                                                                                                                 |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2026-10-15 | Created the living storyboard and moved `KNW-01` into progress. No implementation gate is claimed yet.                                                                                                                                                                                                                   |
-| 2026-10-16 | Implemented the first executable publication path. Formatting, lint, strict types, four unit tests, the production build, migration `0001`, and two real-PostgreSQL integration tests pass, including unpublished-draft isolation. Compose startup remains required before `KNW-01` can be completed.                    |
-| 2026-10-16 | Browser-verified development sign-in, space creation, parent/child page creation, debounced autosave, refresh persistence, two publications, structural/plain-text comparison, and restore of revision 1 as revision 3 at desktop and 390 × 844 responsive widths; keyboard focus moved from Publish to the title field. |
-| 2026-10-16 | Production container verification remains open: two builds reached Docker BuildKit but failed on external registry networking (`ECONNRESET`, then Docker Hub `no route to host`). No container gate is claimed.                                                                                                          |
+| Date       | Evidence                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-15 | Created the living storyboard and moved `KNW-01` into progress. No implementation gate is claimed yet.                                                                                                                                                                                                                                                                                                          |
+| 2026-10-16 | Implemented the first executable publication path. Formatting, lint, strict types, four unit tests, the production build, migration `0001`, and two real-PostgreSQL integration tests pass, including unpublished-draft isolation. Compose startup remains required before `KNW-01` can be completed.                                                                                                           |
+| 2026-10-16 | Browser-verified development sign-in, space creation, parent/child page creation, debounced autosave, refresh persistence, two publications, structural/plain-text comparison, and restore of revision 1 as revision 3 at desktop and 390 × 844 responsive widths; keyboard focus moved from Publish to the title field.                                                                                        |
+| 2026-10-16 | Production container verification remains open: two builds reached Docker BuildKit but failed on external registry networking (`ECONNRESET`, then Docker Hub `no route to host`). No container gate is claimed.                                                                                                                                                                                                 |
+| 2026-10-17 | On the isolated `projectweave-knw8-gate` Compose project, a fresh build and startup completed: PostgreSQL and the SeaweedFS S3 API became healthy, migration `0001` and the seed job exited 0, the app and worker stayed running, `/health/live` and `/health/ready` returned 200, the login page and seeded login returned 200, and `npm run check` passed. KNW-01 remains in progress until review and merge. |

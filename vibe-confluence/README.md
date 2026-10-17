@@ -20,6 +20,25 @@ Open `http://localhost:3100` and use the development credentials configured in
 `.env`. Development login is unavailable unless
 `ENABLE_DEVELOPMENT_LOGIN=true`.
 
+### Container development
+
+The Compose stack starts PostgreSQL, an S3-compatible SeaweedFS object store,
+the migration and seed jobs, the web application, and the background worker:
+
+```sh
+docker compose up --build -d
+docker compose ps --all
+```
+
+Open `http://localhost:3100` and use the development credentials configured in
+`.env`, or the Compose-only defaults `admin@example.test` and
+`development-password`. Replace every default credential outside an isolated
+development environment.
+
+The object store is private to the Compose network. Application containers use
+its S3 API at `http://object-storage:8333`; no object-storage port is published
+to the host.
+
 ## Quality gates
 
 ```sh

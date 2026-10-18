@@ -178,7 +178,7 @@ async function querySpace(
     `SELECT s.id, s.organization_id, s.space_key, s.name, s.description,
             s.version, g.role
        FROM spaces s
-       LEFT JOIN space_grants g ON g.organization_id = s.organization_id
+       LEFT JOIN space_memberships g ON g.organization_id = s.organization_id
                                AND g.space_id = s.id
                                AND g.user_id = $2
       WHERE s.organization_id = $1
@@ -197,7 +197,7 @@ export async function listSpaces(
     `SELECT s.id, s.organization_id, s.space_key, s.name, s.description,
             s.version, g.role
        FROM spaces s
-       LEFT JOIN space_grants g ON g.organization_id = s.organization_id
+       LEFT JOIN space_memberships g ON g.organization_id = s.organization_id
                                AND g.space_id = s.id
                                AND g.user_id = $2
       WHERE s.organization_id = $1 AND s.archived_at IS NULL
@@ -224,7 +224,7 @@ export async function createSpace(
       [id, identity.organizationId, input.key, input.name, input.description],
     );
     await client.query(
-      `INSERT INTO space_grants (organization_id, space_id, user_id, role)
+      `INSERT INTO space_memberships (organization_id, space_id, user_id, role)
        VALUES ($1, $2, $3, 'ADMIN')`,
       [identity.organizationId, id, identity.id],
     );
@@ -254,7 +254,7 @@ export async function listPages(
     `SELECT id, organization_id, space_id, parent_id, current_revision_id,
             CASE WHEN current_revision_id IS NULL
                  THEN COALESCE((SELECT d.title FROM drafts d
-                                  WHERE d.page_id = pages.id AND d.owner_id = $3),
+                                  WHERE d.page_id = pages.id AND d.principal_id = $3),
                                'Untitled draft')
                  ELSE title END AS title,
             slug, version, created_by
@@ -322,7 +322,7 @@ export async function createPage(
     );
     await client.query(
       `INSERT INTO drafts
-        (id, organization_id, page_id, owner_id, title, body_json, schema_version)
+        (id, organization_id, page_id, principal_id, title, body_json, schema_version)
        VALUES ($1, $2, $3, $4, $5, $6, 1)`,
       [
         randomUUID(),
@@ -332,6 +332,11 @@ export async function createPage(
         input.title,
         emptyDocument,
       ],
+    );
+    await client.query(
+      `INSERT INTO page_aliases (organization_id, space_id, page_id, slug)
+       VALUES ($1, $2, $3, $4)`,
+      [identity.organizationId, space.id, id, pageResult.rows[0]!.slug],
     );
     await recordEffects(
       client,
@@ -356,7 +361,13 @@ async function uniqueSlug(
 ): Promise<string> {
   const base = slugify(title);
   const result = await client.query<{ slug: string }>(
-    `SELECT slug FROM pages WHERE space_id = $1 AND (slug = $2 OR slug LIKE $3)`,
+    `SELECT slug
+       FROM page_aliases
+      WHERE space_id = $1 AND (slug = $2 OR slug LIKE $3)
+      UNION
+     SELECT slug
+       FROM pages
+      WHERE space_id = $1 AND (slug = $2 OR slug LIKE $3)`,
     [spaceId, base, `${base}-%`],
   );
   const used = new Set(result.rows.map((row) => row.slug));
@@ -379,7 +390,7 @@ async function pageAccess(
             g.role
        FROM pages p
        JOIN spaces s ON s.organization_id = p.organization_id AND s.id = p.space_id
-       LEFT JOIN space_grants g ON g.organization_id = p.organization_id
+       LEFT JOIN space_memberships g ON g.organization_id = p.organization_id
                                AND g.space_id = p.space_id AND g.user_id = $2
       WHERE p.organization_id = $1 AND p.id = $3 AND p.state = 'ACTIVE'
         AND s.archived_at IS NULL
@@ -434,7 +445,7 @@ export async function getPageWorkspace(
   const draftResult = await getPool().query<DraftRow>(
     `SELECT id, title, body_json, base_revision_id, version, saved_at
        FROM drafts
-      WHERE organization_id = $1 AND page_id = $2 AND owner_id = $3`,
+      WHERE organization_id = $1 AND page_id = $2 AND principal_id = $3`,
     [identity.organizationId, pageId, identity.id],
   );
   let draft = draftResult.rows[0];
@@ -452,10 +463,10 @@ export async function getPageWorkspace(
     const source = current?.rows[0];
     const inserted = await getPool().query<DraftRow>(
       `INSERT INTO drafts
-        (id, organization_id, page_id, owner_id, base_revision_id, title,
+        (id, organization_id, page_id, principal_id, base_revision_id, title,
          body_json, schema_version)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 1)
-       ON CONFLICT (page_id, owner_id) DO UPDATE SET page_id = EXCLUDED.page_id
+       ON CONFLICT (page_id, principal_id) DO UPDATE SET page_id = EXCLUDED.page_id
        RETURNING id, title, body_json, base_revision_id, version, saved_at`,
       [
         randomUUID(),
@@ -495,7 +506,7 @@ export async function saveDraft(
     `UPDATE drafts
         SET title = $4, body_json = $5, schema_version = 1,
             version = version + 1, saved_at = now()
-      WHERE organization_id = $1 AND page_id = $2 AND owner_id = $3
+      WHERE organization_id = $1 AND page_id = $2 AND principal_id = $3
         AND version = $6 AND base_revision_id IS NOT DISTINCT FROM $7
       RETURNING id, title, body_json, base_revision_id, version, saved_at`,
     [
@@ -511,7 +522,7 @@ export async function saveDraft(
   if (!result.rows[0]) {
     const current = await getPool().query<{ version: number }>(
       `SELECT version FROM drafts
-        WHERE organization_id = $1 AND page_id = $2 AND owner_id = $3`,
+        WHERE organization_id = $1 AND page_id = $2 AND principal_id = $3`,
       [identity.organizationId, pageId, identity.id],
     );
     if (!current.rows[0])
@@ -574,7 +585,7 @@ export async function publishPage(
     const draftResult = await client.query<DraftRow>(
       `SELECT id, title, body_json, base_revision_id, version, saved_at
          FROM drafts
-        WHERE organization_id = $1 AND page_id = $2 AND owner_id = $3
+        WHERE organization_id = $1 AND page_id = $2 AND principal_id = $3
         FOR UPDATE`,
       [identity.organizationId, pageId, identity.id],
     );
@@ -627,7 +638,7 @@ export async function publishPage(
       `UPDATE drafts
           SET base_revision_id = $4, title = $5, body_json = $6,
               version = version + 1, saved_at = now()
-        WHERE organization_id = $1 AND page_id = $2 AND owner_id = $3`,
+        WHERE organization_id = $1 AND page_id = $2 AND principal_id = $3`,
       [
         identity.organizationId,
         pageId,
@@ -794,10 +805,10 @@ export async function restoreRevision(
     );
     await client.query(
       `INSERT INTO drafts
-        (id, organization_id, page_id, owner_id, base_revision_id, title,
+        (id, organization_id, page_id, principal_id, base_revision_id, title,
          body_json, schema_version)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 1)
-       ON CONFLICT (page_id, owner_id) DO UPDATE
+       ON CONFLICT (page_id, principal_id) DO UPDATE
          SET base_revision_id = EXCLUDED.base_revision_id,
              title = EXCLUDED.title, body_json = EXCLUDED.body_json,
              version = drafts.version + 1, saved_at = now()`,

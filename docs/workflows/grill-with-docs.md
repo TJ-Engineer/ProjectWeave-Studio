@@ -201,9 +201,10 @@ merged as `003be52`. `KNW-16` completed after
 as `99889ec`. `KNW-17` completed after
 [GitHub PR #8](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/8) merged
 as `46062a9`; canonical story `KNW-11` is reconciled Done. `KNW-12` is Selected,
-and `KNW-18` is the sole active execution issue on
+and `KNW-18` is in review through
+[GitHub PR #9](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/9) from
 `feat/knw-18-versioned-hierarchy`. No `PGE-01` or M1 completion is inferred from
-that active state.
+that review state.
 
 ## Pull-request checklist
 

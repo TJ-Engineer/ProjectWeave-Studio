@@ -258,7 +258,7 @@ support a completion claim.
 | `KNW-16` | Ship bounded membership and restriction administration          | Done          |
 | `KNW-17` | Prove adversarial access and offboarding behavior               | Done          |
 | `KNW-12` | `PGE-01` canonical story                                        | Selected      |
-| `KNW-18` | Implement versioned hierarchy moves and ordering                | In Progress   |
+| `KNW-18` | Implement versioned hierarchy moves and ordering                | Review        |
 | `KNW-19` | Implement durable aliases and atomic subtree lifecycle          | To Do         |
 | `KNW-20` | Ship lazy accessible tree and explicit read/edit views          | To Do         |
 | `KNW-21` | Prove hierarchy concurrency, recovery, authorization, and scale | To Do         |
@@ -283,7 +283,9 @@ as `99889ec`. The adversarial access branch
 [GitHub pull request #8](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/8)
 as `46062a9`; `KNW-17` and canonical story `KNW-11` are Done. The active branch
 is `feat/knw-18-versioned-hierarchy`; it owns bounded child-tree reads,
-per-sibling-list versions, and atomic access-preserving moves for `PGE-01`.
+per-sibling-list versions, and atomic access-preserving moves for `PGE-01` and
+is in review through
+[GitHub pull request #9](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/9).
 Subsequent branches follow `<type>/<tracker-key-lowercase>-<short-slug>` and
 start only when their issue becomes the active work item.
 

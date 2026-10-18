@@ -7,12 +7,15 @@ import {
   type MembershipMutationResult,
   type MovePageResult,
   type OrganizationMemberCandidate,
+  type PageAliasResolution,
   type PageBreadcrumb,
+  type PageLifecycleResult,
   type PageRestrictionAdministration,
   type PageSummary,
   type PageTreeNode,
   type PageTreePage,
   type PageWorkspace,
+  type PublishedPageView,
   type RevisionView,
   type SpaceMemberPage,
   type SpaceMemberView,
@@ -62,8 +65,16 @@ interface PageRow extends QueryResultRow {
   title: string;
   slug: string;
   sibling_rank: string;
+  state: "ACTIVE" | "ARCHIVED" | "TRASHED";
+  lifecycle_root_id: string | null;
+  lifecycle_before_page_id: string | null;
+  lifecycle_after_page_id: string | null;
   version: number;
   created_by: string;
+}
+
+interface LifecycleSubtreeRow extends PageRow {
+  published: boolean;
 }
 
 interface DraftRow extends QueryResultRow {
@@ -156,6 +167,7 @@ function pageFromRow(row: PageRow): PageSummary {
     parentId: row.parent_id,
     title: row.title,
     slug: row.slug,
+    state: row.state,
     currentRevisionId: row.current_revision_id,
     version: row.version,
   };
@@ -748,7 +760,7 @@ export async function listPages(
                                   WHERE d.page_id = pages.id AND d.principal_id = $3),
                                'Untitled draft')
                  ELSE title END AS title,
-            slug, version, created_by
+            slug, state, lifecycle_root_id, version, created_by
        FROM pages
       WHERE organization_id = $1 AND space_id = $2 AND state = 'ACTIVE'
         AND has_effective_page_access($1, $3, id)
@@ -830,7 +842,8 @@ async function listPageTreeSnapshot(
                                     AND draft.principal_id = $4),
                                'Untitled draft')
                  ELSE page.title END AS title,
-            page.slug, page.sibling_rank, page.version, page.created_by,
+            page.slug, page.sibling_rank, page.state, page.lifecycle_root_id,
+            page.version, page.created_by,
             EXISTS (
               SELECT 1
                 FROM pages child
@@ -965,6 +978,7 @@ export async function createPage(
         409,
       );
     }
+    await lockSpaceSlugNamespace(client, space.id);
     const rank = await client.query<{ next_rank: string }>(
       `SELECT COALESCE(MAX(sibling_rank), 0) + 1024 AS next_rank
          FROM pages
@@ -978,7 +992,8 @@ export async function createPage(
         (id, organization_id, space_id, parent_id, title, slug, sibling_rank, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, organization_id, space_id, parent_id, current_revision_id,
-                 title, slug, version, created_by`,
+                 title, slug, sibling_rank, state, lifecycle_root_id, version,
+                 created_by`,
       [
         id,
         identity.organizationId,
@@ -1093,6 +1108,72 @@ function neighborRanks(
     afterRank:
       afterIndex >= 0 ? (siblings[afterIndex]?.sibling_rank ?? null) : null,
   };
+}
+
+function numericRankUnits(rank: string): bigint {
+  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(rank);
+  if (!match) throw new Error("Invalid persisted sibling rank");
+  const scale = 1_000_000_000_000_000n;
+  const units =
+    BigInt(match[2]!) * scale +
+    BigInt((match[3] ?? "").padEnd(15, "0").slice(0, 15) || "0");
+  return match[1] ? -units : units;
+}
+
+function positionAroundStoredRank(
+  siblings: SiblingPageRow[],
+  rank: string,
+  pageId: string,
+): { beforePageId: string | null; afterPageId: string | null } {
+  const rankUnits = numericRankUnits(rank);
+  const afterIndex = siblings.findIndex((sibling) => {
+    const siblingUnits = numericRankUnits(sibling.sibling_rank);
+    return (
+      siblingUnits > rankUnits ||
+      (siblingUnits === rankUnits && sibling.id > pageId)
+    );
+  });
+  if (afterIndex < 0) {
+    return {
+      beforePageId: siblings.at(-1)?.id ?? null,
+      afterPageId: null,
+    };
+  }
+  return {
+    beforePageId: siblings[afterIndex - 1]?.id ?? null,
+    afterPageId: siblings[afterIndex]!.id,
+  };
+}
+
+function originalRestoreNeighbors(
+  siblings: SiblingPageRow[],
+  root: PageRow,
+): { beforePageId: string | null; afterPageId: string | null } {
+  const beforeIndex = root.lifecycle_before_page_id
+    ? siblings.findIndex((page) => page.id === root.lifecycle_before_page_id)
+    : -1;
+  const afterIndex = root.lifecycle_after_page_id
+    ? siblings.findIndex((page) => page.id === root.lifecycle_after_page_id)
+    : -1;
+  if (beforeIndex >= 0 && afterIndex > beforeIndex) {
+    return {
+      beforePageId: siblings[beforeIndex]!.id,
+      afterPageId: siblings[beforeIndex + 1]?.id ?? null,
+    };
+  }
+  if (beforeIndex >= 0) {
+    return {
+      beforePageId: siblings[beforeIndex]!.id,
+      afterPageId: siblings[beforeIndex + 1]?.id ?? null,
+    };
+  }
+  if (afterIndex >= 0) {
+    return {
+      beforePageId: siblings[afterIndex - 1]?.id ?? null,
+      afterPageId: siblings[afterIndex]!.id,
+    };
+  }
+  return positionAroundStoredRank(siblings, root.sibling_rank, root.id);
 }
 
 async function calculateSiblingRank(
@@ -1513,8 +1594,8 @@ export async function movePage(
               updated_at = now()
         WHERE organization_id = $1 AND space_id = $2 AND id = $3
         RETURNING id, organization_id, space_id, parent_id,
-                  current_revision_id, title, slug, sibling_rank, version,
-                  created_by`,
+                  current_revision_id, title, slug, sibling_rank, state,
+                  lifecycle_root_id, version, created_by`,
       [
         identity.organizationId,
         sourceAccess.page.space_id,
@@ -1600,27 +1681,680 @@ export async function movePage(
   });
 }
 
+async function lifecyclePageAccess(
+  identity: UserIdentity,
+  pageId: string,
+  client: Pick<PoolClient, "query">,
+): Promise<{ page: PageRow; space: SpaceRow } | null> {
+  const result = await client.query<PageRow & SpaceRow>(
+    `SELECT p.id, p.organization_id, p.space_id, p.parent_id,
+            p.current_revision_id, p.title, p.slug, p.sibling_rank, p.state,
+            p.lifecycle_root_id, p.lifecycle_before_page_id,
+            p.lifecycle_after_page_id, p.version, p.created_by,
+            s.space_key, s.name, s.description, s.version AS space_version,
+            s.membership_version AS space_membership_version,
+            membership.role
+       FROM pages p
+       JOIN spaces s
+         ON s.organization_id = p.organization_id AND s.id = p.space_id
+       LEFT JOIN space_memberships membership
+         ON membership.organization_id = p.organization_id
+        AND membership.space_id = p.space_id
+        AND membership.user_id = $2
+      WHERE p.organization_id = $1 AND p.id = $3
+        AND s.archived_at IS NULL
+        AND ($4 = 'ADMIN' OR membership.user_id IS NOT NULL)
+        AND (
+          (
+            p.state IN ('ACTIVE', 'ARCHIVED')
+            AND has_effective_page_access($1, $2, p.id)
+          )
+          OR (
+            p.state = 'TRASHED'
+            AND (
+              $4 = 'ADMIN'
+              OR membership.role = 'ADMIN'
+              OR (
+                p.current_revision_id IS NULL
+                AND p.created_by = $2
+                AND has_effective_page_policy_access($1, $2, p.id)
+              )
+            )
+          )
+        )`,
+    [identity.organizationId, identity.id, pageId, identity.organizationRole],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    page: row,
+    space: {
+      ...row,
+      id: row.space_id,
+      version: Number(
+        (row as unknown as { space_version: number }).space_version,
+      ),
+      membership_version: Number(
+        (row as unknown as { space_membership_version: number })
+          .space_membership_version,
+      ),
+    },
+  };
+}
+
+async function lockLifecycleSubtree(
+  client: Pick<PoolClient, "query">,
+  organizationId: string,
+  spaceId: string,
+  rootPageId: string,
+): Promise<LifecycleSubtreeRow[]> {
+  const result = await client.query<LifecycleSubtreeRow>(
+    `WITH RECURSIVE subtree AS (
+       SELECT root.id, root.state, root.lifecycle_root_id
+         FROM pages root
+        WHERE root.organization_id = $1 AND root.space_id = $2
+          AND root.id = $3
+
+       UNION ALL
+
+       SELECT child.id, child.state, child.lifecycle_root_id
+         FROM pages child
+         JOIN subtree parent
+           ON child.parent_id = parent.id
+          AND child.state = parent.state
+          AND child.lifecycle_root_id IS NOT DISTINCT FROM parent.lifecycle_root_id
+        WHERE child.organization_id = $1 AND child.space_id = $2
+     )
+     SELECT page.id, page.organization_id, page.space_id, page.parent_id,
+            page.current_revision_id, page.title, page.slug,
+            page.sibling_rank, page.state, page.lifecycle_root_id,
+            page.lifecycle_before_page_id, page.lifecycle_after_page_id,
+            page.version, page.created_by,
+            page.current_revision_id IS NOT NULL AS published
+       FROM pages page
+       JOIN subtree ON subtree.id = page.id
+      ORDER BY page.id
+      FOR UPDATE OF page`,
+    [organizationId, spaceId, rootPageId],
+  );
+  return result.rows;
+}
+
+function isLifecycleAdministrator(
+  identity: UserIdentity,
+  space: SpaceRow,
+): boolean {
+  return identity.organizationRole === "ADMIN" || space.role === "ADMIN";
+}
+
+async function activeLifecycleDestination(
+  client: Pick<PoolClient, "query">,
+  identity: UserIdentity,
+  spaceId: string,
+  destinationParentId: string | null,
+): Promise<boolean> {
+  if (destinationParentId === null) return true;
+  const result = await client.query(
+    `SELECT 1
+       FROM pages
+      WHERE organization_id = $1 AND space_id = $2 AND id = $3
+        AND state = 'ACTIVE'
+        AND has_effective_page_policy_access($1, $4, id)`,
+    [identity.organizationId, spaceId, destinationParentId, identity.id],
+  );
+  return Boolean(result.rowCount);
+}
+
+export async function changePageLifecycle(
+  identity: UserIdentity,
+  pageId: string,
+  input: {
+    action: "ARCHIVE" | "TRASH" | "RESTORE";
+    expectedVersion: number;
+    expectedParentVersion: number;
+    destinationParentId?: string | null | undefined;
+    beforePageId?: string | null | undefined;
+    afterPageId?: string | null | undefined;
+  },
+  correlationId: string,
+): Promise<PageLifecycleResult> {
+  return inTransaction(async (client) => {
+    let access = await lifecyclePageAccess(identity, pageId, client);
+    if (!access) throw new DomainError("NOT_FOUND", "Page not found", 404);
+    const lockedSpace = await querySpace(
+      identity,
+      access.page.space_id,
+      client,
+      true,
+    );
+    if (!lockedSpace) {
+      throw new DomainError(
+        "PAGE_LIFECYCLE_CHANGED",
+        "The page lifecycle changed. Refresh and try again.",
+        409,
+      );
+    }
+    access = await lifecyclePageAccess(identity, pageId, client);
+    if (!access) {
+      throw new DomainError(
+        "PAGE_LIFECYCLE_CHANGED",
+        "The page lifecycle changed. Refresh and try again.",
+        409,
+      );
+    }
+
+    if (input.action === "ARCHIVE") {
+      assertCapability(
+        identity.organizationRole,
+        access.space.role,
+        "page:archive",
+      );
+    } else if (input.action === "TRASH") {
+      assertCapability(
+        identity.organizationRole,
+        access.space.role,
+        "page:trash",
+      );
+    } else {
+      assertCapability(
+        identity.organizationRole,
+        access.space.role,
+        "page:restore",
+      );
+    }
+
+    const subtree = await lockLifecycleSubtree(
+      client,
+      identity.organizationId,
+      access.page.space_id,
+      pageId,
+    );
+    const root = subtree.find((page) => page.id === pageId);
+    if (!root) {
+      throw new DomainError(
+        "PAGE_LIFECYCLE_CHANGED",
+        "The page lifecycle changed. Refresh and try again.",
+        409,
+      );
+    }
+    if (root.version !== input.expectedVersion) {
+      throw new DomainError(
+        "PAGE_VERSION_CONFLICT",
+        "The page changed since it was loaded. Refresh and try again.",
+        409,
+      );
+    }
+
+    const administrator = isLifecycleAdministrator(identity, access.space);
+    const unpublished = subtree.filter((page) => !page.published);
+    const foreignUnpublished = unpublished.filter(
+      (page) => page.created_by !== identity.id,
+    );
+    if (foreignUnpublished.length) {
+      throw new DomainError(
+        "SUBTREE_PRIVATE_DRAFTS",
+        `The subtree contains ${foreignUnpublished.length} unpublished page${
+          foreignUnpublished.length === 1 ? "" : "s"
+        } owned by another principal`,
+        409,
+      );
+    }
+
+    if (input.action === "ARCHIVE") {
+      if (root.state !== "ACTIVE") {
+        throw new DomainError(
+          "PAGE_STATE_CONFLICT",
+          "Only an active subtree can be archived",
+          409,
+        );
+      }
+      if (unpublished.length) {
+        throw new DomainError(
+          "SUBTREE_UNPUBLISHED",
+          `Archive requires every page to be published; ${unpublished.length} unpublished page${
+            unpublished.length === 1 ? "" : "s"
+          } remain`,
+          422,
+        );
+      }
+    } else if (input.action === "TRASH") {
+      if (root.state === "TRASHED") {
+        throw new DomainError(
+          "PAGE_STATE_CONFLICT",
+          "The subtree is already trashed",
+          409,
+        );
+      }
+      if (!administrator && subtree.some((page) => page.published)) {
+        throw new DomainError(
+          "FORBIDDEN",
+          "Only an administrator may trash a published subtree",
+          403,
+        );
+      }
+      if (
+        !administrator &&
+        subtree.some((page) => page.created_by !== identity.id)
+      ) {
+        throw new DomainError(
+          "FORBIDDEN",
+          "An editor may trash only their own unpublished subtree",
+          403,
+        );
+      }
+    } else {
+      if (root.state === "ACTIVE") {
+        throw new DomainError(
+          "PAGE_STATE_CONFLICT",
+          "Only an archived or trashed subtree can be restored",
+          409,
+        );
+      }
+      if (!administrator && subtree.some((page) => page.published)) {
+        throw new DomainError(
+          "FORBIDDEN",
+          "Only an administrator may restore a published subtree",
+          403,
+        );
+      }
+      if (
+        !administrator &&
+        subtree.some((page) => page.created_by !== identity.id)
+      ) {
+        throw new DomainError(
+          "FORBIDDEN",
+          "An editor may restore only their own unpublished subtree",
+          403,
+        );
+      }
+    }
+
+    let destinationParentId = root.parent_id;
+    let destinationRank = root.sibling_rank;
+    let restoredToFallback = false;
+    if (input.action === "RESTORE") {
+      const originalParentActive = await activeLifecycleDestination(
+        client,
+        identity,
+        root.space_id,
+        root.parent_id,
+      );
+      if (originalParentActive) {
+        if (
+          (input.destinationParentId !== undefined &&
+            input.destinationParentId !== root.parent_id) ||
+          input.beforePageId !== undefined ||
+          input.afterPageId !== undefined
+        ) {
+          throw new DomainError(
+            "RESTORE_DESTINATION_INVALID",
+            "The original parent is active and remains the restore destination",
+            422,
+          );
+        }
+      } else {
+        if (input.destinationParentId === undefined) {
+          throw new DomainError(
+            "RESTORE_DESTINATION_REQUIRED",
+            "Choose an active destination because the original parent is unavailable",
+            422,
+          );
+        }
+        if (!administrator) {
+          throw new DomainError(
+            "FORBIDDEN",
+            "Only an administrator may choose a fallback restore destination",
+            403,
+          );
+        }
+        if (
+          !(await activeLifecycleDestination(
+            client,
+            identity,
+            root.space_id,
+            input.destinationParentId,
+          ))
+        ) {
+          throw new DomainError(
+            "NOT_FOUND",
+            "Restore destination not found",
+            404,
+          );
+        }
+        destinationParentId = input.destinationParentId;
+        restoredToFallback = true;
+      }
+    }
+
+    const siblingList = await client.query<SiblingListRow>(
+      `SELECT parent_id, version
+         FROM page_sibling_lists
+        WHERE organization_id = $1 AND space_id = $2
+          AND parent_id IS NOT DISTINCT FROM $3
+        FOR UPDATE`,
+      [identity.organizationId, root.space_id, destinationParentId],
+    );
+    const parentList = siblingList.rows[0];
+    if (!parentList) {
+      throw new DomainError(
+        "HIERARCHY_STATE_INVALID",
+        "The page hierarchy is not initialized",
+        409,
+      );
+    }
+    assertSiblingListVersion(input.expectedParentVersion, parentList.version);
+
+    let restrictionMaterialized = false;
+    const leavingActive = root.state === "ACTIVE" && input.action !== "RESTORE";
+    let lifecycleBeforePageId = root.lifecycle_before_page_id;
+    let lifecycleAfterPageId = root.lifecycle_after_page_id;
+    if (leavingActive) {
+      const siblings = await siblingPages(
+        client,
+        identity.organizationId,
+        root.space_id,
+        root.parent_id,
+        pageId,
+      );
+      const origin = positionAroundStoredRank(
+        siblings,
+        root.sibling_rank,
+        root.id,
+      );
+      lifecycleBeforePageId = origin.beforePageId;
+      lifecycleAfterPageId = origin.afterPageId;
+    }
+    if (leavingActive && subtree.some((page) => page.published)) {
+      const accessRows = await hierarchyMemberAccess(
+        client,
+        identity.organizationId,
+        root.space_id,
+        pageId,
+        null,
+      );
+      restrictionMaterialized = accessRows.some(
+        (row) => row.future_allowed && !row.old_allowed,
+      );
+      if (restrictionMaterialized) {
+        await materializePageRestriction(
+          client,
+          identity,
+          root.space_id,
+          pageId,
+          accessRows.filter((row) => row.old_allowed).map((row) => row.user_id),
+        );
+      }
+    }
+
+    if (input.action === "RESTORE") {
+      if (restoredToFallback) {
+        const accessRows = await hierarchyMemberAccess(
+          client,
+          identity.organizationId,
+          root.space_id,
+          pageId,
+          destinationParentId,
+        );
+        restrictionMaterialized = accessRows.some(
+          (row) => row.future_allowed && !row.old_allowed,
+        );
+        if (restrictionMaterialized) {
+          await materializePageRestriction(
+            client,
+            identity,
+            root.space_id,
+            pageId,
+            accessRows
+              .filter((row) => row.old_allowed)
+              .map((row) => row.user_id),
+          );
+        }
+      }
+      let siblings = await siblingPages(
+        client,
+        identity.organizationId,
+        root.space_id,
+        destinationParentId,
+        pageId,
+      );
+      let requestedNeighbors = restoredToFallback
+        ? {
+            beforePageId: input.beforePageId ?? null,
+            afterPageId: input.afterPageId ?? null,
+          }
+        : originalRestoreNeighbors(siblings, root);
+      let ranks = neighborRanks(
+        siblings,
+        requestedNeighbors.beforePageId,
+        requestedNeighbors.afterPageId,
+      );
+      let placement = await calculateSiblingRank(
+        client,
+        siblings,
+        ranks.beforeRank,
+        ranks.afterRank,
+      );
+      if (placement.exhausted) {
+        await rebalanceSiblingList(
+          client,
+          identity.organizationId,
+          root.space_id,
+          destinationParentId,
+        );
+        siblings = await siblingPages(
+          client,
+          identity.organizationId,
+          root.space_id,
+          destinationParentId,
+          pageId,
+        );
+        requestedNeighbors = restoredToFallback
+          ? requestedNeighbors
+          : originalRestoreNeighbors(siblings, root);
+        ranks = neighborRanks(
+          siblings,
+          requestedNeighbors.beforePageId,
+          requestedNeighbors.afterPageId,
+        );
+        placement = await calculateSiblingRank(
+          client,
+          siblings,
+          ranks.beforeRank,
+          ranks.afterRank,
+        );
+      }
+      if (placement.exhausted) {
+        throw new DomainError(
+          "PAGE_RANK_EXHAUSTED",
+          "The page order could not be rebalanced",
+          409,
+        );
+      }
+      destinationRank = placement.rank;
+    }
+
+    const targetState =
+      input.action === "ARCHIVE"
+        ? "ARCHIVED"
+        : input.action === "TRASH"
+          ? "TRASHED"
+          : "ACTIVE";
+    const updated = await client.query<PageRow>(
+      `UPDATE pages
+          SET state = $4,
+              lifecycle_root_id = CASE
+                WHEN $4 = 'ACTIVE' THEN NULL::uuid
+                ELSE $3::uuid
+              END,
+              lifecycle_before_page_id = CASE
+                WHEN $4 = 'ACTIVE' THEN NULL::uuid
+                WHEN id = $3 AND $10::boolean THEN $8::uuid
+                ELSE lifecycle_before_page_id
+              END,
+              lifecycle_after_page_id = CASE
+                WHEN $4 = 'ACTIVE' THEN NULL::uuid
+                WHEN id = $3 AND $10::boolean THEN $9::uuid
+                ELSE lifecycle_after_page_id
+              END,
+              parent_id = CASE WHEN id = $3 THEN $5 ELSE parent_id END,
+              sibling_rank = CASE WHEN id = $3 THEN $6 ELSE sibling_rank END,
+              version = version + 1,
+              updated_at = now()
+        WHERE organization_id = $1 AND space_id = $2
+          AND id = ANY($7::uuid[])
+        RETURNING id, organization_id, space_id, parent_id,
+                  current_revision_id, title, slug, sibling_rank, state,
+                  lifecycle_root_id, lifecycle_before_page_id,
+                  lifecycle_after_page_id, version, created_by`,
+      [
+        identity.organizationId,
+        root.space_id,
+        pageId,
+        targetState,
+        destinationParentId,
+        destinationRank,
+        subtree.map((page) => page.id),
+        lifecycleBeforePageId,
+        lifecycleAfterPageId,
+        leavingActive,
+      ],
+    );
+    const updatedRoot = updated.rows.find((page) => page.id === pageId);
+    if (!updatedRoot) throw new Error("Lifecycle root update failed");
+
+    const changesActiveProjection =
+      (root.state === "ACTIVE" && targetState !== "ACTIVE") ||
+      (root.state !== "ACTIVE" && targetState === "ACTIVE");
+    let parentVersion = parentList.version;
+    if (changesActiveProjection) {
+      const bumped = await client.query<{ version: number }>(
+        `UPDATE page_sibling_lists
+            SET version = version + 1, updated_at = now()
+          WHERE organization_id = $1 AND space_id = $2
+            AND parent_id IS NOT DISTINCT FROM $3
+          RETURNING version`,
+        [identity.organizationId, root.space_id, destinationParentId],
+      );
+      parentVersion = bumped.rows[0]!.version;
+    }
+
+    const action =
+      input.action === "ARCHIVE"
+        ? "page.archived"
+        : input.action === "TRASH"
+          ? "page.trashed"
+          : "page.restored";
+    await recordEffects(
+      client,
+      identity,
+      action,
+      "page",
+      pageId,
+      correlationId,
+      {
+        affectedPageCount: subtree.length,
+        sourceParentId: root.parent_id,
+        destinationParentId,
+        restoredToFallback,
+        restrictionMaterialized,
+      },
+    );
+    return {
+      page: pageFromRow(updatedRoot),
+      action: input.action,
+      affectedPageCount: subtree.length,
+      parentVersion,
+      restrictionMaterialized,
+      restoredToFallback,
+    };
+  });
+}
+
 async function uniqueSlug(
   client: Pick<PoolClient, "query">,
   spaceId: string,
   title: string,
+  pageId: string | null = null,
 ): Promise<string> {
   const base = slugify(title);
-  const result = await client.query<{ slug: string }>(
-    `SELECT slug
+  const result = await client.query<{ slug: string; page_id: string }>(
+    `SELECT slug, page_id
        FROM page_aliases
       WHERE space_id = $1 AND (slug = $2 OR slug LIKE $3)
-      UNION
-     SELECT slug
-       FROM pages
-      WHERE space_id = $1 AND (slug = $2 OR slug LIKE $3)`,
+      ORDER BY slug`,
     [spaceId, base, `${base}-%`],
   );
-  const used = new Set(result.rows.map((row) => row.slug));
-  if (!used.has(base)) return base;
+  const owners = new Map(result.rows.map((row) => [row.slug, row.page_id]));
+  if (!owners.has(base) || owners.get(base) === pageId) return base;
   let suffix = 2;
-  while (used.has(`${base}-${suffix}`)) suffix += 1;
+  while (
+    owners.has(`${base}-${suffix}`) &&
+    owners.get(`${base}-${suffix}`) !== pageId
+  ) {
+    suffix += 1;
+  }
   return `${base}-${suffix}`;
+}
+
+async function lockSpaceSlugNamespace(
+  client: Pick<PoolClient, "query">,
+  spaceId: string,
+): Promise<void> {
+  await client.query(
+    `SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))`,
+    [`page-slug:${spaceId}`],
+  );
+}
+
+async function assignPublishedTitle(
+  client: Pick<PoolClient, "query">,
+  page: PageRow,
+  title: string,
+): Promise<{ slug: string; renamed: boolean }> {
+  await lockSpaceSlugNamespace(client, page.space_id);
+  const slug = await uniqueSlug(client, page.space_id, title, page.id);
+  await client.query(
+    `INSERT INTO page_aliases (organization_id, space_id, page_id, slug)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (space_id, slug) DO NOTHING`,
+    [page.organization_id, page.space_id, page.id, slug],
+  );
+  return { slug, renamed: page.title !== title || page.slug !== slug };
+}
+
+export async function resolvePageAlias(
+  identity: UserIdentity,
+  spaceKey: string,
+  slug: string,
+): Promise<PageAliasResolution> {
+  const space = await querySpace(identity, spaceKey);
+  if (!space) throw new DomainError("NOT_FOUND", "Page not found", 404);
+  assertCapability(identity.organizationRole, space.role, "page:view");
+  const result = await getPool().query<{
+    id: string;
+    slug: string;
+    state: "ACTIVE" | "ARCHIVED";
+  }>(
+    `SELECT page.id, page.slug, page.state
+       FROM page_aliases alias
+       JOIN pages page
+         ON page.organization_id = alias.organization_id
+        AND page.space_id = alias.space_id
+        AND page.id = alias.page_id
+      WHERE alias.organization_id = $1 AND alias.space_id = $2
+        AND alias.slug = $3
+        AND page.state IN ('ACTIVE', 'ARCHIVED')
+        AND has_effective_page_access($1, $4, page.id)`,
+    [identity.organizationId, space.id, slug, identity.id],
+  );
+  const page = result.rows[0];
+  if (!page) throw new DomainError("NOT_FOUND", "Page not found", 404);
+  return {
+    pageId: page.id,
+    canonicalSlug: page.slug,
+    state: page.state,
+    canonicalPath: `/pages/${page.id}`,
+  };
 }
 
 async function pageAccess(
@@ -1631,7 +2365,8 @@ async function pageAccess(
 ): Promise<{ page: PageRow; space: SpaceRow } | null> {
   const result = await client.query<PageRow & SpaceRow>(
     `SELECT p.id, p.organization_id, p.space_id, p.parent_id,
-            p.current_revision_id, p.title, p.slug, p.version, p.created_by,
+            p.current_revision_id, p.title, p.slug, p.sibling_rank, p.state,
+            p.version, p.created_by,
             s.space_key, s.name, s.description, s.version AS space_version,
             s.membership_version AS space_membership_version,
             g.role
@@ -1661,6 +2396,75 @@ async function pageAccess(
           .space_membership_version,
       ),
     },
+  };
+}
+
+export async function getPublishedPage(
+  identity: UserIdentity,
+  pageId: string,
+): Promise<PublishedPageView> {
+  const result = await getPool().query<PageRow & SpaceRow>(
+    `SELECT page.id, page.organization_id, page.space_id, page.parent_id,
+            page.current_revision_id, page.title, page.slug,
+            page.sibling_rank, page.state, page.version, page.created_by,
+            space.space_key, space.name, space.description,
+            space.version AS space_version,
+            space.membership_version AS space_membership_version,
+            membership.role
+       FROM pages page
+       JOIN spaces space
+         ON space.organization_id = page.organization_id
+        AND space.id = page.space_id
+       LEFT JOIN space_memberships membership
+         ON membership.organization_id = page.organization_id
+        AND membership.space_id = page.space_id
+        AND membership.user_id = $2
+      WHERE page.organization_id = $1 AND page.id = $3
+        AND page.state IN ('ACTIVE', 'ARCHIVED')
+        AND page.current_revision_id IS NOT NULL
+        AND space.archived_at IS NULL
+        AND ($4 = 'ADMIN' OR membership.user_id IS NOT NULL)
+        AND has_effective_page_access($1, $2, page.id)`,
+    [identity.organizationId, identity.id, pageId, identity.organizationRole],
+  );
+  const row = result.rows[0];
+  if (!row) throw new DomainError("NOT_FOUND", "Page not found", 404);
+  const revision = await getPool().query<RevisionRow>(
+    `SELECT revision.id, revision.number, revision.title,
+            revision.body_json, revision.body_text, revision.summary,
+            author.display_name AS author_name, revision.created_at
+       FROM page_revisions revision
+       JOIN users author
+         ON author.organization_id = revision.organization_id
+        AND author.id = revision.author_id
+      WHERE revision.organization_id = $1 AND revision.page_id = $2
+        AND revision.id = $3`,
+    [identity.organizationId, pageId, row.current_revision_id],
+  );
+  const current = revision.rows[0];
+  if (!current) {
+    throw new DomainError(
+      "PUBLICATION_STATE_INVALID",
+      "The published page is unavailable",
+      409,
+    );
+  }
+  const space: SpaceRow = {
+    ...row,
+    id: row.space_id,
+    version: Number(
+      (row as unknown as { space_version: number }).space_version,
+    ),
+    membership_version: Number(
+      (row as unknown as { space_membership_version: number })
+        .space_membership_version,
+    ),
+  };
+  return {
+    page: pageFromRow(row),
+    space: spaceFromRow(space, identity),
+    revision: revisionFromRow(current),
+    readOnly: true,
   };
 }
 
@@ -1851,6 +2655,11 @@ export async function publishPage(
         409,
       );
     }
+    const publishedTitle = await assignPublishedTitle(
+      client,
+      access.page,
+      input.title,
+    );
     const next = await client.query<{ next_number: number }>(
       `SELECT COALESCE(MAX(number), 0) + 1 AS next_number
          FROM page_revisions WHERE organization_id = $1 AND page_id = $2`,
@@ -1881,10 +2690,17 @@ export async function publishPage(
     );
     await client.query(
       `UPDATE pages
-          SET current_revision_id = $3, title = $4, version = version + 1,
+          SET current_revision_id = $3, title = $4, slug = $5,
+              version = version + 1,
               updated_at = now()
         WHERE organization_id = $1 AND id = $2`,
-      [identity.organizationId, pageId, revisionId, input.title],
+      [
+        identity.organizationId,
+        pageId,
+        revisionId,
+        input.title,
+        publishedTitle.slug,
+      ],
     );
     await client.query(
       `UPDATE drafts
@@ -1909,6 +2725,17 @@ export async function publishPage(
       correlationId,
       { revisionId, revisionNumber: next.rows[0]!.next_number },
     );
+    if (access.page.current_revision_id && publishedTitle.renamed) {
+      await recordEffects(
+        client,
+        identity,
+        "page.renamed",
+        "page",
+        pageId,
+        correlationId,
+        { revisionId },
+      );
+    }
     return revisionFromRow(inserted.rows[0]!);
   });
 }
@@ -2020,6 +2847,11 @@ export async function restoreRevision(
     );
     const source = sourceResult.rows[0];
     if (!source) throw new DomainError("NOT_FOUND", "Revision not found", 404);
+    const publishedTitle = await assignPublishedTitle(
+      client,
+      access.page,
+      source.title,
+    );
     const next = await client.query<{ next_number: number }>(
       `SELECT COALESCE(MAX(number), 0) + 1 AS next_number
          FROM page_revisions WHERE organization_id = $1 AND page_id = $2`,
@@ -2050,10 +2882,17 @@ export async function restoreRevision(
     );
     await client.query(
       `UPDATE pages
-          SET current_revision_id = $3, title = $4, version = version + 1,
+          SET current_revision_id = $3, title = $4, slug = $5,
+              version = version + 1,
               updated_at = now()
         WHERE organization_id = $1 AND id = $2`,
-      [identity.organizationId, pageId, revisionId, source.title],
+      [
+        identity.organizationId,
+        pageId,
+        revisionId,
+        source.title,
+        publishedTitle.slug,
+      ],
     );
     await client.query(
       `INSERT INTO drafts
@@ -2087,6 +2926,17 @@ export async function restoreRevision(
         revisionNumber: next.rows[0]!.next_number,
       },
     );
+    if (publishedTitle.renamed) {
+      await recordEffects(
+        client,
+        identity,
+        "page.renamed",
+        "page",
+        pageId,
+        correlationId,
+        { revisionId },
+      );
+    }
     return revisionFromRow(inserted.rows[0]!);
   });
 }

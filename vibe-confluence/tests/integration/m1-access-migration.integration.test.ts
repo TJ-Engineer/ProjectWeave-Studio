@@ -56,6 +56,27 @@ const hierarchyMigration = await readFile(
   ),
   "utf8",
 );
+const lifecycleMigration = await readFile(
+  new URL(
+    "../../packages/database/migrations/0007_page_alias_lifecycle.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const lifecycleRootMigration = await readFile(
+  new URL(
+    "../../packages/database/migrations/0008_page_lifecycle_roots.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const lifecyclePositionMigration = await readFile(
+  new URL(
+    "../../packages/database/migrations/0009_page_lifecycle_position.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 async function applyMigration(client: PoolClient, sql: string): Promise<void> {
   await client.query("BEGIN");
@@ -98,6 +119,9 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
       await applyMigration(client, accessAdministrationMigration);
       await applyMigration(client, emergencyDeactivationMigration);
       await applyMigration(client, hierarchyMigration);
+      await applyMigration(client, lifecycleMigration);
+      await applyMigration(client, lifecycleRootMigration);
+      await applyMigration(client, lifecyclePositionMigration);
 
       const tables = await client.query<{ table_name: string }>(
         `SELECT table_name
@@ -130,11 +154,18 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
             AND (
               (table_name = 'spaces' AND column_name = 'membership_version')
               OR (table_name = 'drafts' AND column_name = 'principal_id')
+              OR (table_name = 'pages' AND column_name = 'lifecycle_root_id')
+              OR (table_name = 'pages' AND column_name IN (
+                'lifecycle_before_page_id', 'lifecycle_after_page_id'
+              ))
             )
           ORDER BY table_name, column_name`,
       );
       expect(columns.rows).toEqual([
         { table_name: "drafts", column_name: "principal_id" },
+        { table_name: "pages", column_name: "lifecycle_after_page_id" },
+        { table_name: "pages", column_name: "lifecycle_before_page_id" },
+        { table_name: "pages", column_name: "lifecycle_root_id" },
         { table_name: "spaces", column_name: "membership_version" },
       ]);
 
@@ -142,6 +173,14 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
         client.query<{ present: boolean }>(
           `SELECT to_regprocedure(
              'has_effective_page_access(uuid,uuid,uuid)'
+           ) IS NOT NULL AS present`,
+        ),
+      ).resolves.toMatchObject({ rows: [{ present: true }] });
+
+      await expect(
+        client.query<{ present: boolean }>(
+          `SELECT to_regprocedure(
+             'has_effective_page_policy_access(uuid,uuid,uuid)'
            ) IS NOT NULL AS present`,
         ),
       ).resolves.toMatchObject({ rows: [{ present: true }] });
@@ -379,6 +418,9 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
       );
       await applyMigration(client, emergencyDeactivationMigration);
       await applyMigration(client, hierarchyMigration);
+      await applyMigration(client, lifecycleMigration);
+      await applyMigration(client, lifecycleRootMigration);
+      await applyMigration(client, lifecyclePositionMigration);
 
       const emergencyCleanup = await client.query<{
         grant_count: string;

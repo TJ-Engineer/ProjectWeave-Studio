@@ -259,7 +259,7 @@ support a completion claim.
 | `KNW-17` | Prove adversarial access and offboarding behavior               | Done          |
 | `KNW-12` | `PGE-01` canonical story                                        | Selected      |
 | `KNW-18` | Implement versioned hierarchy moves and ordering                | Done          |
-| `KNW-19` | Implement durable aliases and atomic subtree lifecycle          | To Do         |
+| `KNW-19` | Implement durable aliases and atomic subtree lifecycle          | Review        |
 | `KNW-20` | Ship lazy accessible tree and explicit read/edit views          | To Do         |
 | `KNW-21` | Prove hierarchy concurrency, recovery, authorization, and scale | To Do         |
 | `KNW-13` | `EDT-01` canonical story                                        | To Do         |
@@ -284,8 +284,10 @@ as `99889ec`. The adversarial access branch
 as `46062a9`; `KNW-17` and canonical story `KNW-11` are Done. The active branch
 `feat/knw-18-versioned-hierarchy` merged through
 [GitHub pull request #9](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/9)
-as `8a70012`; `KNW-18` is Done. `KNW-19` is the next bounded execution issue
-for durable aliases and atomic subtree lifecycle.
+as `8a70012`; `KNW-18` is Done. `KNW-19` is in GitHub pull request
+[#11](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/11) at
+`b2bf1c5` for durable aliases and atomic subtree lifecycle. Review and merge
+remain.
 Subsequent branches follow `<type>/<tracker-key-lowercase>-<short-slug>` and
 start only when their issue becomes the active work item.
 

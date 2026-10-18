@@ -32,9 +32,11 @@ const allCapabilities = new Set<Capability>([
   "page:view",
   "page:create",
   "page:edit",
+  "page:archive",
   "page:move",
   "page:publish",
   "page:restore",
+  "page:trash",
   "audit:read",
 ]);
 
@@ -45,9 +47,11 @@ const roleCapabilities: Record<SpaceRole, ReadonlySet<Capability>> = {
     "page:view",
     "page:create",
     "page:edit",
+    "page:archive",
     "page:move",
     "page:publish",
     "page:restore",
+    "page:trash",
   ]),
   EDITOR: new Set([
     "space:view",
@@ -56,6 +60,7 @@ const roleCapabilities: Record<SpaceRole, ReadonlySet<Capability>> = {
     "page:edit",
     "page:publish",
     "page:restore",
+    "page:trash",
   ]),
   VIEWER: new Set(["space:view", "page:view"]),
 };

@@ -25,6 +25,12 @@ export default async function PageEditor({
         </Link>
         <span>/</span>
         Draft
+        {workspace.space.role === "ADMIN" ? (
+          <>
+            <span>/</span>
+            <Link href={`/pages/${workspace.page.id}/access`}>Access</Link>
+          </>
+        ) : null}
       </div>
       <KnowledgeEditor initialWorkspace={workspace} />
     </section>

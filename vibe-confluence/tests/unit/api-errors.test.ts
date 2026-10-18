@@ -1,4 +1,9 @@
-import { createSpaceSchema, spaceKeySchema } from "@knowledge/contracts";
+import {
+  createSpaceSchema,
+  spaceKeySchema,
+  spaceMemberPageQuerySchema,
+  updatePageRestrictionSchema,
+} from "@knowledge/contracts";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../apps/web/lib/session", () => ({
@@ -67,5 +72,36 @@ describe("API error contract", () => {
         status: 422,
       }),
     );
+  });
+
+  it("bounds administration queries and rejects ambiguous allowlists", () => {
+    expect(
+      spaceMemberPageQuerySchema.parse({
+        kind: "candidates",
+        query: "  admin  ",
+        limit: "50",
+      }),
+    ).toEqual({
+      kind: "candidates",
+      query: "admin",
+      cursor: null,
+      limit: 50,
+    });
+    expect(() => spaceMemberPageQuerySchema.parse({ limit: "51" })).toThrow();
+    const memberId = "018f4f9e-37d8-7a1f-b465-87a8d5cdf11f";
+    expect(() =>
+      updatePageRestrictionSchema.parse({
+        restricted: true,
+        memberIds: [memberId, memberId],
+        expectedVersion: 1,
+      }),
+    ).toThrow();
+    expect(() =>
+      updatePageRestrictionSchema.parse({
+        restricted: false,
+        memberIds: [memberId],
+        expectedVersion: 1,
+      }),
+    ).toThrow();
   });
 });

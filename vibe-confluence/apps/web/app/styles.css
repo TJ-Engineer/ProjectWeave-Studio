@@ -213,6 +213,35 @@ a:focus-visible {
   font-weight: 750;
   cursor: pointer;
 }
+.secondary-button,
+.inline-action,
+.access-list button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #aebbc7;
+  border-radius: 9px;
+  padding: 9px 13px;
+  color: var(--ink);
+  background: white;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.secondary-button:hover,
+.inline-action:hover,
+.access-list button:hover {
+  border-color: var(--brand);
+  background: #f6fbf9;
+}
+.secondary-button:disabled,
+.access-list button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.danger-button {
+  color: #8e1d29;
+}
 .primary-button:hover {
   background: var(--brand-dark);
 }
@@ -225,6 +254,12 @@ a:focus-visible {
   border-left: 4px solid #b52b3a;
   color: #8e1d29;
   background: #fff0f1;
+}
+.form-notice {
+  padding: 10px 12px;
+  border-left: 4px solid var(--brand);
+  color: var(--brand-dark);
+  background: var(--accent);
 }
 .empty-state {
   padding: 22px;
@@ -247,6 +282,11 @@ a:focus-visible {
   flex: 1;
   text-decoration: none;
   font-weight: 650;
+}
+.page-tree .inline-action {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  font-size: 0.78rem;
 }
 .child-page {
   margin-left: 28px;
@@ -403,6 +443,82 @@ a:focus-visible {
   border: 0;
 }
 
+.access-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.8fr);
+  gap: 22px;
+  align-items: start;
+}
+.access-list,
+.checkbox-list {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+.access-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.access-list li > div {
+  display: grid;
+  gap: 4px;
+}
+.access-list li span,
+.checkbox-list small {
+  color: var(--muted);
+  font-size: 0.83rem;
+}
+.access-list form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.access-list select {
+  min-width: 110px;
+}
+.add-member-form {
+  padding-top: 20px;
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.access-policy-form {
+  display: grid;
+  gap: 18px;
+}
+.access-policy-form fieldset {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.access-policy-form legend {
+  padding: 0 8px;
+  font-weight: 750;
+}
+.checkbox-row,
+.checkbox-list label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.checkbox-row {
+  font-weight: 750;
+}
+.checkbox-row input,
+.checkbox-list input {
+  width: auto;
+  margin-top: 3px;
+}
+.checkbox-list label span {
+  display: grid;
+  gap: 3px;
+}
+
 @media (max-width: 800px) {
   .topbar {
     padding: 0 16px;
@@ -416,7 +532,8 @@ a:focus-visible {
     padding-top: 24px;
   }
   .split-grid,
-  .editor-grid {
+  .editor-grid,
+  .access-grid {
     grid-template-columns: 1fr;
   }
   .compact-panel,
@@ -430,5 +547,8 @@ a:focus-visible {
   }
   .document-surface {
     padding: 10px 22px 34px;
+  }
+  .access-list li {
+    grid-template-columns: 1fr;
   }
 }

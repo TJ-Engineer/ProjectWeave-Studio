@@ -5,9 +5,11 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
 export function SpacePages({
+  canAdminister,
   spaceKey,
   initialPages,
 }: {
+  canAdminister: boolean;
   spaceKey: string;
   initialPages: PageSummary[];
 }) {
@@ -60,6 +62,14 @@ export function SpacePages({
                 ) : (
                   <span className="draft-badge">Draft</span>
                 )}
+                {canAdminister ? (
+                  <Link
+                    className="inline-action"
+                    href={`/pages/${page.id}/access`}
+                  >
+                    Access
+                  </Link>
+                ) : null}
               </li>
             ))}
           </ul>

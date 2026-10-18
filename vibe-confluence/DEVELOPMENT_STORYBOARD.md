@@ -28,10 +28,10 @@ documentation must agree.
 
 | Item                 | Current state                                                                       |
 | -------------------- | ----------------------------------------------------------------------------------- |
-| Delivery gate        | `KNW-14` M1 access-foundation migration and compatibility slice is active           |
+| Delivery gate        | `KNW-14` M1 access-foundation migration is in Review through GitHub PR #5           |
 | Current milestone    | M1 — Spaces and authoring                                                           |
 | Active product story | `SPC-01` — Space membership and restrictive page inheritance                        |
-| Active execution     | `KNW-14` in progress on `feat/knw-14-access-data-model`; no pull request is open    |
+| Active execution     | `KNW-14` in Review on `feat/knw-14-access-data-model`; GitHub PR #5 is open         |
 | Blocking issues      | None                                                                                |
 | Story roll-up        | 1 done, 4 partial, 1 in progress, 6 planned                                         |
 | Release readiness    | Not ready; no release candidate exists                                              |
@@ -146,3 +146,4 @@ Non-goals:
 | 2026-10-18 | Created Vibe JIRA M1 epic `KNW-9`, documentation issue `KNW-10`, canonical stories `KNW-11`–`KNW-13`, and bounded execution issues `KNW-14`–`KNW-25`. Opened GitHub PR [#4](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/4) from `docs/knw-10-m1-contract` after `npm run check` passed, and moved only `KNW-10` to Review. No M1 implementation or release gate is claimed.                                           |
 | 2026-10-18 | Merged GitHub PR [#4](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/4) as `3849e9b`, moved `KNW-10` to Done and `KNW-11` to Selected, then started `KNW-14` on `feat/knw-14-access-data-model`.                                                                                                                                                                                                                         |
 | 2026-10-18 | Added forward-only migration `0002` and a real-PostgreSQL M0-upgrade fixture. `npm run check` passes, including formatting, lint, strict types, four unit tests, and the production build; four PostgreSQL integration tests pass separately. The fixture preserves M0 data and proves slug backfill, active-member checks, restriction pruning, and last-admin protection. No `SPC-01` completion or M1 release gate is claimed. |
+| 2026-10-18 | Opened GitHub PR [#5](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/5) from `feat/knw-14-access-data-model` at feature commit `513cfbd`, reconciled the branch and verification evidence in Vibe JIRA, and moved `KNW-14` to Review. `SPC-01` remains in progress and no M1 release gate is claimed.                                                                                                                    |

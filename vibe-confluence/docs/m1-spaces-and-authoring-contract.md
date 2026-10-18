@@ -270,7 +270,9 @@ support a completion claim.
 
 The contract branch `docs/knw-10-m1-contract` was merged through
 [GitHub pull request #4](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/4).
-The first implementation branch is `feat/knw-14-access-data-model`.
+The first implementation branch is `feat/knw-14-access-data-model`, reviewed
+through
+[GitHub pull request #5](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/5).
 Subsequent branches follow `<type>/<tracker-key-lowercase>-<short-slug>` and
 start only when their issue becomes the active work item.
 

@@ -197,8 +197,10 @@ merged. `KNW-14` followed the same sequence and is Done after
 merged as `6cb7a1c`. `KNW-15` is Done after
 [GitHub PR #6](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/6)
 merged as `003be52`. `KNW-11` remains Selected and `KNW-16` is the sole active
-execution issue, in progress on `feat/knw-16-access-admin`. No story or release
-completion is inferred from that execution state.
+execution issue, in review through
+[GitHub PR #7](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/7) from
+`feat/knw-16-access-admin`. No story or release completion is inferred from
+that execution state.
 
 ## Pull-request checklist
 

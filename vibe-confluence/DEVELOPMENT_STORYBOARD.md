@@ -26,16 +26,16 @@ documentation must agree.
 
 ## Current snapshot
 
-| Item                 | Current state                                                                       |
-| -------------------- | ----------------------------------------------------------------------------------- |
-| Delivery gate        | `KNW-16` bounded membership and restriction administration is active                |
-| Current milestone    | M1 — Spaces and authoring                                                           |
-| Active product story | `SPC-01` — Space membership and restrictive page inheritance                        |
-| Active execution     | `KNW-16` in progress on `feat/knw-16-access-admin`; no pull request is open yet     |
-| Blocking issues      | None                                                                                |
-| Story roll-up        | 1 done, 4 partial, 1 in progress, 6 planned                                         |
-| Release readiness    | Not ready; no release candidate exists                                              |
-| Running path         | `docker compose up --build -d`; local Node/PostgreSQL development remains supported |
+| Item                 | Current state                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------- |
+| Delivery gate        | `KNW-16` bounded membership and restriction administration is in review                                 |
+| Current milestone    | M1 — Spaces and authoring                                                                               |
+| Active product story | `SPC-01` — Space membership and restrictive page inheritance                                            |
+| Active execution     | `KNW-16` is in review through GitHub PR [#7](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/7) |
+| Blocking issues      | None                                                                                                    |
+| Story roll-up        | 1 done, 4 partial, 1 in progress, 6 planned                                                             |
+| Release readiness    | Not ready; no release candidate exists                                                                  |
+| Running path         | `docker compose up --build -d`; local Node/PostgreSQL development remains supported                     |
 
 ## Delivery storyline
 
@@ -152,3 +152,4 @@ Non-goals:
 | 2026-10-18 | Opened GitHub PR [#6](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/6) from `feat/knw-15-effective-access` at feature commit `1128a34`, added the exact branch, migration, permission, and test evidence to Vibe JIRA, and moved `KNW-15` to Review. `KNW-16` and `KNW-17` remain required before any `SPC-01` completion claim.                                                                                                                                                           |
 | 2026-10-18 | Review of PR [#6](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/6) found and corrected missing space-key path validation in `e150f24`; the full gate then passed with eight non-database tests. Merged PR #6 as `003be52`, moved `KNW-15` to Done, and started `KNW-16` on `feat/knw-16-access-admin`. `SPC-01` remains in progress.                                                                                                                                                       |
 | 2026-10-18 | Implemented the active `KNW-16` slice on `feat/knw-16-access-admin`: migration `0004`, version-checked member and page-policy APIs, bounded active-member pickers, last-admin/unpublished-owner guards, atomic grant pruning with audit/outbox evidence, and accessible administration screens. `npm run check` passes with nine non-database tests; seven PostgreSQL tests pass; desktop, 320 CSS-pixel, keyboard, and live-revocation browser checks pass. No review or completion is claimed yet. |
+| 2026-10-18 | Reconciled the `KNW-16` acceptance criteria and opened GitHub PR [#7](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/7) from `feat/knw-16-access-admin` at `05bc337`. Review found no merge-blocking defect; the PR records permission, migration, concurrency, recovery, automated, responsive, keyboard, and live-revocation evidence. `KNW-17` remains the separate `SPC-01` evidence gate, so no story or M1 completion is claimed.                                                     |

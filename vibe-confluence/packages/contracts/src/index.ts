@@ -103,6 +103,52 @@ export const restoreRevisionSchema = z.object({
   summary: z.string().trim().max(500).optional().default("Restored revision"),
 });
 
+export const spaceMemberPageQuerySchema = z
+  .object({
+    kind: z.enum(["members", "candidates"]).default("members"),
+    query: z.string().trim().max(100).default(""),
+    cursor: z.uuid().nullable().default(null),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict();
+
+export const upsertSpaceMemberSchema = z
+  .object({
+    role: spaceRoleSchema,
+    expectedMembershipVersion: z.number().int().positive(),
+  })
+  .strict();
+
+export const removeSpaceMemberSchema = z
+  .object({
+    expectedMembershipVersion: z.number().int().positive(),
+  })
+  .strict();
+
+export const updatePageRestrictionSchema = z
+  .object({
+    restricted: z.boolean(),
+    memberIds: z.array(z.uuid()).max(100),
+    expectedVersion: z.number().int().nonnegative(),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (new Set(input.memberIds).size !== input.memberIds.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Restriction members must be unique",
+        path: ["memberIds"],
+      });
+    }
+    if (!input.restricted && input.memberIds.length) {
+      context.addIssue({
+        code: "custom",
+        message: "An unrestricted page cannot retain allowlist members",
+        path: ["memberIds"],
+      });
+    }
+  });
+
 export interface UserIdentity {
   id: string;
   organizationId: string;
@@ -155,6 +201,43 @@ export interface PageWorkspace {
   space: SpaceSummary;
   draft: DraftView;
   revisions: RevisionView[];
+}
+
+export interface SpaceMemberView {
+  userId: string;
+  displayName: string;
+  email: string;
+  role: SpaceRole;
+  unpublishedPageCount: number;
+  pageGrantCount: number;
+}
+
+export interface OrganizationMemberCandidate {
+  userId: string;
+  displayName: string;
+  email: string;
+}
+
+export interface SpaceMemberPage {
+  space: SpaceSummary;
+  membershipVersion: number;
+  kind: "members" | "candidates";
+  items: SpaceMemberView[] | OrganizationMemberCandidate[];
+  nextCursor: string | null;
+}
+
+export interface MembershipMutationResult {
+  membershipVersion: number;
+  member: SpaceMemberView | null;
+  affectedPageGrantCount: number;
+}
+
+export interface PageRestrictionAdministration {
+  page: PageSummary;
+  space: SpaceSummary;
+  restricted: boolean;
+  version: number;
+  memberIds: string[];
 }
 
 export interface ApiErrorBody {

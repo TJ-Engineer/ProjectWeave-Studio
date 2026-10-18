@@ -35,6 +35,13 @@ const effectiveAccessMigration = await readFile(
   ),
   "utf8",
 );
+const accessAdministrationMigration = await readFile(
+  new URL(
+    "../../packages/database/migrations/0004_access_administration.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 async function applyMigration(client: PoolClient, sql: string): Promise<void> {
   await client.query("BEGIN");
@@ -74,6 +81,7 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
       await applyMigration(client, m0Migration);
       await applyMigration(client, m1Migration);
       await applyMigration(client, effectiveAccessMigration);
+      await applyMigration(client, accessAdministrationMigration);
 
       const tables = await client.query<{ table_name: string }>(
         `SELECT table_name
@@ -119,6 +127,18 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
            ) IS NOT NULL AS present`,
         ),
       ).resolves.toMatchObject({ rows: [{ present: true }] });
+
+      await expect(
+        client.query<{ column_default: string; is_nullable: string }>(
+          `SELECT column_default, is_nullable
+             FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'page_restrictions'
+              AND column_name = 'enabled'`,
+        ),
+      ).resolves.toMatchObject({
+        rows: [{ column_default: "true", is_nullable: "NO" }],
+      });
     });
   });
 
@@ -226,6 +246,7 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
 
       await applyMigration(client, m1Migration);
       await applyMigration(client, effectiveAccessMigration);
+      await applyMigration(client, accessAdministrationMigration);
 
       await expect(
         client.query(

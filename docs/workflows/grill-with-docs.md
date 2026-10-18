@@ -194,10 +194,13 @@ the documentation branch contained real work, to Review after the non-draft
 pull request and required checks were available, and to Done after PR #4
 merged. `KNW-14` followed the same sequence and is Done after
 [GitHub PR #5](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/5)
-merged as `6cb7a1c`. `KNW-11` remains Selected and `KNW-15` is the sole active
-execution issue, in Review on `feat/knw-15-effective-access` through
-[GitHub PR #6](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/6). No
-story or release completion is inferred from that execution state.
+merged as `6cb7a1c`. `KNW-15` is Done after
+[GitHub PR #6](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/6)
+merged as `003be52`. `KNW-11` remains Selected and `KNW-16` is the sole active
+execution issue, in review through
+[GitHub PR #7](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/7) from
+`feat/knw-16-access-admin`. No story or release completion is inferred from
+that execution state.
 
 ## Pull-request checklist
 

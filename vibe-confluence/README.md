@@ -62,6 +62,8 @@ M1 is confirmed as `SPC-01` → `PGE-01` → `EDT-01`. Its private-space,
 restrictive-access, hierarchy, lifecycle, editor-schema, and evidence rules are
 recorded in the
 [`M1 spaces and authoring contract`](./docs/m1-spaces-and-authoring-contract.md).
+The versioned membership and page-restriction endpoints are documented in the
+[`access administration API`](./docs/access-administration-api.md).
 Implementation proceeds through one active Vibe JIRA issue, GitHub branch, and
 pull request at a time.
 

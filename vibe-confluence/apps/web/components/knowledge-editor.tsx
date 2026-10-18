@@ -64,6 +64,19 @@ export function KnowledgeEditor({
   const mounted = useRef(false);
   const suppressAutosave = useRef(false);
 
+  const clearAfterRevocation = useCallback(() => {
+    suppressAutosave.current = true;
+    latestRef.current = { title: "", heading: "", paragraph: "" };
+    dirtyGeneration.current = 0;
+    savedGeneration.current = 0;
+    setTitle("");
+    setHeading("");
+    setParagraph("");
+    setDiff([]);
+    setRevisions([]);
+    window.location.replace("/spaces");
+  }, []);
+
   const flushSave = useCallback(async (): Promise<boolean> => {
     while (savedGeneration.current < dirtyGeneration.current) {
       if (savePromise.current) {
@@ -94,6 +107,10 @@ export function KnowledgeEditor({
             draft?: { version: number };
             error?: { message?: string };
           };
+          if (response.status === 403 || response.status === 404) {
+            clearAfterRevocation();
+            return false;
+          }
           if (!response.ok || !body.draft) {
             setStatus("Save failed");
             setError(body.error?.message ?? "Draft save failed");
@@ -118,7 +135,7 @@ export function KnowledgeEditor({
       if (!succeeded) return false;
     }
     return true;
-  }, [initialWorkspace.page.id]);
+  }, [clearAfterRevocation, initialWorkspace.page.id]);
 
   useEffect(() => {
     if (!mounted.current) {
@@ -162,6 +179,10 @@ export function KnowledgeEditor({
       revision?: RevisionView;
       error?: { message?: string };
     };
+    if (response.status === 403 || response.status === 404) {
+      clearAfterRevocation();
+      return;
+    }
     if (!response.ok || !body.revision) {
       setStatus("Publish failed");
       setError(body.error?.message ?? "Publication failed");
@@ -181,6 +202,10 @@ export function KnowledgeEditor({
       lines?: { kind: string; text: string }[];
       error?: { message?: string };
     };
+    if (response.status === 403 || response.status === 404) {
+      clearAfterRevocation();
+      return;
+    }
     if (!response.ok || !body.lines) {
       setError(body.error?.message ?? "Comparison failed");
       return;
@@ -208,6 +233,10 @@ export function KnowledgeEditor({
       revision?: RevisionView;
       error?: { message?: string };
     };
+    if (response.status === 403 || response.status === 404) {
+      clearAfterRevocation();
+      return;
+    }
     if (!response.ok || !body.revision) {
       setError(body.error?.message ?? "Restore failed");
       return;

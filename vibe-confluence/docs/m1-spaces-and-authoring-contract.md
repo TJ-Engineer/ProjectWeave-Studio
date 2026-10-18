@@ -254,8 +254,8 @@ support a completion claim.
 | `KNW-10` | Record this confirmed contract and align source documentation   | Done          |
 | `KNW-11` | `SPC-01` canonical story                                        | Selected      |
 | `KNW-14` | Migrate memberships, restrictions, and draft principals         | Done          |
-| `KNW-15` | Enforce effective permissions on every read and mutation        | Review        |
-| `KNW-16` | Ship bounded membership and restriction administration          | To Do         |
+| `KNW-15` | Enforce effective permissions on every read and mutation        | Done          |
+| `KNW-16` | Ship bounded membership and restriction administration          | Review        |
 | `KNW-17` | Prove adversarial access and offboarding behavior               | To Do         |
 | `KNW-12` | `PGE-01` canonical story                                        | To Do         |
 | `KNW-18` | Implement versioned hierarchy moves and ordering                | To Do         |
@@ -273,11 +273,13 @@ The contract branch `docs/knw-10-m1-contract` was merged through
 The first implementation branch, `feat/knw-14-access-data-model`, merged
 through
 [GitHub pull request #5](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/5).
-The active branch is `feat/knw-15-effective-access`, in review through
-[GitHub pull request #6](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/6).
-It enforces the same server-derived visibility predicate before page projection
-or mutation and does not add the membership/restriction administration owned by
-`KNW-16`.
+The effective-access branch `feat/knw-15-effective-access` merged through
+[GitHub pull request #6](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/6)
+as `003be52`. The access-administration branch `feat/knw-16-access-admin` is in
+review through
+[GitHub pull request #7](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/7);
+it owns version-checked direct membership and restrictive allowlist
+administration.
 Subsequent branches follow `<type>/<tracker-key-lowercase>-<short-slug>` and
 start only when their issue becomes the active work item.
 

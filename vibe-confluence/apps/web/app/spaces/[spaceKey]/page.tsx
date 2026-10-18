@@ -30,8 +30,20 @@ export default async function SpacePage({
             {result.space.description || "No description yet."}
           </p>
         </div>
+        {result.space.role === "ADMIN" ? (
+          <Link
+            className="secondary-button"
+            href={`/spaces/${result.space.key}/access`}
+          >
+            Manage access
+          </Link>
+        ) : null}
       </div>
-      <SpacePages spaceKey={result.space.key} initialPages={result.pages} />
+      <SpacePages
+        canAdminister={result.space.role === "ADMIN"}
+        spaceKey={result.space.key}
+        initialPages={result.pages}
+      />
     </section>
   );
 }

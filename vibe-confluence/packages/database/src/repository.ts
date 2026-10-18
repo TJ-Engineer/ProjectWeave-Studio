@@ -4,9 +4,14 @@ import {
   emptyDocument,
   type DocumentNode,
   type DraftView,
+  type MembershipMutationResult,
+  type OrganizationMemberCandidate,
+  type PageRestrictionAdministration,
   type PageSummary,
   type PageWorkspace,
   type RevisionView,
+  type SpaceMemberPage,
+  type SpaceMemberView,
   type SpaceRole,
   type SpaceSummary,
   type UserIdentity,
@@ -41,6 +46,7 @@ interface SpaceRow extends QueryResultRow {
   description: string;
   role: SpaceRole | null;
   version: number;
+  membership_version: number;
 }
 
 interface PageRow extends QueryResultRow {
@@ -74,6 +80,26 @@ interface RevisionRow extends QueryResultRow {
   author_name: string;
   created_at: Date;
   request_hash?: string;
+}
+
+interface SpaceMemberRow extends QueryResultRow {
+  user_id: string;
+  display_name: string;
+  email: string;
+  role: SpaceRole;
+  unpublished_page_count: number;
+  page_grant_count: number;
+}
+
+interface OrganizationMemberCandidateRow extends QueryResultRow {
+  user_id: string;
+  display_name: string;
+  email: string;
+}
+
+interface PageRestrictionRow extends QueryResultRow {
+  version: number;
+  enabled: boolean;
 }
 
 function identityFromRow(row: IdentityRow): UserIdentity {
@@ -134,6 +160,17 @@ function revisionFromRow(row: RevisionRow): RevisionView {
   };
 }
 
+function spaceMemberFromRow(row: SpaceMemberRow): SpaceMemberView {
+  return {
+    userId: row.user_id,
+    displayName: row.display_name,
+    email: row.email,
+    role: row.role,
+    unpublishedPageCount: Number(row.unpublished_page_count),
+    pageGrantCount: Number(row.page_grant_count),
+  };
+}
+
 export async function getIdentity(
   userId: string,
 ): Promise<UserIdentity | null> {
@@ -173,10 +210,11 @@ async function querySpace(
   identity: UserIdentity,
   keyOrId: string,
   client: Pick<PoolClient, "query"> = getPool(),
+  lock = false,
 ): Promise<SpaceRow | null> {
   const result = await client.query<SpaceRow>(
     `SELECT s.id, s.organization_id, s.space_key, s.name, s.description,
-            s.version, g.role
+            s.version, s.membership_version, g.role
        FROM spaces s
        LEFT JOIN space_memberships g ON g.organization_id = s.organization_id
                                AND g.space_id = s.id
@@ -184,7 +222,8 @@ async function querySpace(
       WHERE s.organization_id = $1
         AND (s.space_key = $3 OR s.id::text = $3)
         AND s.archived_at IS NULL
-        AND ($4 = 'ADMIN' OR g.user_id IS NOT NULL)`,
+        AND ($4 = 'ADMIN' OR g.user_id IS NOT NULL)
+      ${lock ? "FOR UPDATE OF s" : ""}`,
     [identity.organizationId, identity.id, keyOrId, identity.organizationRole],
   );
   return result.rows[0] ?? null;
@@ -195,7 +234,7 @@ export async function listSpaces(
 ): Promise<SpaceSummary[]> {
   const result = await getPool().query<SpaceRow>(
     `SELECT s.id, s.organization_id, s.space_key, s.name, s.description,
-            s.version, g.role
+            s.version, s.membership_version, g.role
        FROM spaces s
        LEFT JOIN space_memberships g ON g.organization_id = s.organization_id
                                AND g.space_id = s.id
@@ -220,7 +259,7 @@ export async function createSpace(
       `INSERT INTO spaces (id, organization_id, space_key, name, description)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, organization_id, space_key, name, description, version,
-                 'ADMIN'::text AS role`,
+                 membership_version, 'ADMIN'::text AS role`,
       [id, identity.organizationId, input.key, input.name, input.description],
     );
     await client.query(
@@ -240,6 +279,414 @@ export async function createSpace(
       },
     );
     return spaceFromRow(result.rows[0]!, identity);
+  });
+}
+
+export async function listSpaceMembers(
+  identity: UserIdentity,
+  spaceKey: string,
+  input: {
+    kind: "members" | "candidates";
+    query: string;
+    cursor: string | null;
+    limit: number;
+  },
+): Promise<SpaceMemberPage> {
+  const space = await querySpace(identity, spaceKey);
+  if (!space) throw new DomainError("NOT_FOUND", "Space not found", 404);
+  assertCapability(identity.organizationRole, space.role, "space:admin");
+  const requestedLimit = input.limit + 1;
+  if (input.kind === "candidates") {
+    const result = await getPool().query<OrganizationMemberCandidateRow>(
+      `SELECT u.id AS user_id, u.display_name, u.email
+         FROM users u
+         JOIN memberships organization_member
+           ON organization_member.organization_id = u.organization_id
+          AND organization_member.user_id = u.id
+        WHERE u.organization_id = $1
+          AND u.state = 'ACTIVE'
+          AND NOT EXISTS (
+            SELECT 1
+              FROM space_memberships space_member
+             WHERE space_member.organization_id = u.organization_id
+               AND space_member.space_id = $2
+               AND space_member.user_id = u.id
+          )
+          AND (
+            $3 = ''
+            OR u.display_name ILIKE '%' || $3 || '%'
+            OR u.email ILIKE '%' || $3 || '%'
+          )
+          AND ($4::uuid IS NULL OR u.id > $4)
+        ORDER BY u.id
+        LIMIT $5`,
+      [
+        identity.organizationId,
+        space.id,
+        input.query,
+        input.cursor,
+        requestedLimit,
+      ],
+    );
+    const hasNext = result.rows.length > input.limit;
+    const rows = result.rows.slice(0, input.limit);
+    const items: OrganizationMemberCandidate[] = rows.map((row) => ({
+      userId: row.user_id,
+      displayName: row.display_name,
+      email: row.email,
+    }));
+    return {
+      space: spaceFromRow(space, identity),
+      membershipVersion: space.membership_version,
+      kind: input.kind,
+      items,
+      nextCursor: hasNext ? (rows.at(-1)?.user_id ?? null) : null,
+    };
+  }
+
+  const result = await getPool().query<SpaceMemberRow>(
+    `SELECT space_member.user_id, u.display_name, u.email, space_member.role,
+            (
+              SELECT count(*)::integer
+                FROM pages owned_page
+               WHERE owned_page.organization_id = space_member.organization_id
+                 AND owned_page.space_id = space_member.space_id
+                 AND owned_page.created_by = space_member.user_id
+                 AND owned_page.current_revision_id IS NULL
+                 AND owned_page.state = 'ACTIVE'
+            ) AS unpublished_page_count,
+            (
+              SELECT count(*)::integer
+                FROM page_restriction_members restriction_member
+               WHERE restriction_member.organization_id = space_member.organization_id
+                 AND restriction_member.space_id = space_member.space_id
+                 AND restriction_member.user_id = space_member.user_id
+            ) AS page_grant_count
+       FROM space_memberships space_member
+       JOIN users u
+         ON u.organization_id = space_member.organization_id
+        AND u.id = space_member.user_id
+      WHERE space_member.organization_id = $1
+        AND space_member.space_id = $2
+        AND (
+          $3 = ''
+          OR u.display_name ILIKE '%' || $3 || '%'
+          OR u.email ILIKE '%' || $3 || '%'
+        )
+        AND ($4::uuid IS NULL OR space_member.user_id > $4)
+      ORDER BY space_member.user_id
+      LIMIT $5`,
+    [
+      identity.organizationId,
+      space.id,
+      input.query,
+      input.cursor,
+      requestedLimit,
+    ],
+  );
+  const hasNext = result.rows.length > input.limit;
+  const rows = result.rows.slice(0, input.limit);
+  return {
+    space: spaceFromRow(space, identity),
+    membershipVersion: space.membership_version,
+    kind: input.kind,
+    items: rows.map(spaceMemberFromRow),
+    nextCursor: hasNext ? (rows.at(-1)?.user_id ?? null) : null,
+  };
+}
+
+function assertPolicyVersion(
+  expected: number,
+  actual: number,
+  policy: string,
+): void {
+  if (expected !== actual) {
+    throw new DomainError(
+      "VERSION_CONFLICT",
+      `${policy} changed since it was loaded. Refresh and try again.`,
+      409,
+    );
+  }
+}
+
+async function unpublishedPageCount(
+  client: Pick<PoolClient, "query">,
+  organizationId: string,
+  spaceId: string,
+  userId: string,
+): Promise<number> {
+  const result = await client.query<{ count: number }>(
+    `SELECT count(*)::integer AS count
+       FROM pages
+      WHERE organization_id = $1 AND space_id = $2 AND created_by = $3
+        AND current_revision_id IS NULL AND state = 'ACTIVE'`,
+    [organizationId, spaceId, userId],
+  );
+  return Number(result.rows[0]!.count);
+}
+
+async function otherActiveSpaceAdminCount(
+  client: Pick<PoolClient, "query">,
+  organizationId: string,
+  spaceId: string,
+  userId: string,
+): Promise<number> {
+  const result = await client.query<{ count: number }>(
+    `SELECT count(*)::integer AS count
+       FROM space_memberships space_member
+       JOIN users u
+         ON u.organization_id = space_member.organization_id
+        AND u.id = space_member.user_id
+      WHERE space_member.organization_id = $1
+        AND space_member.space_id = $2
+        AND space_member.user_id <> $3
+        AND space_member.role = 'ADMIN'
+        AND u.state = 'ACTIVE'`,
+    [organizationId, spaceId, userId],
+  );
+  return Number(result.rows[0]!.count);
+}
+
+async function spaceMemberById(
+  client: Pick<PoolClient, "query">,
+  organizationId: string,
+  spaceId: string,
+  userId: string,
+): Promise<SpaceMemberView | null> {
+  const result = await client.query<SpaceMemberRow>(
+    `SELECT space_member.user_id, u.display_name, u.email, space_member.role,
+            (
+              SELECT count(*)::integer FROM pages owned_page
+               WHERE owned_page.organization_id = space_member.organization_id
+                 AND owned_page.space_id = space_member.space_id
+                 AND owned_page.created_by = space_member.user_id
+                 AND owned_page.current_revision_id IS NULL
+                 AND owned_page.state = 'ACTIVE'
+            ) AS unpublished_page_count,
+            (
+              SELECT count(*)::integer FROM page_restriction_members restriction_member
+               WHERE restriction_member.organization_id = space_member.organization_id
+                 AND restriction_member.space_id = space_member.space_id
+                 AND restriction_member.user_id = space_member.user_id
+            ) AS page_grant_count
+       FROM space_memberships space_member
+       JOIN users u
+         ON u.organization_id = space_member.organization_id
+        AND u.id = space_member.user_id
+      WHERE space_member.organization_id = $1
+        AND space_member.space_id = $2
+        AND space_member.user_id = $3`,
+    [organizationId, spaceId, userId],
+  );
+  return result.rows[0] ? spaceMemberFromRow(result.rows[0]) : null;
+}
+
+export async function upsertSpaceMember(
+  identity: UserIdentity,
+  spaceKey: string,
+  userId: string,
+  input: { role: SpaceRole; expectedMembershipVersion: number },
+  correlationId: string,
+): Promise<MembershipMutationResult> {
+  return inTransaction(async (client) => {
+    const space = await querySpace(identity, spaceKey, client, true);
+    if (!space) throw new DomainError("NOT_FOUND", "Space not found", 404);
+    assertCapability(identity.organizationRole, space.role, "space:admin");
+    assertPolicyVersion(
+      input.expectedMembershipVersion,
+      space.membership_version,
+      "Space membership",
+    );
+    const organizationMember = await client.query(
+      `SELECT 1
+         FROM users u
+         JOIN memberships organization_member
+           ON organization_member.organization_id = u.organization_id
+          AND organization_member.user_id = u.id
+        WHERE u.organization_id = $1 AND u.id = $2 AND u.state = 'ACTIVE'`,
+      [identity.organizationId, userId],
+    );
+    if (!organizationMember.rowCount) {
+      throw new DomainError(
+        "INVALID_MEMBER",
+        "Only active organization members can join a space",
+        422,
+      );
+    }
+    const existing = await client.query<{ role: SpaceRole }>(
+      `SELECT role FROM space_memberships
+        WHERE organization_id = $1 AND space_id = $2 AND user_id = $3`,
+      [identity.organizationId, space.id, userId],
+    );
+    const priorRole = existing.rows[0]?.role ?? null;
+    if (priorRole === input.role) {
+      return {
+        membershipVersion: space.membership_version,
+        member: await spaceMemberById(
+          client,
+          identity.organizationId,
+          space.id,
+          userId,
+        ),
+        affectedPageGrantCount: 0,
+      };
+    }
+    if (
+      priorRole === "ADMIN" &&
+      input.role !== "ADMIN" &&
+      (await otherActiveSpaceAdminCount(
+        client,
+        identity.organizationId,
+        space.id,
+        userId,
+      )) === 0
+    ) {
+      throw new DomainError(
+        "LAST_SPACE_ADMIN",
+        "A space must retain at least one active administrator",
+        409,
+      );
+    }
+    if (
+      input.role === "VIEWER" &&
+      (await unpublishedPageCount(
+        client,
+        identity.organizationId,
+        space.id,
+        userId,
+      )) > 0
+    ) {
+      throw new DomainError(
+        "UNPUBLISHED_PAGE_OWNER",
+        "Publish or trash this member's unpublished pages before removing edit access",
+        409,
+      );
+    }
+    await client.query(
+      `INSERT INTO space_memberships
+        (organization_id, space_id, user_id, role)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (space_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
+      [identity.organizationId, space.id, userId, input.role],
+    );
+    const bumped = await client.query<{ membership_version: number }>(
+      `UPDATE spaces SET membership_version = membership_version + 1
+        WHERE organization_id = $1 AND id = $2
+        RETURNING membership_version`,
+      [identity.organizationId, space.id],
+    );
+    await recordEffects(
+      client,
+      identity,
+      priorRole ? "space.member_role_changed" : "space.member_added",
+      "space",
+      space.id,
+      correlationId,
+      { userId, priorRole, role: input.role },
+    );
+    return {
+      membershipVersion: bumped.rows[0]!.membership_version,
+      member: await spaceMemberById(
+        client,
+        identity.organizationId,
+        space.id,
+        userId,
+      ),
+      affectedPageGrantCount: 0,
+    };
+  });
+}
+
+export async function removeSpaceMember(
+  identity: UserIdentity,
+  spaceKey: string,
+  userId: string,
+  expectedMembershipVersion: number,
+  correlationId: string,
+): Promise<MembershipMutationResult> {
+  return inTransaction(async (client) => {
+    const space = await querySpace(identity, spaceKey, client, true);
+    if (!space) throw new DomainError("NOT_FOUND", "Space not found", 404);
+    assertCapability(identity.organizationRole, space.role, "space:admin");
+    assertPolicyVersion(
+      expectedMembershipVersion,
+      space.membership_version,
+      "Space membership",
+    );
+    const existing = await client.query<{
+      role: SpaceRole;
+      page_grant_count: number;
+    }>(
+      `SELECT space_member.role,
+              (
+                SELECT count(*)::integer
+                  FROM page_restriction_members restriction_member
+                 WHERE restriction_member.organization_id = space_member.organization_id
+                   AND restriction_member.space_id = space_member.space_id
+                   AND restriction_member.user_id = space_member.user_id
+              ) AS page_grant_count
+         FROM space_memberships space_member
+        WHERE space_member.organization_id = $1
+          AND space_member.space_id = $2
+          AND space_member.user_id = $3`,
+      [identity.organizationId, space.id, userId],
+    );
+    const row = existing.rows[0];
+    if (!row) throw new DomainError("NOT_FOUND", "Member not found", 404);
+    if (
+      row.role === "ADMIN" &&
+      (await otherActiveSpaceAdminCount(
+        client,
+        identity.organizationId,
+        space.id,
+        userId,
+      )) === 0
+    ) {
+      throw new DomainError(
+        "LAST_SPACE_ADMIN",
+        "A space must retain at least one active administrator",
+        409,
+      );
+    }
+    const unpublishedCount = await unpublishedPageCount(
+      client,
+      identity.organizationId,
+      space.id,
+      userId,
+    );
+    if (unpublishedCount > 0) {
+      throw new DomainError(
+        "UNPUBLISHED_PAGE_OWNER",
+        "Publish or trash this member's unpublished pages before removal",
+        409,
+      );
+    }
+    await client.query(
+      `DELETE FROM space_memberships
+        WHERE organization_id = $1 AND space_id = $2 AND user_id = $3`,
+      [identity.organizationId, space.id, userId],
+    );
+    const bumped = await client.query<{ membership_version: number }>(
+      `UPDATE spaces SET membership_version = membership_version + 1
+        WHERE organization_id = $1 AND id = $2
+        RETURNING membership_version`,
+      [identity.organizationId, space.id],
+    );
+    const affectedPageGrantCount = Number(row.page_grant_count);
+    await recordEffects(
+      client,
+      identity,
+      "space.member_removed",
+      "space",
+      space.id,
+      correlationId,
+      { userId, role: row.role, affectedPageGrantCount },
+    );
+    return {
+      membershipVersion: bumped.rows[0]!.membership_version,
+      member: null,
+      affectedPageGrantCount,
+    };
   });
 }
 
@@ -278,7 +725,7 @@ export async function createPage(
   correlationId: string,
 ): Promise<PageSummary> {
   return inTransaction(async (client) => {
-    const space = await querySpace(identity, spaceKey, client);
+    const space = await querySpace(identity, spaceKey, client, true);
     if (!space) throw new DomainError("NOT_FOUND", "Space not found", 404);
     assertCapability(identity.organizationRole, space.role, "page:create");
     if (input.parentId) {
@@ -385,6 +832,7 @@ async function pageAccess(
     `SELECT p.id, p.organization_id, p.space_id, p.parent_id,
             p.current_revision_id, p.title, p.slug, p.version, p.created_by,
             s.space_key, s.name, s.description, s.version AS space_version,
+            s.membership_version AS space_membership_version,
             g.role
        FROM pages p
        JOIN spaces s ON s.organization_id = p.organization_id AND s.id = p.space_id
@@ -406,6 +854,10 @@ async function pageAccess(
       id: row.space_id,
       version: Number(
         (row as unknown as { space_version: number }).space_version,
+      ),
+      membership_version: Number(
+        (row as unknown as { space_membership_version: number })
+          .space_membership_version,
       ),
     },
   };
@@ -835,6 +1287,153 @@ export async function restoreRevision(
       },
     );
     return revisionFromRow(inserted.rows[0]!);
+  });
+}
+
+async function pageRestrictionAdministration(
+  client: Pick<PoolClient, "query">,
+  identity: UserIdentity,
+  access: { page: PageRow; space: SpaceRow },
+): Promise<PageRestrictionAdministration> {
+  const restriction = await client.query<PageRestrictionRow>(
+    `SELECT version, enabled
+       FROM page_restrictions
+      WHERE organization_id = $1 AND space_id = $2 AND page_id = $3`,
+    [identity.organizationId, access.space.id, access.page.id],
+  );
+  const memberIds = await client.query<{ user_id: string }>(
+    `SELECT user_id
+       FROM page_restriction_members
+      WHERE organization_id = $1 AND space_id = $2 AND page_id = $3
+      ORDER BY user_id`,
+    [identity.organizationId, access.space.id, access.page.id],
+  );
+  let page = pageFromRow(access.page);
+  if (!access.page.current_revision_id) {
+    const draft = await client.query<{ title: string }>(
+      `SELECT title FROM drafts
+        WHERE organization_id = $1 AND page_id = $2 AND principal_id = $3`,
+      [identity.organizationId, access.page.id, identity.id],
+    );
+    if (draft.rows[0]) page = { ...page, title: draft.rows[0].title };
+  }
+  return {
+    page,
+    space: spaceFromRow(access.space, identity),
+    restricted: restriction.rows[0]?.enabled ?? false,
+    version: restriction.rows[0]?.version ?? 0,
+    memberIds: memberIds.rows.map((row) => row.user_id),
+  };
+}
+
+export async function getPageRestrictionAdministration(
+  identity: UserIdentity,
+  pageId: string,
+): Promise<PageRestrictionAdministration> {
+  const access = await pageAccess(identity, pageId);
+  if (!access) throw new DomainError("NOT_FOUND", "Page not found", 404);
+  assertCapability(identity.organizationRole, access.space.role, "space:admin");
+  return pageRestrictionAdministration(getPool(), identity, access);
+}
+
+export async function updatePageRestriction(
+  identity: UserIdentity,
+  pageId: string,
+  input: {
+    restricted: boolean;
+    memberIds: string[];
+    expectedVersion: number;
+  },
+  correlationId: string,
+): Promise<PageRestrictionAdministration> {
+  return inTransaction(async (client) => {
+    const access = await pageAccess(identity, pageId, client, true);
+    if (!access) throw new DomainError("NOT_FOUND", "Page not found", 404);
+    assertCapability(
+      identity.organizationRole,
+      access.space.role,
+      "space:admin",
+    );
+    const restriction = await client.query<PageRestrictionRow>(
+      `SELECT version, enabled
+         FROM page_restrictions
+        WHERE organization_id = $1 AND space_id = $2 AND page_id = $3
+        FOR UPDATE`,
+      [identity.organizationId, access.space.id, pageId],
+    );
+    const actualVersion = restriction.rows[0]?.version ?? 0;
+    assertPolicyVersion(
+      input.expectedVersion,
+      actualVersion,
+      "Page restriction",
+    );
+    if (input.restricted && input.memberIds.length) {
+      const eligible = await client.query<{ user_id: string }>(
+        `SELECT space_member.user_id
+           FROM space_memberships space_member
+           JOIN users u
+             ON u.organization_id = space_member.organization_id
+            AND u.id = space_member.user_id
+          WHERE space_member.organization_id = $1
+            AND space_member.space_id = $2
+            AND space_member.user_id = ANY($3::uuid[])
+            AND u.state = 'ACTIVE'
+          FOR SHARE OF space_member`,
+        [identity.organizationId, access.space.id, input.memberIds],
+      );
+      if (eligible.rows.length !== input.memberIds.length) {
+        throw new DomainError(
+          "INVALID_RESTRICTION_MEMBER",
+          "Every allowed user must be an active member of this space",
+          409,
+        );
+      }
+    }
+    if (!restriction.rows[0] && !input.restricted) {
+      return pageRestrictionAdministration(client, identity, access);
+    }
+    if (restriction.rows[0]) {
+      await client.query(
+        `UPDATE page_restrictions
+            SET enabled = $4, version = version + 1, updated_at = now()
+          WHERE organization_id = $1 AND space_id = $2 AND page_id = $3`,
+        [identity.organizationId, access.space.id, pageId, input.restricted],
+      );
+    } else {
+      await client.query(
+        `INSERT INTO page_restrictions
+          (organization_id, space_id, page_id, enabled, created_by)
+         VALUES ($1, $2, $3, true, $4)`,
+        [identity.organizationId, access.space.id, pageId, identity.id],
+      );
+    }
+    await client.query(
+      `DELETE FROM page_restriction_members
+        WHERE organization_id = $1 AND space_id = $2 AND page_id = $3`,
+      [identity.organizationId, access.space.id, pageId],
+    );
+    if (input.restricted && input.memberIds.length) {
+      await client.query(
+        `INSERT INTO page_restriction_members
+          (organization_id, space_id, page_id, user_id)
+         SELECT $1, $2, $3, member_id
+           FROM unnest($4::uuid[]) AS member_id`,
+        [identity.organizationId, access.space.id, pageId, input.memberIds],
+      );
+    }
+    await recordEffects(
+      client,
+      identity,
+      "page.restriction_updated",
+      "page",
+      pageId,
+      correlationId,
+      {
+        restricted: input.restricted,
+        memberCount: input.restricted ? input.memberIds.length : 0,
+      },
+    );
+    return pageRestrictionAdministration(client, identity, access);
   });
 }
 

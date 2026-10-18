@@ -169,6 +169,12 @@ describe.skipIf(!testDatabaseUrl)("access administration", () => {
     );
     version = removed.membershipVersion;
     expect(removed).toMatchObject({ member: null, affectedPageGrantCount: 1 });
+    await expect(
+      getPageRestrictionAdministration(organizationAdmin, publishedPage.id),
+    ).resolves.toMatchObject({
+      memberIds: [viewer.id],
+      version: restriction.version + 1,
+    });
     await expect(listPages(removableEditor, space.key)).rejects.toMatchObject({
       code: "NOT_FOUND",
       status: 404,
@@ -183,6 +189,18 @@ describe.skipIf(!testDatabaseUrl)("access administration", () => {
     );
     version = readded.membershipVersion;
     expect(readded.member).toMatchObject({ pageGrantCount: 0 });
+    await expect(
+      updatePageRestriction(
+        organizationAdmin,
+        publishedPage.id,
+        {
+          restricted: true,
+          memberIds: [removableEditor.id, viewer.id],
+          expectedVersion: restriction.version,
+        },
+        randomUUID(),
+      ),
+    ).rejects.toMatchObject({ code: "VERSION_CONFLICT", status: 409 });
     await expect(listPages(removableEditor, space.key)).resolves.toMatchObject({
       pages: [],
     });

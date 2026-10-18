@@ -75,6 +75,21 @@ retains the policy row/version so an older client cannot recreate stale access.
 Ancestor restrictions continue to intersect with the page restriction; a child
 cannot reopen access.
 
+## Emergency organization deactivation
+
+Changing an organization user's persisted state from `ACTIVE` to `DEACTIVATED`
+is an emergency revocation boundary. Migration `0005` atomically removes that
+user's direct space memberships, cascades their page-allowlist entries, and
+advances every affected membership and page-policy version. It may leave a
+space without an active administrator because emergency deactivation overrides
+the ordinary last-admin blocker; an organization administrator must then make
+an explicit recovery decision.
+
+Pages, drafts, revisions, and authorship remain intact and private. Changing
+the user back to `ACTIVE` does not restore memberships or grants. Administrators
+must explicitly re-add access, and stale clients receive `409 VERSION_CONFLICT`
+instead of recreating a pruned allowlist.
+
 ## Stable failures
 
 - `403 FORBIDDEN`: the resource is visible but the actor cannot administer it.

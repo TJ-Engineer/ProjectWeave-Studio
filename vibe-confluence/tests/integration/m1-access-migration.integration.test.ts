@@ -42,6 +42,13 @@ const accessAdministrationMigration = await readFile(
   ),
   "utf8",
 );
+const emergencyDeactivationMigration = await readFile(
+  new URL(
+    "../../packages/database/migrations/0005_emergency_deactivation.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 async function applyMigration(client: PoolClient, sql: string): Promise<void> {
   await client.query("BEGIN");
@@ -82,6 +89,7 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
       await applyMigration(client, m1Migration);
       await applyMigration(client, effectiveAccessMigration);
       await applyMigration(client, accessAdministrationMigration);
+      await applyMigration(client, emergencyDeactivationMigration);
 
       const tables = await client.query<{ table_name: string }>(
         `SELECT table_name
@@ -124,6 +132,14 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
         client.query<{ present: boolean }>(
           `SELECT to_regprocedure(
              'has_effective_page_access(uuid,uuid,uuid)'
+           ) IS NOT NULL AS present`,
+        ),
+      ).resolves.toMatchObject({ rows: [{ present: true }] });
+
+      await expect(
+        client.query<{ present: boolean }>(
+          `SELECT to_regprocedure(
+             'revoke_deactivated_user_access()'
            ) IS NOT NULL AS present`,
         ),
       ).resolves.toMatchObject({ rows: [{ present: true }] });
@@ -346,6 +362,52 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
         [organizationId, spaceId, pageId, editorId],
       );
 
+      await client.query(
+        `UPDATE users SET state = 'DEACTIVATED'
+          WHERE organization_id = $1 AND id = $2`,
+        [organizationId, editorId],
+      );
+      await applyMigration(client, emergencyDeactivationMigration);
+
+      const emergencyCleanup = await client.query<{
+        grant_count: string;
+        membership_version: number;
+        membership_count: string;
+        restriction_version: number;
+      }>(
+        `SELECT
+          (SELECT count(*) FROM space_memberships
+            WHERE organization_id = $1 AND space_id = $2 AND user_id = $3)
+            AS membership_count,
+          (SELECT count(*) FROM page_restriction_members
+            WHERE organization_id = $1 AND space_id = $2 AND user_id = $3)
+            AS grant_count,
+          (SELECT membership_version FROM spaces WHERE id = $2)
+            AS membership_version,
+          (SELECT version FROM page_restrictions WHERE page_id = $4)
+            AS restriction_version`,
+        [organizationId, spaceId, editorId, pageId],
+      );
+      expect(emergencyCleanup.rows[0]).toEqual({
+        grant_count: "0",
+        membership_version: 2,
+        membership_count: "0",
+        restriction_version: 2,
+      });
+
+      await client.query(
+        `UPDATE users SET state = 'ACTIVE'
+          WHERE organization_id = $1 AND id = $2`,
+        [organizationId, editorId],
+      );
+      await expect(
+        client.query(
+          `SELECT role FROM space_memberships
+            WHERE organization_id = $1 AND space_id = $2 AND user_id = $3`,
+          [organizationId, spaceId, editorId],
+        ),
+      ).resolves.toMatchObject({ rows: [] });
+
       await expect(
         client.query(
           `INSERT INTO space_memberships
@@ -354,6 +416,19 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
           [organizationId, spaceId, inactiveId],
         ),
       ).rejects.toMatchObject({ code: "23514" });
+
+      await client.query(
+        `INSERT INTO space_memberships
+          (organization_id, space_id, user_id, role)
+         VALUES ($1, $2, $3, 'EDITOR')`,
+        [organizationId, spaceId, editorId],
+      );
+      await client.query(
+        `INSERT INTO page_restriction_members
+          (organization_id, space_id, page_id, user_id)
+         VALUES ($1, $2, $3, $4)`,
+        [organizationId, spaceId, pageId, editorId],
+      );
 
       await client.query(
         `DELETE FROM space_memberships

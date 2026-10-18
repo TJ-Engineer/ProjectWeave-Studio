@@ -256,7 +256,7 @@ support a completion claim.
 | `KNW-14` | Migrate memberships, restrictions, and draft principals         | Done          |
 | `KNW-15` | Enforce effective permissions on every read and mutation        | Done          |
 | `KNW-16` | Ship bounded membership and restriction administration          | Done          |
-| `KNW-17` | Prove adversarial access and offboarding behavior               | In Progress   |
+| `KNW-17` | Prove adversarial access and offboarding behavior               | Review        |
 | `KNW-12` | `PGE-01` canonical story                                        | To Do         |
 | `KNW-18` | Implement versioned hierarchy moves and ordering                | To Do         |
 | `KNW-19` | Implement durable aliases and atomic subtree lifecycle          | To Do         |

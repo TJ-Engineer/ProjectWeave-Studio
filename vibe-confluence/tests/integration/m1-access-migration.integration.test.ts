@@ -49,6 +49,13 @@ const emergencyDeactivationMigration = await readFile(
   ),
   "utf8",
 );
+const hierarchyMigration = await readFile(
+  new URL(
+    "../../packages/database/migrations/0006_versioned_page_hierarchy.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 async function applyMigration(client: PoolClient, sql: string): Promise<void> {
   await client.query("BEGIN");
@@ -90,6 +97,7 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
       await applyMigration(client, effectiveAccessMigration);
       await applyMigration(client, accessAdministrationMigration);
       await applyMigration(client, emergencyDeactivationMigration);
+      await applyMigration(client, hierarchyMigration);
 
       const tables = await client.query<{ table_name: string }>(
         `SELECT table_name
@@ -99,7 +107,8 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
               'space_memberships',
               'page_aliases',
               'page_restrictions',
-              'page_restriction_members'
+              'page_restriction_members',
+              'page_sibling_lists'
             )
           ORDER BY table_name`,
       );
@@ -107,6 +116,7 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
         "page_aliases",
         "page_restriction_members",
         "page_restrictions",
+        "page_sibling_lists",
         "space_memberships",
       ]);
 
@@ -368,6 +378,7 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
         [organizationId, editorId],
       );
       await applyMigration(client, emergencyDeactivationMigration);
+      await applyMigration(client, hierarchyMigration);
 
       const emergencyCleanup = await client.query<{
         grant_count: string;
@@ -393,6 +404,21 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
         membership_version: 2,
         membership_count: "0",
         restriction_version: 2,
+      });
+
+      await expect(
+        client.query(
+          `SELECT parent_id, version
+             FROM page_sibling_lists
+            WHERE organization_id = $1 AND space_id = $2
+            ORDER BY parent_id NULLS FIRST`,
+          [organizationId, spaceId],
+        ),
+      ).resolves.toMatchObject({
+        rows: [
+          { parent_id: null, version: 1 },
+          { parent_id: pageId, version: 1 },
+        ],
       });
 
       await client.query(

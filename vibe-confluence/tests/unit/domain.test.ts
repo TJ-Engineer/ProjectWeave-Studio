@@ -1,4 +1,9 @@
-import { documentNodeSchema, emptyDocument } from "@knowledge/contracts";
+import {
+  documentNodeSchema,
+  emptyDocument,
+  movePageSchema,
+  pageTreeQuerySchema,
+} from "@knowledge/contracts";
 import {
   can,
   diffDocuments,
@@ -12,9 +17,30 @@ import { describe, expect, it } from "vitest";
 describe("knowledge domain", () => {
   it("keeps organization administration distinct from space roles", () => {
     expect(can("ADMIN", null, "space:create")).toBe(true);
+    expect(can("ADMIN", null, "page:move")).toBe(true);
+    expect(can("MEMBER", "ADMIN", "page:move")).toBe(true);
+    expect(can("MEMBER", "EDITOR", "page:move")).toBe(false);
     expect(can("MEMBER", "EDITOR", "page:publish")).toBe(true);
     expect(can("MEMBER", "VIEWER", "page:publish")).toBe(false);
     expect(can("MEMBER", "ADMIN", "audit:read")).toBe(false);
+  });
+
+  it("bounds tree reads and validates versioned page movement", () => {
+    expect(
+      pageTreeQuerySchema.parse({ parentId: null, cursor: null, limit: "100" }),
+    ).toEqual({ parentId: null, cursor: null, limit: 100 });
+    expect(() =>
+      pageTreeQuerySchema.parse({ parentId: null, cursor: null, limit: "101" }),
+    ).toThrow();
+    expect(() =>
+      movePageSchema.parse({
+        destinationParentId: null,
+        beforePageId: "00000000-0000-4000-8000-000000000001",
+        afterPageId: "00000000-0000-4000-8000-000000000001",
+        expectedSourceVersion: 1,
+        expectedDestinationVersion: 1,
+      }),
+    ).toThrow();
   });
 
   it("validates only the versioned minimal document schema", () => {

@@ -1,9 +1,9 @@
-# ProjectWeave Delivery
+# ProjectWeave Domain Language
 
-ProjectWeave delivery language keeps product planning, execution tracking, and
-release evidence distinct across the Vibe JIRA and Vibe Knowledge contexts.
+ProjectWeave language keeps product planning, execution tracking, and Vibe
+Knowledge content authority distinct across the suite.
 
-## Language
+## Delivery language
 
 **Canonical story ID**:
 The stable identifier assigned by an application's plan and storyboard, such as
@@ -34,3 +34,56 @@ _Avoid_: Checklist item
 A Vibe JIRA work item used to exercise and refine the delivery workflow before
 that workflow is applied broadly.
 _Avoid_: Test ticket
+
+## Vibe Knowledge language
+
+**Team space**:
+A private collaboration boundary whose content is available only to explicit
+members and organization administrators.
+_Avoid_: Workspace, project
+
+**Space membership**:
+The direct relationship that gives an active organization member a role in one
+team space.
+_Avoid_: Space grant, access entry
+
+**Page restriction**:
+A direct-user allowlist that narrows who among otherwise eligible space members
+may access a page subtree.
+_Avoid_: Page grant, exception
+
+**Effective page access**:
+The access remaining after organization state, space membership, role, and all
+inherited page restrictions have been applied.
+_Avoid_: Visibility flag
+
+**Private draft**:
+Mutable working content belonging to one principal that is not shared merely
+because that principal or an administrator can access the published page.
+_Avoid_: Autosave revision, unpublished revision
+
+**Published revision**:
+An immutable, attributable snapshot explicitly shared as the page's published
+history.
+_Avoid_: Saved draft, current document
+
+**Canonical page identity**:
+The immutable identity of a page that survives title, slug, parent, and
+lifecycle changes.
+_Avoid_: Page path, slug
+
+**Page alias**:
+A permanently reserved readable address that resolves to a page's canonical
+identity after a title or slug change.
+_Avoid_: Canonical URL
+
+**Sealed private content**:
+Private unpublished work retained after emergency deactivation without making
+it readable by administrators or other members.
+_Avoid_: Orphaned draft, transferred draft
+
+**Service-backed document node**:
+A document element whose complete user workflow depends on a separately
+authorized product capability, such as attachment storage or notification
+delivery.
+_Avoid_: Placeholder node, fake integration

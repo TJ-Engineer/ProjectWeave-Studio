@@ -142,10 +142,18 @@ Required capabilities:
 - Moving a page moves its subtree and must prevent cycles.
 - Reordering uses fractional ranks or another concurrency-safe ordering scheme.
 - Slugs are readable aliases; links resolve through page ID so title or slug changes do not break references.
-- Deleted pages enter a space trash and are restorable until retention expires.
+- Deleted pages enter a space trash. M1 provides restore without permanent
+  deletion or automatic retention expiry; later administration work may add an
+  operator-controlled retention policy.
 - Archiving hides content from normal navigation without deleting history.
 - Breadcrumbs show the current canonical path.
 - Large page trees load incrementally and support keyboard navigation.
+
+For M1, page UUIDs are canonical and every historical slug remains a reserved
+alias. Tree requests return at most 100 nodes and must support a 10,000-page
+space with 1,000 direct siblings. Move, reorder, archive, trash, and restore use
+the authorization, subtree, and concurrency rules in
+[`docs/m1-spaces-and-authoring-contract.md`](./docs/m1-spaces-and-authoring-contract.md).
 
 Acceptance criteria:
 
@@ -157,6 +165,12 @@ Acceptance criteria:
 ### 5.2 Rich document editor
 
 The canonical body is structured JSON validated against an explicit, versioned editor schema. Derived HTML is sanitized and may be cached for display/search, but is never the only source of truth.
+
+`@knowledge/editor` owns that canonical schema, its deterministic migrations,
+safe rendering, and an adapter boundary for a Tiptap/ProseMirror-compatible UI.
+Engine-specific JSON is not the persisted domain contract. The M1 safety
+budgets and compatibility behavior are fixed in the
+[`M1 spaces and authoring contract`](./docs/m1-spaces-and-authoring-contract.md).
 
 Release 1 content nodes:
 
@@ -181,6 +195,10 @@ Editor behavior:
 - No arbitrary script, inline event handler, or unsandboxed embedded HTML
 - Unknown future nodes remain recoverable during schema migration rather than being silently discarded
 
+Service-backed nodes must validate, migrate, round-trip, and render safely in
+M1 fixtures. Their creation controls remain disabled until the attachment,
+collaboration, or integration story supplies the required authorized service.
+
 ### 5.3 Draft, publish, and revision model
 
 - A draft is mutable working state associated with a page and principal.
@@ -197,7 +215,8 @@ Release 1 conflict flow:
 2. Another author publishes N+1.
 3. First author attempts to publish against N.
 4. Server rejects with a conflict response containing safe metadata.
-5. UI offers compare, copy changes, refresh, or an assisted merge where supported.
+5. M1 offers compare, copy/download changes, refresh, and manual
+   reconciliation. Automatic structural merge is deferred.
 6. A user explicitly confirms the final publication.
 
 ### 5.4 Realtime collaboration
@@ -303,13 +322,18 @@ Initial roles:
 | Commenter          | View and comment but not edit page content                             |
 | Viewer             | Read allowed published content                                         |
 
+M1 implements `ADMIN`, `EDITOR`, and `VIEWER` for private team spaces. The
+`COMMENTER` role, personal spaces, and reusable groups remain Release 1
+follow-up work owned by their collaboration or administration stories.
+
 Permission precedence:
 
 1. Organization suspension or user deactivation denies access.
 2. Explicit restrictive page policy can narrow inherited space access.
-3. Space membership and group grants add capabilities.
-4. Page grants may add access only when organization policy permits.
-5. Drafts require edit access and additional author/collaborator checks.
+3. Space membership grants the role capabilities available in that space.
+4. Page restrictions may only narrow inherited access and are intersected down
+   the subtree; a descendant cannot reopen access.
+5. Drafts require edit access and ownership by the requesting principal.
 
 All read paths—including tree navigation, search, backlinks, comments, attachment metadata, activity, exports, and realtime subscriptions—must enforce the same effective policy.
 
@@ -808,7 +832,10 @@ Resolved on 2026-10-15:
 2. Release 1 supports one organization per installation while retaining `organization_id` on every tenant-owned row.
 3. Production identity uses provider-neutral OIDC Authorization Code with PKCE. Local login is development-only.
 4. Autosave writes a private draft; publishing is always an explicit action that creates an immutable revision.
-5. Release 1 freezes a bounded schema: paragraphs, headings, basic marks, ordered/unordered/task lists, links and page links, quotes, code blocks, tables, and image/attachment references. Richer macros and presentation nodes are deferred.
+5. Release 1 freezes the bounded node set in §5.2, including semantic
+   presentation nodes and image/attachment references. M1 safely supports the
+   complete schema while deferring creation controls that require attachments,
+   notifications, or other later services.
 6. Markdown import ships first. Sanitized generic HTML follows after revision correctness; Confluence-specific mapping is a later compatibility milestone.
 7. Release 1 combines inherited space roles with restrictive page overrides inherited by descendants. Page grants cannot reopen restricted content.
 8. Anonymous and guest links are deferred beyond Release 1.
@@ -818,6 +845,12 @@ Resolved on 2026-10-15:
 12. Vibe JIRA embeds and bidirectional links are Release 2. Both products preserve stable URLs and compatible external identity claims now.
 
 Vibe Knowledge is a separately deployable sibling application with its own database and migrations. It may use the same OIDC provider and stable subject claims as Vibe JIRA, but neither application reads the other's database.
+
+Confirmed on 2026-10-18: M1 proceeds `SPC-01` → `PGE-01` → `EDT-01` with
+one active execution issue, branch, and pull request. The detailed permission,
+hierarchy, lifecycle, editor, migration, and evidence decisions are recorded in
+[`docs/m1-spaces-and-authoring-contract.md`](./docs/m1-spaces-and-authoring-contract.md)
+and ADRs 0002–0004.
 
 ## 21. Release 1 acceptance gate
 

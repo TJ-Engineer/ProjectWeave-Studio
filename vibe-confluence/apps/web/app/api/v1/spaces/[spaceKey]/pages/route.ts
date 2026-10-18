@@ -1,4 +1,4 @@
-import { createPageSchema } from "@knowledge/contracts";
+import { createPageSchema, spaceKeySchema } from "@knowledge/contracts";
 import { createPage, listPages } from "@knowledge/database";
 import { NextResponse } from "next/server";
 import {
@@ -18,7 +18,8 @@ export async function GET(
 ): Promise<NextResponse> {
   const id = correlationId(request);
   try {
-    const { spaceKey } = await context.params;
+    const { spaceKey: value } = await context.params;
+    const spaceKey = spaceKeySchema.parse(value);
     return NextResponse.json(
       await listPages(await requireIdentity(), spaceKey),
       { headers: { "x-correlation-id": id } },
@@ -34,7 +35,8 @@ export async function POST(
 ): Promise<NextResponse> {
   const id = correlationId(request);
   try {
-    const { spaceKey } = await context.params;
+    const { spaceKey: value } = await context.params;
+    const spaceKey = spaceKeySchema.parse(value);
     const page = await createPage(
       await requireIdentity(),
       spaceKey,

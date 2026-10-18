@@ -1,4 +1,4 @@
-import { createSpaceSchema } from "@knowledge/contracts";
+import { createSpaceSchema, spaceKeySchema } from "@knowledge/contracts";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../apps/web/lib/session", () => ({
@@ -46,6 +46,15 @@ describe("API error contract", () => {
       parseUuidPath("018f4f9e-37d8-7a1f-b465-87a8d5cdf11f", "pageId"),
     ).toBe("018f4f9e-37d8-7a1f-b465-87a8d5cdf11f");
     expect(parsePositiveIntegerPath("12", "number")).toBe(12);
+  });
+
+  it("normalizes valid space keys and rejects invalid route keys", () => {
+    expect(spaceKeySchema.parse("secure1")).toBe("SECURE1");
+    const response = handleApiError(
+      spaceKeySchema.safeParse("1").error,
+      "correlation-id",
+    );
+    expect(response.status).toBe(422);
   });
 
   it("treats malformed idempotency keys as invalid input", () => {

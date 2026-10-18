@@ -14,7 +14,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <header className="topbar">
-          <Link className="brand" href="/spaces">
+          <Link aria-label="Vibe Knowledge" className="brand" href="/spaces">
             <span className="brand-mark" aria-hidden="true">
               V
             </span>

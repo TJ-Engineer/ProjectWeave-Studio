@@ -13,9 +13,11 @@ export const capabilitySchema = z.enum([
   "page:view",
   "page:create",
   "page:edit",
+  "page:archive",
   "page:move",
   "page:publish",
   "page:restore",
+  "page:trash",
   "audit:read",
 ]);
 export type Capability = z.infer<typeof capabilitySchema>;
@@ -117,6 +119,49 @@ export const movePageSchema = z
       });
     }
   });
+
+export const pageLifecycleActionSchema = z
+  .object({
+    action: z.enum(["ARCHIVE", "TRASH", "RESTORE"]),
+    expectedVersion: z.number().int().positive(),
+    expectedParentVersion: z.number().int().positive(),
+    destinationParentId: z.uuid().nullable().optional(),
+    beforePageId: z.uuid().nullable().optional(),
+    afterPageId: z.uuid().nullable().optional(),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (
+      input.beforePageId !== undefined &&
+      input.beforePageId !== null &&
+      input.beforePageId === input.afterPageId
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "The neighboring pages must be different",
+        path: ["afterPageId"],
+      });
+    }
+    if (
+      input.action !== "RESTORE" &&
+      (input.destinationParentId !== undefined ||
+        input.beforePageId !== undefined ||
+        input.afterPageId !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Only restore may select a destination",
+        path: ["destinationParentId"],
+      });
+    }
+  });
+
+export const pageSlugSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use a normalized page slug");
 
 export const saveDraftSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -223,6 +268,7 @@ export interface PageSummary {
   parentId: string | null;
   title: string;
   slug: string;
+  state: "ACTIVE" | "ARCHIVED" | "TRASHED";
   currentRevisionId: string | null;
   version: number;
 }
@@ -255,11 +301,34 @@ export interface MovePageResult {
   restrictionMaterialized: boolean;
 }
 
+export interface PageAliasResolution {
+  pageId: string;
+  canonicalSlug: string;
+  state: "ACTIVE" | "ARCHIVED";
+  canonicalPath: string;
+}
+
+export interface PageLifecycleResult {
+  page: PageSummary;
+  action: "ARCHIVE" | "TRASH" | "RESTORE";
+  affectedPageCount: number;
+  parentVersion: number;
+  restrictionMaterialized: boolean;
+  restoredToFallback: boolean;
+}
+
 export interface PageWorkspace {
   page: PageSummary;
   space: SpaceSummary;
   draft: DraftView;
   revisions: RevisionView[];
+}
+
+export interface PublishedPageView {
+  page: PageSummary;
+  space: SpaceSummary;
+  revision: RevisionView;
+  readOnly: true;
 }
 
 export interface SpaceMemberView {

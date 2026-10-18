@@ -2,6 +2,7 @@ import {
   documentNodeSchema,
   emptyDocument,
   movePageSchema,
+  pageLifecycleActionSchema,
   pageTreeQuerySchema,
 } from "@knowledge/contracts";
 import {
@@ -18,11 +19,36 @@ describe("knowledge domain", () => {
   it("keeps organization administration distinct from space roles", () => {
     expect(can("ADMIN", null, "space:create")).toBe(true);
     expect(can("ADMIN", null, "page:move")).toBe(true);
+    expect(can("ADMIN", null, "page:archive")).toBe(true);
     expect(can("MEMBER", "ADMIN", "page:move")).toBe(true);
+    expect(can("MEMBER", "ADMIN", "page:archive")).toBe(true);
     expect(can("MEMBER", "EDITOR", "page:move")).toBe(false);
+    expect(can("MEMBER", "EDITOR", "page:archive")).toBe(false);
+    expect(can("MEMBER", "EDITOR", "page:trash")).toBe(true);
     expect(can("MEMBER", "EDITOR", "page:publish")).toBe(true);
     expect(can("MEMBER", "VIEWER", "page:publish")).toBe(false);
     expect(can("MEMBER", "ADMIN", "audit:read")).toBe(false);
+  });
+
+  it("validates versioned page lifecycle actions", () => {
+    expect(
+      pageLifecycleActionSchema.parse({
+        action: "RESTORE",
+        expectedVersion: 3,
+        expectedParentVersion: 7,
+        destinationParentId: null,
+        beforePageId: null,
+        afterPageId: null,
+      }),
+    ).toMatchObject({ action: "RESTORE", destinationParentId: null });
+    expect(() =>
+      pageLifecycleActionSchema.parse({
+        action: "TRASH",
+        expectedVersion: 3,
+        expectedParentVersion: 7,
+        destinationParentId: null,
+      }),
+    ).toThrow();
   });
 
   it("bounds tree reads and validates versioned page movement", () => {

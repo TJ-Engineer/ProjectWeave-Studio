@@ -1,6 +1,6 @@
 # Vibe Knowledge Development Storyboard
 
-Last updated: 2026-10-17
+Last updated: 2026-10-18
 Plan of record: [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md)  
 Current release target: Release 1 — Safe, useful knowledge workspace
 
@@ -28,9 +28,10 @@ documentation must agree.
 
 | Item                 | Current state                                                                       |
 | -------------------- | ----------------------------------------------------------------------------------- |
-| Delivery gate        | M0 architecture proof is complete                                                   |
+| Delivery gate        | M1 contract documentation is active under `KNW-10`                                  |
 | Current milestone    | M1 — Spaces and authoring                                                           |
-| Active product story | None; the next story requires confirmation before implementation begins             |
+| Active product story | None; confirmed next story is `SPC-01` after the contract PR merges                 |
+| Active execution     | `KNW-10` on `docs/knw-10-m1-contract`                                               |
 | Blocking issues      | None                                                                                |
 | Story roll-up        | 1 done, 5 partial, 0 in progress, 6 planned                                         |
 | Release readiness    | Not ready; no release candidate exists                                              |
@@ -56,20 +57,38 @@ flowchart LR
 
 ## Release 1 story board
 
-| ID       | Story/outcome                                                           | Status    | Acceptance evidence or remaining work                                                                                     |
-| -------- | ----------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `KNW-01` | Draft, publish, compare, and restore first slice                        | `DONE`    | Implementation, PostgreSQL, desktop, responsive, keyboard, and merged clean Compose evidence pass                         |
-| `FND-01` | Strict TypeScript workspaces, CI gate, and one-image runtime            | `PARTIAL` | Workspace gate and clean Compose app, worker, migration, seed, health, and object-store startup pass; CI remains          |
-| `IAM-01` | Development login and provider-neutral production OIDC                  | `PARTIAL` | Development login uses signed HTTP-only sessions and origin checks; deactivation and OIDC remain                          |
-| `SPC-01` | Space membership and restrictive page inheritance                       | `PARTIAL` | Space capabilities and private unpublished drafts pass PostgreSQL tests; restrictive inheritance remains                  |
-| `PGE-01` | Concurrent page tree create, move, reorder, archive, trash, and restore | `PARTIAL` | Root/child creation and durable ID routes work; move, reorder, archive, trash, restore, and scale remain                  |
-| `EDT-01` | Accessible editor for the frozen Release 1 schema                       | `PARTIAL` | Versioned heading/paragraph schema, safe rendering, autosave states, and responsive keyboard UI pass; full schema remains |
-| `COL-01` | Page and inline comments, mentions, watches, and notifications          | `PLANNED` | Re-anchor/orphan behavior and deduplicated fan-out pass                                                                   |
-| `ATT-01` | Private scanned and versioned attachments                               | `PLANNED` | Authorization, quarantine, preview allowlist, replacement, and retention pass                                             |
-| `SRC-01` | Permission-filtered PostgreSQL search and link graph                    | `PLANNED` | Counts, snippets, suggestions, backlinks, and stale-index cases reveal nothing restricted                                 |
-| `TPL-01` | Versioned templates and bounded first-party macros                      | `PLANNED` | Deterministic render, complexity, permission, and migration checks pass                                                   |
-| `PRT-01` | Markdown import, portable exports, and durable jobs                     | `PLANNED` | Dry run, idempotency, partial errors, archive manifest, and backpressure pass                                             |
-| `PRD-01` | Release hardening and operations                                        | `PLANNED` | Accessibility, load, migration, recovery, rollback, documentation, and image scans pass                                   |
+| ID       | Story/outcome                                                           | Status    | Acceptance evidence or remaining work                                                                                    |
+| -------- | ----------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `KNW-01` | Draft, publish, compare, and restore first slice                        | `DONE`    | Implementation, PostgreSQL, desktop, responsive, keyboard, and merged clean Compose evidence pass                        |
+| `FND-01` | Strict TypeScript workspaces, CI gate, and one-image runtime            | `PARTIAL` | Workspace gate and clean Compose app, worker, migration, seed, health, and object-store startup pass; CI remains         |
+| `IAM-01` | Development login and provider-neutral production OIDC                  | `PARTIAL` | Development login uses signed HTTP-only sessions and origin checks; deactivation and OIDC remain                         |
+| `SPC-01` | Space membership and restrictive page inheritance                       | `PARTIAL` | Contract confirmed; existing capabilities and private unpublished drafts pass PostgreSQL tests; `KNW-14`–`KNW-17` remain |
+| `PGE-01` | Concurrent page tree create, move, reorder, archive, trash, and restore | `PARTIAL` | Contract confirmed; root/child creation and durable ID routes work; `KNW-18`–`KNW-21` remain                             |
+| `EDT-01` | Accessible editor for the frozen Release 1 schema                       | `PARTIAL` | Contract confirmed; minimal schema/autosave/keyboard behavior works; `KNW-22`–`KNW-25` remain                            |
+| `COL-01` | Page and inline comments, mentions, watches, and notifications          | `PLANNED` | Re-anchor/orphan behavior and deduplicated fan-out pass                                                                  |
+| `ATT-01` | Private scanned and versioned attachments                               | `PLANNED` | Authorization, quarantine, preview allowlist, replacement, and retention pass                                            |
+| `SRC-01` | Permission-filtered PostgreSQL search and link graph                    | `PLANNED` | Counts, snippets, suggestions, backlinks, and stale-index cases reveal nothing restricted                                |
+| `TPL-01` | Versioned templates and bounded first-party macros                      | `PLANNED` | Deterministic render, complexity, permission, and migration checks pass                                                  |
+| `PRT-01` | Markdown import, portable exports, and durable jobs                     | `PLANNED` | Dry run, idempotency, partial errors, archive manifest, and backpressure pass                                            |
+| `PRD-01` | Release hardening and operations                                        | `PLANNED` | Accessibility, load, migration, recovery, rollback, documentation, and image scans pass                                  |
+
+## Confirmed M1 execution
+
+The confirmed M1 story contract is
+[`docs/m1-spaces-and-authoring-contract.md`](./docs/m1-spaces-and-authoring-contract.md).
+Vibe JIRA epic `KNW-9` contains the documentation issue `KNW-10`, canonical
+stories `KNW-11`–`KNW-13`, and their bounded execution issues `KNW-14`–`KNW-25`.
+
+| Order | Canonical story | Vibe JIRA | Outcome                                                           |
+| ----- | --------------- | --------- | ----------------------------------------------------------------- |
+| 0     | M1 contract     | `KNW-10`  | Record confirmed decisions, source-of-truth changes, and ADRs     |
+| 1     | `SPC-01`        | `KNW-11`  | Private membership and non-leaking restrictive page inheritance   |
+| 2     | `PGE-01`        | `KNW-12`  | Concurrent, durable, reversible permission-aware page hierarchies |
+| 3     | `EDT-01`        | `KNW-13`  | Safe, lossless, accessible authoring for the frozen Release 1 AST |
+
+Only one execution issue, GitHub branch, and pull request is active at a time.
+No M1 product story advances from its current `PARTIAL` state until its required
+implementation and evidence issues are complete.
 
 ## Completed story: KNW-01
 
@@ -108,10 +127,11 @@ Non-goals:
 
 ## Decision log
 
-| Date       | Decision                                                                                                                                                                                                                                                                                                                     |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-10-15 | Approved the twelve defaults in plan §20: hosted-ready self-hosting, single-organization Release 1, generic OIDC, explicit publish, bounded editor schema, Markdown-first import, restrictive page inheritance, no guests, safe image/PDF previews, realtime and Jira links in Release 2, and portable container production. |
-| 2026-10-15 | Vibe Knowledge is a separately deployable sibling with its own database and migrations; it may share an OIDC provider but never reads Vibe JIRA's database.                                                                                                                                                                  |
+| Date       | Decision                                                                                                                                                                                                                                                                                                                                |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-15 | Approved the twelve defaults in plan §20: hosted-ready self-hosting, single-organization Release 1, generic OIDC, explicit publish, bounded editor schema, Markdown-first import, restrictive page inheritance, no guests, safe image/PDF previews, realtime and Jira links in Release 2, and portable container production.            |
+| 2026-10-15 | Vibe Knowledge is a separately deployable sibling with its own database and migrations; it may share an OIDC provider but never reads Vibe JIRA's database.                                                                                                                                                                             |
+| 2026-10-18 | Confirmed M1 decisions Q1–Q38: deliver `SPC-01` → `PGE-01` → `EDT-01`; use private direct-membership spaces and restrictive inherited page access; preserve private drafts, durable aliases, atomic subtree lifecycle, a library-independent frozen editor schema, and explicit evidence gates. See the M1 contract and ADRs 0002–0004. |
 
 ## Evidence log
 
@@ -123,3 +143,4 @@ Non-goals:
 | 2026-10-16 | Production container verification remains open: two builds reached Docker BuildKit but failed on external registry networking (`ECONNRESET`, then Docker Hub `no route to host`). No container gate is claimed.                                                                                                                                                                                                 |
 | 2026-10-17 | On the isolated `projectweave-knw8-gate` Compose project, a fresh build and startup completed: PostgreSQL and the SeaweedFS S3 API became healthy, migration `0001` and the seed job exited 0, the app and worker stayed running, `/health/live` and `/health/ready` returned 200, the login page and seeded login returned 200, and `npm run check` passed. KNW-01 remains in progress until review and merge. |
 | 2026-10-17 | Reviewed and merged GitHub pull request [#2](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/2) as `8448d4e`. Review added a signed AWS SigV4 `ListBuckets` check that returned 200 against the configured SeaweedFS S3 endpoint. With the final Compose change on `main`, `KNW-01` and M0 satisfy their recorded exit gates.                                                                           |
+| 2026-10-18 | Created Vibe JIRA M1 epic `KNW-9`, documentation issue `KNW-10`, canonical stories `KNW-11`–`KNW-13`, and bounded execution issues `KNW-14`–`KNW-25`. Only `KNW-10` is In Progress on `docs/knw-10-m1-contract`; no M1 implementation or release gate is claimed.                                                                                                                                               |

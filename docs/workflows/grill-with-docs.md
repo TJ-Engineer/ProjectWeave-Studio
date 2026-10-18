@@ -167,6 +167,30 @@ Historical implementation predates this tracking pilot, so `KNW-3` through
 pull requests. `KNW-8` closed the only remaining product gate with a successful
 clean Compose startup, review evidence, and a merged change.
 
+## M1 application
+
+The workflow was applied prospectively to M1 on 2026-10-18. The design frontier
+closed after decisions Q1–Q38 and the user confirmed the shared understanding
+before any M1 issue or branch was created.
+
+Epic: **`KNW-9` — `[M1] Spaces and authoring`**
+
+Contract issue: **`KNW-10` — `[M1] Record the confirmed spaces-and-authoring contract`**
+
+First branch: **`docs/knw-10-m1-contract`**
+
+| Canonical story | Story issue | Execution issues          | Dependency                       |
+| --------------- | ----------- | ------------------------- | -------------------------------- |
+| `SPC-01`        | `KNW-11`    | `KNW-14` through `KNW-17` | `KNW-10` merged                  |
+| `PGE-01`        | `KNW-12`    | `KNW-18` through `KNW-21` | `SPC-01` complete and reconciled |
+| `EDT-01`        | `KNW-13`    | `KNW-22` through `KNW-25` | `PGE-01` complete and reconciled |
+
+The confirmed product contract lives in
+[`vibe-confluence/docs/m1-spaces-and-authoring-contract.md`](../../vibe-confluence/docs/m1-spaces-and-authoring-contract.md).
+The M1 issues were created in To Do; only `KNW-10` moved to In Progress after
+the documentation branch contained real work. No product implementation or
+release evidence is inferred from planning state.
+
 ## Pull-request checklist
 
 - [ ] Vibe JIRA issue and canonical story are linked.

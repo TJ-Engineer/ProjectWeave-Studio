@@ -1,11 +1,12 @@
 import { restoreRevisionSchema } from "@knowledge/contracts";
 import { restoreRevision } from "@knowledge/database";
-import { DomainError } from "@knowledge/domain";
 import { NextResponse } from "next/server";
 import {
   correlationId,
   handleApiError,
   parseBody,
+  parsePositiveIntegerPath,
+  parseUuidPath,
   requireIdempotencyKey,
   requireIdentity,
 } from "@/lib/api";
@@ -20,15 +21,9 @@ export async function POST(
 ): Promise<NextResponse> {
   const id = correlationId(request);
   try {
-    const { pageId, number: value } = await context.params;
-    const number = Number(value);
-    if (!Number.isSafeInteger(number) || number < 1) {
-      throw new DomainError(
-        "INVALID_REVISION",
-        "Revision number is invalid",
-        400,
-      );
-    }
+    const { pageId: pageValue, number: numberValue } = await context.params;
+    const pageId = parseUuidPath(pageValue, "pageId");
+    const number = parsePositiveIntegerPath(numberValue, "number");
     const revision = await restoreRevision(
       await requireIdentity(),
       pageId,

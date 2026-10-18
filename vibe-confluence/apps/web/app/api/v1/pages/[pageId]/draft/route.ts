@@ -5,6 +5,7 @@ import {
   correlationId,
   handleApiError,
   parseBody,
+  parseUuidPath,
   requireIdentity,
 } from "@/lib/api";
 
@@ -18,7 +19,8 @@ export async function PUT(
 ): Promise<NextResponse> {
   const id = correlationId(request);
   try {
-    const { pageId } = await context.params;
+    const { pageId: value } = await context.params;
+    const pageId = parseUuidPath(value, "pageId");
     const draft = await saveDraft(
       await requireIdentity(),
       pageId,

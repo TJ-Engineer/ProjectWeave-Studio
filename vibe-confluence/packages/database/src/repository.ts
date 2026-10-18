@@ -260,8 +260,9 @@ export async function listPages(
             slug, version, created_by
        FROM pages
       WHERE organization_id = $1 AND space_id = $2 AND state = 'ACTIVE'
-        AND (current_revision_id IS NOT NULL OR created_by = $3)
-      ORDER BY sibling_rank, id`,
+        AND has_effective_page_access($1, $3, id)
+      ORDER BY sibling_rank, id
+      LIMIT 100`,
     [identity.organizationId, space.id, identity.id],
   );
   return {
@@ -284,15 +285,12 @@ export async function createPage(
       const parent = await client.query(
         `SELECT 1 FROM pages
           WHERE organization_id = $1 AND space_id = $2 AND id = $3
-            AND state = 'ACTIVE'`,
-        [identity.organizationId, space.id, input.parentId],
+            AND state = 'ACTIVE'
+            AND has_effective_page_access($1, $4, id)`,
+        [identity.organizationId, space.id, input.parentId, identity.id],
       );
       if (!parent.rowCount) {
-        throw new DomainError(
-          "INVALID_PARENT",
-          "Parent page not found in this space",
-          400,
-        );
+        throw new DomainError("NOT_FOUND", "Parent page not found", 404);
       }
     }
     const rank = await client.query<{ next_rank: string }>(
@@ -395,6 +393,7 @@ async function pageAccess(
       WHERE p.organization_id = $1 AND p.id = $3 AND p.state = 'ACTIVE'
         AND s.archived_at IS NULL
         AND ($4 = 'ADMIN' OR g.user_id IS NOT NULL)
+        AND has_effective_page_access($1, $2, p.id)
       ${lock ? "FOR UPDATE OF p" : ""}`,
     [identity.organizationId, identity.id, pageId, identity.organizationRole],
   );
@@ -552,6 +551,13 @@ export async function publishPage(
 ): Promise<RevisionView> {
   return inTransaction(async (client) => {
     const mutationHash = hashMutation(input);
+    const access = await pageAccess(identity, pageId, client, true);
+    if (!access) throw new DomainError("NOT_FOUND", "Page not found", 404);
+    assertCapability(
+      identity.organizationRole,
+      access.space.role,
+      "page:publish",
+    );
     const prior = await revisionByIdempotency(
       client,
       identity,
@@ -568,13 +574,6 @@ export async function publishPage(
       }
       return prior.revision;
     }
-    const access = await pageAccess(identity, pageId, client, true);
-    if (!access) throw new DomainError("NOT_FOUND", "Page not found", 404);
-    assertCapability(
-      identity.organizationRole,
-      access.space.role,
-      "page:publish",
-    );
     if (access.page.current_revision_id !== input.baseRevisionId) {
       throw new DomainError(
         "PUBLICATION_CONFLICT",
@@ -728,6 +727,13 @@ export async function restoreRevision(
 ): Promise<RevisionView> {
   return inTransaction(async (client) => {
     const mutationHash = hashMutation({ revisionNumber, ...input });
+    const access = await pageAccess(identity, pageId, client, true);
+    if (!access) throw new DomainError("NOT_FOUND", "Page not found", 404);
+    assertCapability(
+      identity.organizationRole,
+      access.space.role,
+      "page:restore",
+    );
     const prior = await revisionByIdempotency(
       client,
       identity,
@@ -744,13 +750,6 @@ export async function restoreRevision(
       }
       return prior.revision;
     }
-    const access = await pageAccess(identity, pageId, client, true);
-    if (!access) throw new DomainError("NOT_FOUND", "Page not found", 404);
-    assertCapability(
-      identity.organizationRole,
-      access.space.role,
-      "page:restore",
-    );
     if (access.page.current_revision_id !== input.expectedHeadRevisionId) {
       throw new DomainError(
         "PUBLICATION_CONFLICT",

@@ -28,10 +28,10 @@ documentation must agree.
 
 | Item                 | Current state                                                                       |
 | -------------------- | ----------------------------------------------------------------------------------- |
-| Delivery gate        | `KNW-14` M1 access-foundation migration is in Review through GitHub PR #5           |
+| Delivery gate        | `KNW-15` effective-access enforcement is active after `KNW-14` merged               |
 | Current milestone    | M1 — Spaces and authoring                                                           |
 | Active product story | `SPC-01` — Space membership and restrictive page inheritance                        |
-| Active execution     | `KNW-14` in Review on `feat/knw-14-access-data-model`; GitHub PR #5 is open         |
+| Active execution     | `KNW-15` in progress on `feat/knw-15-effective-access`; no pull request is open yet |
 | Blocking issues      | None                                                                                |
 | Story roll-up        | 1 done, 4 partial, 1 in progress, 6 planned                                         |
 | Release readiness    | Not ready; no release candidate exists                                              |
@@ -62,7 +62,7 @@ flowchart LR
 | `KNW-01` | Draft, publish, compare, and restore first slice                        | `DONE`        | Implementation, PostgreSQL, desktop, responsive, keyboard, and merged clean Compose evidence pass                |
 | `FND-01` | Strict TypeScript workspaces, CI gate, and one-image runtime            | `PARTIAL`     | Workspace gate and clean Compose app, worker, migration, seed, health, and object-store startup pass; CI remains |
 | `IAM-01` | Development login and provider-neutral production OIDC                  | `PARTIAL`     | Development login uses signed HTTP-only sessions and origin checks; deactivation and OIDC remain                 |
-| `SPC-01` | Space membership and restrictive page inheritance                       | `IN PROGRESS` | `KNW-14` is active with the forward-only M1 access migration and M0-upgrade fixture; `KNW-15`–`KNW-17` remain    |
+| `SPC-01` | Space membership and restrictive page inheritance                       | `IN PROGRESS` | `KNW-14` is merged; `KNW-15` is active with server-derived effective access; `KNW-16` and `KNW-17` remain        |
 | `PGE-01` | Concurrent page tree create, move, reorder, archive, trash, and restore | `PARTIAL`     | Contract confirmed; root/child creation and durable ID routes work; `KNW-18`–`KNW-21` remain                     |
 | `EDT-01` | Accessible editor for the frozen Release 1 schema                       | `PARTIAL`     | Contract confirmed; minimal schema/autosave/keyboard behavior works; `KNW-22`–`KNW-25` remain                    |
 | `COL-01` | Page and inline comments, mentions, watches, and notifications          | `PLANNED`     | Re-anchor/orphan behavior and deduplicated fan-out pass                                                          |
@@ -147,3 +147,5 @@ Non-goals:
 | 2026-10-18 | Merged GitHub PR [#4](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/4) as `3849e9b`, moved `KNW-10` to Done and `KNW-11` to Selected, then started `KNW-14` on `feat/knw-14-access-data-model`.                                                                                                                                                                                                                         |
 | 2026-10-18 | Added forward-only migration `0002` and a real-PostgreSQL M0-upgrade fixture. `npm run check` passes, including formatting, lint, strict types, four unit tests, and the production build; four PostgreSQL integration tests pass separately. The fixture preserves M0 data and proves slug backfill, active-member checks, restriction pruning, and last-admin protection. No `SPC-01` completion or M1 release gate is claimed. |
 | 2026-10-18 | Opened GitHub PR [#5](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/5) from `feat/knw-14-access-data-model` at feature commit `513cfbd`, reconciled the branch and verification evidence in Vibe JIRA, and moved `KNW-14` to Review. `SPC-01` remains in progress and no M1 release gate is claimed.                                                                                                                    |
+| 2026-10-18 | Merged GitHub PR [#5](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/5) as `6cb7a1c`, moved `KNW-14` to Done, and started `KNW-15` on `feat/knw-15-effective-access`. The effective-access slice derives policy from persisted identity and membership state, intersects ancestor restrictions, keeps unpublished work principal-private, validates route parameters, and authorizes idempotent retries before replay.   |
+| 2026-10-18 | Verified `KNW-15`: `npm run check` passes formatting, lint, strict types, seven non-database tests, and the production build; migration `0003` applies after `0001` and `0002`; five PostgreSQL integration tests pass against `knowledge_test`, including clean/upgrade migration paths and the adversarial effective-access fixture. No `SPC-01` completion or M1 release gate is claimed.                                      |

@@ -248,13 +248,13 @@ support a completion claim.
 
 ## Vibe JIRA and GitHub mapping
 
-| Key      | Purpose                                                         | Initial state |
+| Key      | Purpose                                                         | Current state |
 | -------- | --------------------------------------------------------------- | ------------- |
 | `KNW-9`  | M1 coordination epic                                            | To Do         |
-| `KNW-10` | Record this confirmed contract and align source documentation   | Review        |
-| `KNW-11` | `SPC-01` canonical story                                        | To Do         |
-| `KNW-14` | Migrate memberships, restrictions, and draft principals         | To Do         |
-| `KNW-15` | Enforce effective permissions on every read and mutation        | To Do         |
+| `KNW-10` | Record this confirmed contract and align source documentation   | Done          |
+| `KNW-11` | `SPC-01` canonical story                                        | Selected      |
+| `KNW-14` | Migrate memberships, restrictions, and draft principals         | Done          |
+| `KNW-15` | Enforce effective permissions on every read and mutation        | In Progress   |
 | `KNW-16` | Ship bounded membership and restriction administration          | To Do         |
 | `KNW-17` | Prove adversarial access and offboarding behavior               | To Do         |
 | `KNW-12` | `PGE-01` canonical story                                        | To Do         |
@@ -270,9 +270,12 @@ support a completion claim.
 
 The contract branch `docs/knw-10-m1-contract` was merged through
 [GitHub pull request #4](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/4).
-The first implementation branch is `feat/knw-14-access-data-model`, reviewed
+The first implementation branch, `feat/knw-14-access-data-model`, merged
 through
 [GitHub pull request #5](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/5).
+The active branch is `feat/knw-15-effective-access`; it enforces the same
+server-derived visibility predicate before page projection or mutation and
+does not add the membership/restriction administration owned by `KNW-16`.
 Subsequent branches follow `<type>/<tracker-key-lowercase>-<short-slug>` and
 start only when their issue becomes the active work item.
 

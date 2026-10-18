@@ -17,6 +17,8 @@ lib/
 lib64/
 !vibe-jira/apps/web/lib/
 !vibe-jira/apps/web/lib/**
+!vibe-confluence/apps/web/lib/
+!vibe-confluence/apps/web/lib/**
 parts/
 sdist/
 var/

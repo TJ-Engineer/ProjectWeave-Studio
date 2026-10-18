@@ -28,6 +28,13 @@ const m1Migration = await readFile(
   ),
   "utf8",
 );
+const effectiveAccessMigration = await readFile(
+  new URL(
+    "../../packages/database/migrations/0003_effective_page_access.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 async function applyMigration(client: PoolClient, sql: string): Promise<void> {
   await client.query("BEGIN");
@@ -66,6 +73,7 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
     await inIsolatedSchema(async (client) => {
       await applyMigration(client, m0Migration);
       await applyMigration(client, m1Migration);
+      await applyMigration(client, effectiveAccessMigration);
 
       const tables = await client.query<{ table_name: string }>(
         `SELECT table_name
@@ -103,6 +111,14 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
         { table_name: "drafts", column_name: "principal_id" },
         { table_name: "spaces", column_name: "membership_version" },
       ]);
+
+      await expect(
+        client.query<{ present: boolean }>(
+          `SELECT to_regprocedure(
+             'has_effective_page_access(uuid,uuid,uuid)'
+           ) IS NOT NULL AS present`,
+        ),
+      ).resolves.toMatchObject({ rows: [{ present: true }] });
     });
   });
 
@@ -209,6 +225,7 @@ describe.skipIf(!testDatabaseUrl)("M1 access foundation migration", () => {
       );
 
       await applyMigration(client, m1Migration);
+      await applyMigration(client, effectiveAccessMigration);
 
       await expect(
         client.query(

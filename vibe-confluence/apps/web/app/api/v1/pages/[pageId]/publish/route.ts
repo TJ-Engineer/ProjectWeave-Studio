@@ -5,6 +5,7 @@ import {
   correlationId,
   handleApiError,
   parseBody,
+  parseUuidPath,
   requireIdempotencyKey,
   requireIdentity,
 } from "@/lib/api";
@@ -19,7 +20,8 @@ export async function POST(
 ): Promise<NextResponse> {
   const id = correlationId(request);
   try {
-    const { pageId } = await context.params;
+    const { pageId: value } = await context.params;
+    const pageId = parseUuidPath(value, "pageId");
     const revision = await publishPage(
       await requireIdentity(),
       pageId,

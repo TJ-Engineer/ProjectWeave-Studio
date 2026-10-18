@@ -210,7 +210,7 @@ describe.skipIf(!testDatabaseUrl)("publication lifecycle", () => {
       randomUUID(),
     );
     await getPool().query(
-      `INSERT INTO space_grants (organization_id, space_id, user_id, role)
+      `INSERT INTO space_memberships (organization_id, space_id, user_id, role)
        VALUES ($1, $2, $3, 'EDITOR')`,
       [organizationId, space.id, editorId],
     );

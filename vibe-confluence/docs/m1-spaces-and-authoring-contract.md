@@ -268,8 +268,11 @@ support a completion claim.
 | `KNW-24` | Preserve private drafts, recovery, and publish conflicts        | To Do         |
 | `KNW-25` | Prove lossless schema and accessible authoring                  | To Do         |
 
-The first branch is `docs/knw-10-m1-contract`, reviewed through
+The contract branch `docs/knw-10-m1-contract` was merged through
 [GitHub pull request #4](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/4).
+The first implementation branch is `feat/knw-14-access-data-model`, reviewed
+through
+[GitHub pull request #5](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/5).
 Subsequent branches follow `<type>/<tracker-key-lowercase>-<short-slug>` and
 start only when their issue becomes the active work item.
 

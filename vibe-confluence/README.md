@@ -64,6 +64,8 @@ recorded in the
 [`M1 spaces and authoring contract`](./docs/m1-spaces-and-authoring-contract.md).
 The versioned membership and page-restriction endpoints are documented in the
 [`access administration API`](./docs/access-administration-api.md).
+Bounded child-tree reads and versioned subtree movement are documented in the
+[`page hierarchy API`](./docs/page-hierarchy-api.md).
 Implementation proceeds through one active Vibe JIRA issue, GitHub branch, and
 pull request at a time.
 

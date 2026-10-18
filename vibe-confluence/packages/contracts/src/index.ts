@@ -13,6 +13,7 @@ export const capabilitySchema = z.enum([
   "page:view",
   "page:create",
   "page:edit",
+  "page:move",
   "page:publish",
   "page:restore",
   "audit:read",
@@ -86,6 +87,36 @@ export const createPageSchema = z.object({
   title: z.string().trim().min(1).max(200),
   parentId: z.uuid().nullable().optional().default(null),
 });
+
+export const pageTreeQuerySchema = z
+  .object({
+    parentId: z.uuid().nullable().default(null),
+    cursor: z.uuid().nullable().default(null),
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+  })
+  .strict();
+
+export const movePageSchema = z
+  .object({
+    destinationParentId: z.uuid().nullable(),
+    beforePageId: z.uuid().nullable(),
+    afterPageId: z.uuid().nullable(),
+    expectedSourceVersion: z.number().int().positive(),
+    expectedDestinationVersion: z.number().int().positive(),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (
+      input.beforePageId !== null &&
+      input.beforePageId === input.afterPageId
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "The neighboring pages must be different",
+        path: ["afterPageId"],
+      });
+    }
+  });
 
 export const saveDraftSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -194,6 +225,34 @@ export interface PageSummary {
   slug: string;
   currentRevisionId: string | null;
   version: number;
+}
+
+export interface PageTreeNode extends PageSummary {
+  hasChildren: boolean;
+}
+
+export interface PageBreadcrumb {
+  id: string;
+  title: string;
+  slug: string;
+}
+
+export interface PageTreePage {
+  space: SpaceSummary;
+  parentId: string | null;
+  parentVersion: number;
+  breadcrumbs: PageBreadcrumb[];
+  items: PageTreeNode[];
+  nextCursor: string | null;
+}
+
+export interface MovePageResult {
+  page: PageSummary;
+  sourceParentId: string | null;
+  destinationParentId: string | null;
+  sourceVersion: number;
+  destinationVersion: number;
+  restrictionMaterialized: boolean;
 }
 
 export interface PageWorkspace {

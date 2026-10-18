@@ -5,9 +5,13 @@ import {
   type DocumentNode,
   type DraftView,
   type MembershipMutationResult,
+  type MovePageResult,
   type OrganizationMemberCandidate,
+  type PageBreadcrumb,
   type PageRestrictionAdministration,
   type PageSummary,
+  type PageTreeNode,
+  type PageTreePage,
   type PageWorkspace,
   type RevisionView,
   type SpaceMemberPage,
@@ -57,6 +61,7 @@ interface PageRow extends QueryResultRow {
   current_revision_id: string | null;
   title: string;
   slug: string;
+  sibling_rank: string;
   version: number;
   created_by: string;
 }
@@ -102,6 +107,26 @@ interface PageRestrictionRow extends QueryResultRow {
   enabled: boolean;
 }
 
+interface PageTreeRow extends PageRow {
+  has_children: boolean;
+}
+
+interface SiblingListRow extends QueryResultRow {
+  parent_id: string | null;
+  version: number;
+}
+
+interface SiblingPageRow extends QueryResultRow {
+  id: string;
+  sibling_rank: string;
+}
+
+interface HierarchyMemberAccessRow extends QueryResultRow {
+  user_id: string;
+  old_allowed: boolean;
+  future_allowed: boolean;
+}
+
 function identityFromRow(row: IdentityRow): UserIdentity {
   return {
     id: row.id,
@@ -134,6 +159,10 @@ function pageFromRow(row: PageRow): PageSummary {
     currentRevisionId: row.current_revision_id,
     version: row.version,
   };
+}
+
+function pageTreeFromRow(row: PageTreeRow): PageTreeNode {
+  return { ...pageFromRow(row), hasChildren: row.has_children };
 }
 
 function draftFromRow(row: DraftRow): DraftView {
@@ -733,6 +762,171 @@ export async function listPages(
   };
 }
 
+async function listPageTreeSnapshot(
+  client: Pick<PoolClient, "query">,
+  identity: UserIdentity,
+  spaceKey: string,
+  input: { parentId: string | null; cursor: string | null; limit: number },
+): Promise<PageTreePage> {
+  const space = await querySpace(identity, spaceKey, client);
+  if (!space) throw new DomainError("NOT_FOUND", "Space not found", 404);
+  assertCapability(identity.organizationRole, space.role, "page:view");
+
+  if (input.parentId) {
+    const parentAccess = await pageAccess(identity, input.parentId, client);
+    if (!parentAccess || parentAccess.page.space_id !== space.id) {
+      throw new DomainError("NOT_FOUND", "Parent page not found", 404);
+    }
+  }
+
+  const siblingList = await client.query<SiblingListRow>(
+    `SELECT parent_id, version
+       FROM page_sibling_lists
+      WHERE organization_id = $1 AND space_id = $2
+        AND parent_id IS NOT DISTINCT FROM $3`,
+    [identity.organizationId, space.id, input.parentId],
+  );
+  const list = siblingList.rows[0];
+  if (!list) {
+    throw new DomainError(
+      "HIERARCHY_STATE_INVALID",
+      "The page hierarchy is not initialized",
+      409,
+    );
+  }
+
+  let cursorRank: string | null = null;
+  if (input.cursor) {
+    const cursor = await client.query<{ sibling_rank: string }>(
+      `SELECT sibling_rank
+         FROM pages
+        WHERE organization_id = $1 AND space_id = $2 AND id = $3
+          AND parent_id IS NOT DISTINCT FROM $4 AND state = 'ACTIVE'
+          AND has_effective_page_access($1, $5, id)`,
+      [
+        identity.organizationId,
+        space.id,
+        input.cursor,
+        input.parentId,
+        identity.id,
+      ],
+    );
+    if (!cursor.rows[0]) {
+      throw new DomainError(
+        "PAGE_TREE_CURSOR_INVALID",
+        "The page tree changed. Refresh and try again.",
+        409,
+      );
+    }
+    cursorRank = cursor.rows[0].sibling_rank;
+  }
+
+  const result = await client.query<PageTreeRow>(
+    `SELECT page.id, page.organization_id, page.space_id, page.parent_id,
+            page.current_revision_id,
+            CASE WHEN page.current_revision_id IS NULL
+                 THEN COALESCE((SELECT draft.title FROM drafts draft
+                                  WHERE draft.page_id = page.id
+                                    AND draft.principal_id = $4),
+                               'Untitled draft')
+                 ELSE page.title END AS title,
+            page.slug, page.sibling_rank, page.version, page.created_by,
+            EXISTS (
+              SELECT 1
+                FROM pages child
+               WHERE child.organization_id = page.organization_id
+                 AND child.space_id = page.space_id
+                 AND child.parent_id = page.id
+                 AND child.state = 'ACTIVE'
+                 AND has_effective_page_access($1, $4, child.id)
+            ) AS has_children
+       FROM pages page
+      WHERE page.organization_id = $1 AND page.space_id = $2
+        AND page.parent_id IS NOT DISTINCT FROM $3
+        AND page.state = 'ACTIVE'
+        AND has_effective_page_access($1, $4, page.id)
+        AND (
+          $5::numeric IS NULL
+          OR (page.sibling_rank, page.id) > ($5::numeric, $6::uuid)
+        )
+      ORDER BY page.sibling_rank, page.id
+      LIMIT $7`,
+    [
+      identity.organizationId,
+      space.id,
+      input.parentId,
+      identity.id,
+      cursorRank,
+      input.cursor,
+      input.limit + 1,
+    ],
+  );
+  const hasNext = result.rows.length > input.limit;
+  const rows = result.rows.slice(0, input.limit);
+
+  let breadcrumbs: PageBreadcrumb[] = [];
+  if (input.parentId) {
+    const path = await client.query<PageBreadcrumb & QueryResultRow>(
+      `WITH RECURSIVE ancestors AS (
+         SELECT page.id, page.parent_id, page.title, page.slug,
+                page.current_revision_id, 0 AS depth
+           FROM pages page
+          WHERE page.organization_id = $1 AND page.space_id = $2
+            AND page.id = $3 AND page.state = 'ACTIVE'
+            AND has_effective_page_access($1, $4, page.id)
+
+         UNION ALL
+
+         SELECT parent.id, parent.parent_id, parent.title, parent.slug,
+                parent.current_revision_id, child.depth + 1
+           FROM pages parent
+           JOIN ancestors child ON child.parent_id = parent.id
+          WHERE parent.organization_id = $1 AND parent.space_id = $2
+            AND parent.state = 'ACTIVE'
+            AND has_effective_page_access($1, $4, parent.id)
+       )
+       SELECT ancestor.id,
+              CASE WHEN ancestor.current_revision_id IS NULL
+                   THEN COALESCE((SELECT draft.title FROM drafts draft
+                                    WHERE draft.page_id = ancestor.id
+                                      AND draft.principal_id = $4),
+                                 'Untitled draft')
+                   ELSE ancestor.title END AS title,
+              ancestor.slug
+         FROM ancestors ancestor
+        ORDER BY ancestor.depth DESC`,
+      [identity.organizationId, space.id, input.parentId, identity.id],
+    );
+    breadcrumbs = path.rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      slug: row.slug,
+    }));
+  }
+
+  return {
+    space: spaceFromRow(space, identity),
+    parentId: input.parentId,
+    parentVersion: list.version,
+    breadcrumbs,
+    items: rows.map(pageTreeFromRow),
+    nextCursor: hasNext ? (rows.at(-1)?.id ?? null) : null,
+  };
+}
+
+export async function listPageTree(
+  identity: UserIdentity,
+  spaceKey: string,
+  input: { parentId: string | null; cursor: string | null; limit: number },
+): Promise<PageTreePage> {
+  return inTransaction(async (client) => {
+    await client.query(
+      "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY",
+    );
+    return listPageTreeSnapshot(client, identity, spaceKey, input);
+  });
+}
+
 export async function createPage(
   identity: UserIdentity,
   spaceKey: string,
@@ -748,12 +942,28 @@ export async function createPage(
         `SELECT 1 FROM pages
           WHERE organization_id = $1 AND space_id = $2 AND id = $3
             AND state = 'ACTIVE'
-            AND has_effective_page_access($1, $4, id)`,
+            AND has_effective_page_access($1, $4, id)
+          FOR UPDATE`,
         [identity.organizationId, space.id, input.parentId, identity.id],
       );
       if (!parent.rowCount) {
         throw new DomainError("NOT_FOUND", "Parent page not found", 404);
       }
+    }
+    const siblingList = await client.query<SiblingListRow>(
+      `SELECT parent_id, version
+         FROM page_sibling_lists
+        WHERE organization_id = $1 AND space_id = $2
+          AND parent_id IS NOT DISTINCT FROM $3
+        FOR UPDATE`,
+      [identity.organizationId, space.id, input.parentId],
+    );
+    if (!siblingList.rowCount) {
+      throw new DomainError(
+        "HIERARCHY_STATE_INVALID",
+        "The page hierarchy is not initialized",
+        409,
+      );
     }
     const rank = await client.query<{ next_rank: string }>(
       `SELECT COALESCE(MAX(sibling_rank), 0) + 1024 AS next_rank
@@ -811,6 +1021,582 @@ export async function createPage(
       },
     );
     return { ...pageFromRow(pageResult.rows[0]!), title: input.title };
+  });
+}
+
+function sameParent(left: string | null, right: string | null): boolean {
+  return left === right;
+}
+
+function siblingListKey(parentId: string | null): string {
+  return parentId ?? "__ROOT__";
+}
+
+function assertSiblingListVersion(expected: number, actual: number): void {
+  if (expected !== actual) {
+    throw new DomainError(
+      "SIBLING_LIST_VERSION_CONFLICT",
+      "The page order changed since it was loaded. Refresh and try again.",
+      409,
+    );
+  }
+}
+
+async function siblingPages(
+  client: Pick<PoolClient, "query">,
+  organizationId: string,
+  spaceId: string,
+  parentId: string | null,
+  movingPageId: string,
+): Promise<SiblingPageRow[]> {
+  const result = await client.query<SiblingPageRow>(
+    `SELECT id, sibling_rank
+       FROM pages
+      WHERE organization_id = $1 AND space_id = $2
+        AND parent_id IS NOT DISTINCT FROM $3
+        AND state = 'ACTIVE' AND id <> $4
+      ORDER BY sibling_rank, id`,
+    [organizationId, spaceId, parentId, movingPageId],
+  );
+  return result.rows;
+}
+
+function neighborRanks(
+  siblings: SiblingPageRow[],
+  beforePageId: string | null,
+  afterPageId: string | null,
+): { beforeRank: string | null; afterRank: string | null } {
+  const beforeIndex = beforePageId
+    ? siblings.findIndex((page) => page.id === beforePageId)
+    : -1;
+  const afterIndex = afterPageId
+    ? siblings.findIndex((page) => page.id === afterPageId)
+    : -1;
+  const valid =
+    beforePageId && afterPageId
+      ? beforeIndex >= 0 && afterIndex === beforeIndex + 1
+      : beforePageId
+        ? beforeIndex === siblings.length - 1
+        : afterPageId
+          ? afterIndex === 0
+          : true;
+  if (!valid) {
+    throw new DomainError(
+      "PAGE_POSITION_INVALID",
+      "The requested neighboring pages do not define a current position",
+      422,
+    );
+  }
+  return {
+    beforeRank:
+      beforeIndex >= 0 ? (siblings[beforeIndex]?.sibling_rank ?? null) : null,
+    afterRank:
+      afterIndex >= 0 ? (siblings[afterIndex]?.sibling_rank ?? null) : null,
+  };
+}
+
+async function calculateSiblingRank(
+  client: Pick<PoolClient, "query">,
+  siblings: SiblingPageRow[],
+  beforeRank: string | null,
+  afterRank: string | null,
+): Promise<{ rank: string; exhausted: boolean }> {
+  if (beforeRank && afterRank) {
+    const result = await client.query<{ rank: string; usable: boolean }>(
+      `SELECT (($1::numeric + $2::numeric) / 2)::numeric(30, 15)::text AS rank,
+              (($1::numeric + $2::numeric) / 2)::numeric(30, 15) > $1::numeric
+              AND (($1::numeric + $2::numeric) / 2)::numeric(30, 15) < $2::numeric
+                AS usable`,
+      [beforeRank, afterRank],
+    );
+    return {
+      rank: result.rows[0]!.rank,
+      exhausted: !result.rows[0]!.usable,
+    };
+  }
+  if (beforeRank) {
+    const result = await client.query<{ rank: string }>(
+      `SELECT ($1::numeric + 1024)::numeric(30, 15)::text AS rank`,
+      [beforeRank],
+    );
+    return { rank: result.rows[0]!.rank, exhausted: false };
+  }
+  if (afterRank) {
+    const result = await client.query<{ rank: string }>(
+      `SELECT ($1::numeric - 1024)::numeric(30, 15)::text AS rank`,
+      [afterRank],
+    );
+    return { rank: result.rows[0]!.rank, exhausted: false };
+  }
+  const lastRank = siblings.at(-1)?.sibling_rank;
+  if (!lastRank) return { rank: "1024", exhausted: false };
+  const result = await client.query<{ rank: string }>(
+    `SELECT ($1::numeric + 1024)::numeric(30, 15)::text AS rank`,
+    [lastRank],
+  );
+  return { rank: result.rows[0]!.rank, exhausted: false };
+}
+
+async function rebalanceSiblingList(
+  client: Pick<PoolClient, "query">,
+  organizationId: string,
+  spaceId: string,
+  parentId: string | null,
+): Promise<void> {
+  await client.query(
+    `WITH ordered AS (
+       SELECT id,
+              row_number() OVER (ORDER BY sibling_rank, id)::numeric * 1024
+                AS new_rank
+         FROM pages
+        WHERE organization_id = $1 AND space_id = $2
+          AND parent_id IS NOT DISTINCT FROM $3 AND state = 'ACTIVE'
+     )
+     UPDATE pages page
+        SET sibling_rank = ordered.new_rank
+       FROM ordered
+      WHERE page.id = ordered.id`,
+    [organizationId, spaceId, parentId],
+  );
+}
+
+async function hierarchyMemberAccess(
+  client: Pick<PoolClient, "query">,
+  organizationId: string,
+  spaceId: string,
+  pageId: string,
+  destinationParentId: string | null,
+): Promise<HierarchyMemberAccessRow[]> {
+  const result = await client.query<HierarchyMemberAccessRow>(
+    `WITH RECURSIVE old_ancestors AS (
+       SELECT page.id, page.parent_id
+         FROM pages page
+        WHERE page.organization_id = $1 AND page.space_id = $2
+          AND page.id = $3
+
+       UNION
+
+       SELECT parent.id, parent.parent_id
+         FROM pages parent
+         JOIN old_ancestors child ON child.parent_id = parent.id
+        WHERE parent.organization_id = $1 AND parent.space_id = $2
+     ), destination_ancestors AS (
+       SELECT page.id, page.parent_id
+         FROM pages page
+        WHERE page.organization_id = $1 AND page.space_id = $2
+          AND page.id = $4
+
+       UNION
+
+       SELECT parent.id, parent.parent_id
+         FROM pages parent
+         JOIN destination_ancestors child ON child.parent_id = parent.id
+        WHERE parent.organization_id = $1 AND parent.space_id = $2
+     ), future_ancestors AS (
+       SELECT $3::uuid AS id
+       UNION
+       SELECT id FROM destination_ancestors
+     )
+     SELECT member.user_id,
+            member.role = 'ADMIN' OR NOT EXISTS (
+              SELECT 1
+                FROM old_ancestors ancestor
+                JOIN page_restrictions restriction
+                  ON restriction.organization_id = $1
+                 AND restriction.space_id = $2
+                 AND restriction.page_id = ancestor.id
+                 AND restriction.enabled
+               WHERE NOT EXISTS (
+                 SELECT 1
+                   FROM page_restriction_members allowed
+                  WHERE allowed.organization_id = $1
+                    AND allowed.space_id = $2
+                    AND allowed.page_id = restriction.page_id
+                    AND allowed.user_id = member.user_id
+               )
+            ) AS old_allowed,
+            member.role = 'ADMIN' OR NOT EXISTS (
+              SELECT 1
+                FROM future_ancestors ancestor
+                JOIN page_restrictions restriction
+                  ON restriction.organization_id = $1
+                 AND restriction.space_id = $2
+                 AND restriction.page_id = ancestor.id
+                 AND restriction.enabled
+               WHERE NOT EXISTS (
+                 SELECT 1
+                   FROM page_restriction_members allowed
+                  WHERE allowed.organization_id = $1
+                    AND allowed.space_id = $2
+                    AND allowed.page_id = restriction.page_id
+                    AND allowed.user_id = member.user_id
+               )
+            ) AS future_allowed
+       FROM space_memberships member
+       JOIN users active_user
+         ON active_user.organization_id = member.organization_id
+        AND active_user.id = member.user_id
+        AND active_user.state = 'ACTIVE'
+      WHERE member.organization_id = $1 AND member.space_id = $2
+      ORDER BY member.user_id
+      FOR SHARE OF member, active_user`,
+    [organizationId, spaceId, pageId, destinationParentId],
+  );
+  return result.rows;
+}
+
+async function materializePageRestriction(
+  client: Pick<PoolClient, "query">,
+  identity: UserIdentity,
+  spaceId: string,
+  pageId: string,
+  memberIds: string[],
+): Promise<void> {
+  await client.query(
+    `INSERT INTO page_restrictions
+      (organization_id, space_id, page_id, version, enabled, created_by)
+     VALUES ($1, $2, $3, 1, true, $4)
+     ON CONFLICT (page_id) DO UPDATE
+       SET version = page_restrictions.version + 1,
+           enabled = true,
+           updated_at = now()`,
+    [identity.organizationId, spaceId, pageId, identity.id],
+  );
+  await client.query(
+    `DELETE FROM page_restriction_members
+      WHERE organization_id = $1 AND space_id = $2 AND page_id = $3`,
+    [identity.organizationId, spaceId, pageId],
+  );
+  if (memberIds.length) {
+    await client.query(
+      `INSERT INTO page_restriction_members
+        (organization_id, space_id, page_id, user_id)
+       SELECT $1, $2, $3, member_id
+         FROM unnest($4::uuid[]) AS member_id`,
+      [identity.organizationId, spaceId, pageId, memberIds],
+    );
+  }
+}
+
+export async function movePage(
+  identity: UserIdentity,
+  pageId: string,
+  input: {
+    destinationParentId: string | null;
+    beforePageId: string | null;
+    afterPageId: string | null;
+    expectedSourceVersion: number;
+    expectedDestinationVersion: number;
+  },
+  correlationId: string,
+): Promise<MovePageResult> {
+  return inTransaction(async (client) => {
+    let sourceAccess = await pageAccess(identity, pageId, client);
+    if (!sourceAccess)
+      throw new DomainError("NOT_FOUND", "Page not found", 404);
+    const lockedSpace = await querySpace(
+      identity,
+      sourceAccess.page.space_id,
+      client,
+      true,
+    );
+    if (!lockedSpace) {
+      throw new DomainError(
+        "PAGE_HIERARCHY_CHANGED",
+        "The page hierarchy changed. Refresh and try again.",
+        409,
+      );
+    }
+    assertCapability(identity.organizationRole, lockedSpace.role, "page:move");
+
+    let destinationAccess = input.destinationParentId
+      ? await pageAccess(identity, input.destinationParentId, client)
+      : null;
+    if (input.destinationParentId && !destinationAccess) {
+      throw new DomainError("NOT_FOUND", "Destination page not found", 404);
+    }
+    if (
+      destinationAccess &&
+      destinationAccess.page.space_id !== sourceAccess.page.space_id
+    ) {
+      throw new DomainError(
+        "CROSS_SPACE_MOVE",
+        "Pages cannot be moved between spaces",
+        422,
+      );
+    }
+
+    const pageLocks = [pageId, input.destinationParentId]
+      .filter((value): value is string => value !== null)
+      .sort();
+    await client.query(
+      `SELECT id
+         FROM pages
+        WHERE organization_id = $1 AND id = ANY($2::uuid[])
+        ORDER BY id
+        FOR UPDATE`,
+      [identity.organizationId, pageLocks],
+    );
+
+    sourceAccess = await pageAccess(identity, pageId, client);
+    destinationAccess = input.destinationParentId
+      ? await pageAccess(identity, input.destinationParentId, client)
+      : null;
+    if (
+      !sourceAccess ||
+      (input.destinationParentId && !destinationAccess) ||
+      (destinationAccess &&
+        destinationAccess.page.space_id !== sourceAccess.page.space_id)
+    ) {
+      throw new DomainError(
+        "PAGE_HIERARCHY_CHANGED",
+        "The page hierarchy changed. Refresh and try again.",
+        409,
+      );
+    }
+    assertCapability(
+      identity.organizationRole,
+      sourceAccess.space.role,
+      "page:move",
+    );
+
+    if (input.destinationParentId) {
+      const cycle = await client.query(
+        `WITH RECURSIVE subtree AS (
+           SELECT id
+             FROM pages
+            WHERE organization_id = $1 AND space_id = $2 AND id = $3
+
+           UNION
+
+           SELECT child.id
+             FROM pages child
+             JOIN subtree parent ON child.parent_id = parent.id
+            WHERE child.organization_id = $1 AND child.space_id = $2
+         )
+         SELECT 1 FROM subtree WHERE id = $4 LIMIT 1`,
+        [
+          identity.organizationId,
+          sourceAccess.page.space_id,
+          pageId,
+          input.destinationParentId,
+        ],
+      );
+      if (cycle.rowCount) {
+        throw new DomainError(
+          "PAGE_CYCLE",
+          "A page cannot be moved beneath its own subtree",
+          409,
+        );
+      }
+    }
+
+    const sourceParentId = sourceAccess.page.parent_id;
+    const destinationParentId = input.destinationParentId;
+    const requestedParents = sameParent(sourceParentId, destinationParentId)
+      ? [sourceParentId]
+      : [sourceParentId, destinationParentId];
+    const siblingLists = await client.query<SiblingListRow>(
+      `SELECT parent_id, version
+         FROM page_sibling_lists
+        WHERE organization_id = $1 AND space_id = $2
+          AND (
+            parent_id IS NOT DISTINCT FROM $3
+            OR parent_id IS NOT DISTINCT FROM $4
+          )
+        ORDER BY parent_id NULLS FIRST
+        FOR UPDATE`,
+      [
+        identity.organizationId,
+        sourceAccess.page.space_id,
+        sourceParentId,
+        destinationParentId,
+      ],
+    );
+    const versions = new Map(
+      siblingLists.rows.map((row) => [
+        siblingListKey(row.parent_id),
+        row.version,
+      ]),
+    );
+    if (
+      requestedParents.some(
+        (parentId) => !versions.has(siblingListKey(parentId)),
+      )
+    ) {
+      throw new DomainError(
+        "HIERARCHY_STATE_INVALID",
+        "The page hierarchy is not initialized",
+        409,
+      );
+    }
+    const sourceVersion = versions.get(siblingListKey(sourceParentId))!;
+    const destinationVersion = versions.get(
+      siblingListKey(destinationParentId),
+    )!;
+    assertSiblingListVersion(input.expectedSourceVersion, sourceVersion);
+    assertSiblingListVersion(
+      input.expectedDestinationVersion,
+      destinationVersion,
+    );
+
+    let accessRows: HierarchyMemberAccessRow[] = [];
+    if (!sameParent(sourceParentId, destinationParentId)) {
+      accessRows = await hierarchyMemberAccess(
+        client,
+        identity.organizationId,
+        sourceAccess.page.space_id,
+        pageId,
+        destinationParentId,
+      );
+    }
+    const restrictionMaterialized = accessRows.some(
+      (row) => row.future_allowed && !row.old_allowed,
+    );
+    if (restrictionMaterialized) {
+      await materializePageRestriction(
+        client,
+        identity,
+        sourceAccess.page.space_id,
+        pageId,
+        accessRows.filter((row) => row.old_allowed).map((row) => row.user_id),
+      );
+    }
+
+    let siblings = await siblingPages(
+      client,
+      identity.organizationId,
+      sourceAccess.page.space_id,
+      destinationParentId,
+      pageId,
+    );
+    let ranks = neighborRanks(siblings, input.beforePageId, input.afterPageId);
+    let placement = await calculateSiblingRank(
+      client,
+      siblings,
+      ranks.beforeRank,
+      ranks.afterRank,
+    );
+    if (placement.exhausted) {
+      await rebalanceSiblingList(
+        client,
+        identity.organizationId,
+        sourceAccess.page.space_id,
+        destinationParentId,
+      );
+      siblings = await siblingPages(
+        client,
+        identity.organizationId,
+        sourceAccess.page.space_id,
+        destinationParentId,
+        pageId,
+      );
+      ranks = neighborRanks(siblings, input.beforePageId, input.afterPageId);
+      placement = await calculateSiblingRank(
+        client,
+        siblings,
+        ranks.beforeRank,
+        ranks.afterRank,
+      );
+      if (placement.exhausted) {
+        throw new DomainError(
+          "PAGE_RANK_EXHAUSTED",
+          "The page order could not be rebalanced",
+          409,
+        );
+      }
+    }
+
+    const moved = await client.query<PageRow>(
+      `UPDATE pages
+          SET parent_id = $4, sibling_rank = $5, version = version + 1,
+              updated_at = now()
+        WHERE organization_id = $1 AND space_id = $2 AND id = $3
+        RETURNING id, organization_id, space_id, parent_id,
+                  current_revision_id, title, slug, sibling_rank, version,
+                  created_by`,
+      [
+        identity.organizationId,
+        sourceAccess.page.space_id,
+        pageId,
+        destinationParentId,
+        placement.rank,
+      ],
+    );
+    let movedPage = pageFromRow(moved.rows[0]!);
+    if (!moved.rows[0]!.current_revision_id) {
+      const draft = await client.query<{ title: string }>(
+        `SELECT title
+           FROM drafts
+          WHERE organization_id = $1 AND page_id = $2 AND principal_id = $3`,
+        [identity.organizationId, pageId, identity.id],
+      );
+      if (draft.rows[0])
+        movedPage = { ...movedPage, title: draft.rows[0].title };
+    }
+
+    let nextSourceVersion: number;
+    let nextDestinationVersion: number;
+    if (sameParent(sourceParentId, destinationParentId)) {
+      const bumped = await client.query<{ version: number }>(
+        `UPDATE page_sibling_lists
+            SET version = version + 1, updated_at = now()
+          WHERE organization_id = $1 AND space_id = $2
+            AND parent_id IS NOT DISTINCT FROM $3
+          RETURNING version`,
+        [identity.organizationId, sourceAccess.page.space_id, sourceParentId],
+      );
+      nextSourceVersion = bumped.rows[0]!.version;
+      nextDestinationVersion = nextSourceVersion;
+    } else {
+      const bumped = await client.query<SiblingListRow>(
+        `UPDATE page_sibling_lists
+            SET version = version + 1, updated_at = now()
+          WHERE organization_id = $1 AND space_id = $2
+            AND (
+              parent_id IS NOT DISTINCT FROM $3
+              OR parent_id IS NOT DISTINCT FROM $4
+            )
+          RETURNING parent_id, version`,
+        [
+          identity.organizationId,
+          sourceAccess.page.space_id,
+          sourceParentId,
+          destinationParentId,
+        ],
+      );
+      const nextVersions = new Map(
+        bumped.rows.map((row) => [siblingListKey(row.parent_id), row.version]),
+      );
+      nextSourceVersion = nextVersions.get(siblingListKey(sourceParentId))!;
+      nextDestinationVersion = nextVersions.get(
+        siblingListKey(destinationParentId),
+      )!;
+    }
+
+    await recordEffects(
+      client,
+      identity,
+      "page.moved",
+      "page",
+      pageId,
+      correlationId,
+      {
+        sourceParentId,
+        destinationParentId,
+        sourceVersion: nextSourceVersion,
+        destinationVersion: nextDestinationVersion,
+        restrictionMaterialized,
+      },
+    );
+    return {
+      page: movedPage,
+      sourceParentId,
+      destinationParentId,
+      sourceVersion: nextSourceVersion,
+      destinationVersion: nextDestinationVersion,
+      restrictionMaterialized,
+    };
   });
 }
 
@@ -1362,13 +2148,23 @@ export async function updatePageRestriction(
   correlationId: string,
 ): Promise<PageRestrictionAdministration> {
   return inTransaction(async (client) => {
-    const access = await pageAccess(identity, pageId, client, true);
-    if (!access) throw new DomainError("NOT_FOUND", "Page not found", 404);
+    const initialAccess = await pageAccess(identity, pageId, client);
+    if (!initialAccess)
+      throw new DomainError("NOT_FOUND", "Page not found", 404);
+    const lockedSpace = await querySpace(
+      identity,
+      initialAccess.page.space_id,
+      client,
+      true,
+    );
+    if (!lockedSpace) throw new DomainError("NOT_FOUND", "Page not found", 404);
     assertCapability(
       identity.organizationRole,
-      access.space.role,
+      lockedSpace.role,
       "space:admin",
     );
+    const access = await pageAccess(identity, pageId, client, true);
+    if (!access) throw new DomainError("NOT_FOUND", "Page not found", 404);
     const restriction = await client.query<PageRestrictionRow>(
       `SELECT version, enabled
          FROM page_restrictions

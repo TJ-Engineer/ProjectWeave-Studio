@@ -252,13 +252,13 @@ support a completion claim.
 | -------- | --------------------------------------------------------------- | ------------- |
 | `KNW-9`  | M1 coordination epic                                            | To Do         |
 | `KNW-10` | Record this confirmed contract and align source documentation   | Done          |
-| `KNW-11` | `SPC-01` canonical story                                        | Selected      |
+| `KNW-11` | `SPC-01` canonical story                                        | Done          |
 | `KNW-14` | Migrate memberships, restrictions, and draft principals         | Done          |
 | `KNW-15` | Enforce effective permissions on every read and mutation        | Done          |
 | `KNW-16` | Ship bounded membership and restriction administration          | Done          |
-| `KNW-17` | Prove adversarial access and offboarding behavior               | Review        |
-| `KNW-12` | `PGE-01` canonical story                                        | To Do         |
-| `KNW-18` | Implement versioned hierarchy moves and ordering                | To Do         |
+| `KNW-17` | Prove adversarial access and offboarding behavior               | Done          |
+| `KNW-12` | `PGE-01` canonical story                                        | Selected      |
+| `KNW-18` | Implement versioned hierarchy moves and ordering                | Review        |
 | `KNW-19` | Implement durable aliases and atomic subtree lifecycle          | To Do         |
 | `KNW-20` | Ship lazy accessible tree and explicit read/edit views          | To Do         |
 | `KNW-21` | Prove hierarchy concurrency, recovery, authorization, and scale | To Do         |
@@ -278,9 +278,14 @@ The effective-access branch `feat/knw-15-effective-access` merged through
 as `003be52`. The access-administration branch `feat/knw-16-access-admin`
 merged through
 [GitHub pull request #7](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/7)
-as `99889ec`. The active branch is
-`test/knw-17-adversarial-access-evidence`; it owns the final adversarial access,
-offboarding, deactivation, accessibility, and evidence gate for `SPC-01`.
+as `99889ec`. The adversarial access branch
+`test/knw-17-adversarial-access-evidence` merged through
+[GitHub pull request #8](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/8)
+as `46062a9`; `KNW-17` and canonical story `KNW-11` are Done. The active branch
+is `feat/knw-18-versioned-hierarchy`; it owns bounded child-tree reads,
+per-sibling-list versions, and atomic access-preserving moves for `PGE-01` and
+is in review through
+[GitHub pull request #9](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/9).
 Subsequent branches follow `<type>/<tracker-key-lowercase>-<short-slug>` and
 start only when their issue becomes the active work item.
 

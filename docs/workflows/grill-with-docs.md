@@ -198,10 +198,13 @@ merged as `6cb7a1c`. `KNW-15` is Done after
 [GitHub PR #6](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/6)
 merged as `003be52`. `KNW-16` completed after
 [GitHub PR #7](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/7) merged
-as `99889ec`. `KNW-11` remains Selected and `KNW-17` is in review through
-[GitHub PR #8](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/8) from
-`test/knw-17-adversarial-access-evidence`. No story or release completion is
-inferred until that evidence gate is merged and reconciled.
+as `99889ec`. `KNW-17` completed after
+[GitHub PR #8](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/8) merged
+as `46062a9`; canonical story `KNW-11` is reconciled Done. `KNW-12` is Selected,
+and `KNW-18` is in review through
+[GitHub PR #9](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/9) from
+`feat/knw-18-versioned-hierarchy`. No `PGE-01` or M1 completion is inferred from
+that review state.
 
 ## Pull-request checklist
 

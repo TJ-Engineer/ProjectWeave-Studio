@@ -662,6 +662,21 @@ export async function removeSpaceMember(
       );
     }
     await client.query(
+      `UPDATE page_restrictions restriction
+          SET version = restriction.version + 1, updated_at = now()
+        WHERE restriction.organization_id = $1
+          AND restriction.space_id = $2
+          AND EXISTS (
+            SELECT 1
+              FROM page_restriction_members restriction_member
+             WHERE restriction_member.organization_id = restriction.organization_id
+               AND restriction_member.space_id = restriction.space_id
+               AND restriction_member.page_id = restriction.page_id
+               AND restriction_member.user_id = $3
+          )`,
+      [identity.organizationId, space.id, userId],
+    );
+    await client.query(
       `DELETE FROM space_memberships
         WHERE organization_id = $1 AND space_id = $2 AND user_id = $3`,
       [identity.organizationId, space.id, userId],

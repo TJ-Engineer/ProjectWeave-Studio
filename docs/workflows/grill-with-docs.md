@@ -196,11 +196,11 @@ merged. `KNW-14` followed the same sequence and is Done after
 [GitHub PR #5](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/5)
 merged as `6cb7a1c`. `KNW-15` is Done after
 [GitHub PR #6](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/6)
-merged as `003be52`. `KNW-11` remains Selected and `KNW-16` is the sole active
-execution issue, in review through
-[GitHub PR #7](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/7) from
-`feat/knw-16-access-admin`. No story or release completion is inferred from
-that execution state.
+merged as `003be52`. `KNW-16` completed after
+[GitHub PR #7](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/7) merged
+as `99889ec`. `KNW-11` remains Selected and `KNW-17` is the sole active
+execution issue on `test/knw-17-adversarial-access-evidence`. No story or
+release completion is inferred until that evidence gate is reconciled.
 
 ## Pull-request checklist
 

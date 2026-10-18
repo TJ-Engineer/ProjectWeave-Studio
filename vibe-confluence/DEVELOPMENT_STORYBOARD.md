@@ -28,10 +28,10 @@ documentation must agree.
 
 | Item                 | Current state                                                                       |
 | -------------------- | ----------------------------------------------------------------------------------- |
-| Delivery gate        | M1 contract documentation is active under `KNW-10`                                  |
+| Delivery gate        | M1 contract documentation is in Review under `KNW-10` and GitHub PR #4              |
 | Current milestone    | M1 — Spaces and authoring                                                           |
 | Active product story | None; confirmed next story is `SPC-01` after the contract PR merges                 |
-| Active execution     | `KNW-10` on `docs/knw-10-m1-contract`                                               |
+| Active execution     | `KNW-10` in Review on `docs/knw-10-m1-contract`; GitHub PR #4 is open               |
 | Blocking issues      | None                                                                                |
 | Story roll-up        | 1 done, 5 partial, 0 in progress, 6 planned                                         |
 | Release readiness    | Not ready; no release candidate exists                                              |
@@ -143,4 +143,4 @@ Non-goals:
 | 2026-10-16 | Production container verification remains open: two builds reached Docker BuildKit but failed on external registry networking (`ECONNRESET`, then Docker Hub `no route to host`). No container gate is claimed.                                                                                                                                                                                                 |
 | 2026-10-17 | On the isolated `projectweave-knw8-gate` Compose project, a fresh build and startup completed: PostgreSQL and the SeaweedFS S3 API became healthy, migration `0001` and the seed job exited 0, the app and worker stayed running, `/health/live` and `/health/ready` returned 200, the login page and seeded login returned 200, and `npm run check` passed. KNW-01 remains in progress until review and merge. |
 | 2026-10-17 | Reviewed and merged GitHub pull request [#2](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/2) as `8448d4e`. Review added a signed AWS SigV4 `ListBuckets` check that returned 200 against the configured SeaweedFS S3 endpoint. With the final Compose change on `main`, `KNW-01` and M0 satisfy their recorded exit gates.                                                                           |
-| 2026-10-18 | Created Vibe JIRA M1 epic `KNW-9`, documentation issue `KNW-10`, canonical stories `KNW-11`–`KNW-13`, and bounded execution issues `KNW-14`–`KNW-25`. Only `KNW-10` is In Progress on `docs/knw-10-m1-contract`; no M1 implementation or release gate is claimed.                                                                                                                                               |
+| 2026-10-18 | Created Vibe JIRA M1 epic `KNW-9`, documentation issue `KNW-10`, canonical stories `KNW-11`–`KNW-13`, and bounded execution issues `KNW-14`–`KNW-25`. Opened GitHub PR [#4](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/4) from `docs/knw-10-m1-contract` after `npm run check` passed, and moved only `KNW-10` to Review. No M1 implementation or release gate is claimed.                         |

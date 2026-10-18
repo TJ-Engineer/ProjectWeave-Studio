@@ -179,6 +179,8 @@ Contract issue: **`KNW-10` — `[M1] Record the confirmed spaces-and-authoring c
 
 First branch: **`docs/knw-10-m1-contract`**
 
+Review: **[GitHub pull request #4](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/4)**
+
 | Canonical story | Story issue | Execution issues          | Dependency                       |
 | --------------- | ----------- | ------------------------- | -------------------------------- |
 | `SPC-01`        | `KNW-11`    | `KNW-14` through `KNW-17` | `KNW-10` merged                  |
@@ -187,9 +189,10 @@ First branch: **`docs/knw-10-m1-contract`**
 
 The confirmed product contract lives in
 [`vibe-confluence/docs/m1-spaces-and-authoring-contract.md`](../../vibe-confluence/docs/m1-spaces-and-authoring-contract.md).
-The M1 issues were created in To Do; only `KNW-10` moved to In Progress after
-the documentation branch contained real work. No product implementation or
-release evidence is inferred from planning state.
+The M1 issues were created in To Do. Only `KNW-10` moved to In Progress after
+the documentation branch contained real work, and then to Review after the
+non-draft pull request and required checks were available. No product
+implementation or release evidence is inferred from planning state.
 
 ## Pull-request checklist
 

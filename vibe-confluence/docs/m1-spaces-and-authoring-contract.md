@@ -251,7 +251,7 @@ support a completion claim.
 | Key      | Purpose                                                         | Initial state |
 | -------- | --------------------------------------------------------------- | ------------- |
 | `KNW-9`  | M1 coordination epic                                            | To Do         |
-| `KNW-10` | Record this confirmed contract and align source documentation   | In Progress   |
+| `KNW-10` | Record this confirmed contract and align source documentation   | Review        |
 | `KNW-11` | `SPC-01` canonical story                                        | To Do         |
 | `KNW-14` | Migrate memberships, restrictions, and draft principals         | To Do         |
 | `KNW-15` | Enforce effective permissions on every read and mutation        | To Do         |
@@ -268,9 +268,10 @@ support a completion claim.
 | `KNW-24` | Preserve private drafts, recovery, and publish conflicts        | To Do         |
 | `KNW-25` | Prove lossless schema and accessible authoring                  | To Do         |
 
-The first branch is `docs/knw-10-m1-contract`. Subsequent branches follow
-`<type>/<tracker-key-lowercase>-<short-slug>` and start only when their issue
-becomes the active work item.
+The first branch is `docs/knw-10-m1-contract`, reviewed through
+[GitHub pull request #4](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/4).
+Subsequent branches follow `<type>/<tracker-key-lowercase>-<short-slug>` and
+start only when their issue becomes the active work item.
 
 ## M1 non-goals
 

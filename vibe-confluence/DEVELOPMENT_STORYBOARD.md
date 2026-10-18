@@ -28,10 +28,10 @@ documentation must agree.
 
 | Item                 | Current state                                                                       |
 | -------------------- | ----------------------------------------------------------------------------------- |
-| Delivery gate        | `KNW-15` effective-access enforcement is active after `KNW-14` merged               |
+| Delivery gate        | `KNW-15` effective-access enforcement is in Review through GitHub PR #6             |
 | Current milestone    | M1 — Spaces and authoring                                                           |
 | Active product story | `SPC-01` — Space membership and restrictive page inheritance                        |
-| Active execution     | `KNW-15` in progress on `feat/knw-15-effective-access`; no pull request is open yet |
+| Active execution     | `KNW-15` in Review on `feat/knw-15-effective-access`; GitHub PR #6 is open          |
 | Blocking issues      | None                                                                                |
 | Story roll-up        | 1 done, 4 partial, 1 in progress, 6 planned                                         |
 | Release readiness    | Not ready; no release candidate exists                                              |
@@ -149,3 +149,4 @@ Non-goals:
 | 2026-10-18 | Opened GitHub PR [#5](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/5) from `feat/knw-14-access-data-model` at feature commit `513cfbd`, reconciled the branch and verification evidence in Vibe JIRA, and moved `KNW-14` to Review. `SPC-01` remains in progress and no M1 release gate is claimed.                                                                                                                    |
 | 2026-10-18 | Merged GitHub PR [#5](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/5) as `6cb7a1c`, moved `KNW-14` to Done, and started `KNW-15` on `feat/knw-15-effective-access`. The effective-access slice derives policy from persisted identity and membership state, intersects ancestor restrictions, keeps unpublished work principal-private, validates route parameters, and authorizes idempotent retries before replay.   |
 | 2026-10-18 | Verified `KNW-15`: `npm run check` passes formatting, lint, strict types, seven non-database tests, and the production build; migration `0003` applies after `0001` and `0002`; five PostgreSQL integration tests pass against `knowledge_test`, including clean/upgrade migration paths and the adversarial effective-access fixture. No `SPC-01` completion or M1 release gate is claimed.                                      |
+| 2026-10-18 | Opened GitHub PR [#6](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/6) from `feat/knw-15-effective-access` at feature commit `1128a34`, added the exact branch, migration, permission, and test evidence to Vibe JIRA, and moved `KNW-15` to Review. `KNW-16` and `KNW-17` remain required before any `SPC-01` completion claim.                                                                                        |

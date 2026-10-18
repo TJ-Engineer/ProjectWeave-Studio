@@ -195,8 +195,9 @@ pull request and required checks were available, and to Done after PR #4
 merged. `KNW-14` followed the same sequence and is Done after
 [GitHub PR #5](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/5)
 merged as `6cb7a1c`. `KNW-11` remains Selected and `KNW-15` is the sole active
-execution issue, in progress on `feat/knw-15-effective-access`. No story or
-release completion is inferred from that execution state.
+execution issue, in Review on `feat/knw-15-effective-access` through
+[GitHub PR #6](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/6). No
+story or release completion is inferred from that execution state.
 
 ## Pull-request checklist
 

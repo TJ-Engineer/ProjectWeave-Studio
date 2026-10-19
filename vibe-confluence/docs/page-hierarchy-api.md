@@ -4,6 +4,39 @@ KNW-18 introduces bounded child-list reads and optimistic-concurrency movement
 for the `PGE-01` hierarchy. UUID page routes remain canonical; all hierarchy
 operations derive organization and space scope on the server.
 
+KNW-20 uses those contracts for the permission-filtered navigation surface and
+keeps reading separate from draft editing. No tree response or published read
+contains another principal's private draft.
+
+## Navigation and page routes
+
+The space page renders a semantic tree from the bounded root response. Children
+load only when their parent is expanded, 50 at a time, and an explicit Load more
+control requests the next page. The client retains expanded and roving-focus
+state while children load or an administrator reorders a loaded sibling.
+
+Keyboard behavior follows the tree pattern:
+
+- Up and Down move focus through visible items.
+- Right expands a parent or moves to its first loaded child.
+- Left collapses a parent or returns focus to its parent.
+- Home and End move to the first and last visible items.
+- Enter opens the canonical page; Space toggles an expandable item.
+
+Administrators also receive labelled Move up and Move down buttons, so reorder
+never depends on drag input. Controls remain usable with pointer, keyboard, and
+touch at desktop and 320 CSS pixels.
+
+`/pages/{pageId}` is the canonical read route for an authorized published page.
+It returns only the immutable published revision and exposes an Edit link only
+when the server-derived `page:edit` capability is present. An authorized
+principal's own unpublished page redirects to `/pages/{pageId}/edit`; viewers
+cannot request a workspace or cause a private draft row to be created.
+
+Tree authorization is applied before pagination. Results include authorized
+published pages and only the current principal's own unpublished pages. Hidden
+titles, ranks, paths, and counts are not sent to the browser.
+
 ## Read a child list
 
 `GET /api/v1/spaces/{spaceKey}/tree`
@@ -60,3 +93,5 @@ destination may still narrow access.
 - `422 CROSS_SPACE_MOVE`: the destination belongs to another space.
 - `422 PAGE_POSITION_INVALID`: the supplied neighbors are not current and
   adjacent.
+- `409 PAGE_ANCESTOR_UNPUBLISHED`: publication was attempted before every
+  ancestor had a published revision.

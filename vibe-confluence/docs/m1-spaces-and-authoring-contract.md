@@ -260,7 +260,7 @@ support a completion claim.
 | `KNW-12` | `PGE-01` canonical story                                        | Selected      |
 | `KNW-18` | Implement versioned hierarchy moves and ordering                | Done          |
 | `KNW-19` | Implement durable aliases and atomic subtree lifecycle          | Done          |
-| `KNW-20` | Ship lazy accessible tree and explicit read/edit views          | Next          |
+| `KNW-20` | Ship lazy accessible tree and explicit read/edit views          | In Progress   |
 | `KNW-21` | Prove hierarchy concurrency, recovery, authorization, and scale | To Do         |
 | `KNW-13` | `EDT-01` canonical story                                        | To Do         |
 | `KNW-22` | Freeze editor schema, migrations, and adapter                   | To Do         |
@@ -287,7 +287,9 @@ as `46062a9`; `KNW-17` and canonical story `KNW-11` are Done. The active branch
 as `8a70012`; `KNW-18` is Done. The durable-alias and atomic-lifecycle branch
 `feat/knw-19-durable-lifecycle` merged through
 [GitHub pull request #11](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/11)
-as `d98dd59`; `KNW-19` is Done. `KNW-20` is the next bounded execution issue.
+as `d98dd59`; `KNW-19` is Done. `KNW-20` is active on
+`feat/knw-20-accessible-page-tree`; `KNW-21` remains required before any
+`PGE-01` completion claim.
 Subsequent branches follow `<type>/<tracker-key-lowercase>-<short-slug>` and
 start only when their issue becomes the active work item.
 

@@ -26,6 +26,7 @@ import {
 import {
   assertCapability,
   assertVersion,
+  can,
   diffDocuments,
   documentToPlainText,
   DomainError,
@@ -2464,6 +2465,9 @@ export async function getPublishedPage(
     page: pageFromRow(row),
     space: spaceFromRow(space, identity),
     revision: revisionFromRow(current),
+    canEdit:
+      row.state === "ACTIVE" &&
+      can(identity.organizationRole, space.role, "page:edit"),
     readOnly: true,
   };
 }
@@ -2652,6 +2656,36 @@ export async function publishPage(
       throw new DomainError(
         "DRAFT_BASE_CHANGED",
         "Refresh the draft before publishing.",
+        409,
+      );
+    }
+    const unpublishedAncestor = await client.query(
+      `WITH RECURSIVE ancestors AS (
+         SELECT parent.id, parent.parent_id, parent.current_revision_id
+           FROM pages page
+           JOIN pages parent
+             ON parent.organization_id = page.organization_id
+            AND parent.space_id = page.space_id
+            AND parent.id = page.parent_id
+          WHERE page.organization_id = $1 AND page.id = $2
+
+         UNION ALL
+
+         SELECT parent.id, parent.parent_id, parent.current_revision_id
+           FROM pages parent
+           JOIN ancestors child ON child.parent_id = parent.id
+          WHERE parent.organization_id = $1
+       )
+       SELECT 1
+         FROM ancestors
+        WHERE current_revision_id IS NULL
+        LIMIT 1`,
+      [identity.organizationId, pageId],
+    );
+    if (unpublishedAncestor.rowCount) {
+      throw new DomainError(
+        "PAGE_ANCESTOR_UNPUBLISHED",
+        "Publish every ancestor before publishing this page",
         409,
       );
     }

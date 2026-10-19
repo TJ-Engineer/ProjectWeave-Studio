@@ -54,8 +54,10 @@ Integration tests refuse to use a database whose name does not end in `_test`.
 - Vibe Knowledge owns its database and migrations.
 - Vibe JIRA and Vibe Knowledge may share external OIDC subject claims but never
   query each other's databases.
-- The minimal editor supports a versioned heading-and-paragraph document while
-  the publication model is proven. It does not accept arbitrary HTML.
+- `@knowledge/editor` freezes the complete Release 1 canonical vocabulary,
+  deterministic v1-to-v2 migration, safety budgets, safe projections, and UI
+  adapter boundary. The current heading-and-paragraph UI remains intentionally
+  minimal until KNW-23 and never persists engine-native JSON or arbitrary HTML.
 - Comments, attachments, search, macros, import/export, realtime editing, and
   cross-product embeds are intentionally later stories.
 
@@ -70,6 +72,9 @@ versioned subtree movement are documented in the
 [`page hierarchy API`](./docs/page-hierarchy-api.md).
 The hierarchy concurrency, recovery, non-disclosure, scale, and load gate is
 recorded in the [`PGE-01 evidence record`](./docs/pge01-evidence.md).
+The frozen document vocabulary, compatibility behavior, limits, projections,
+and adapter boundary are documented in the
+[`canonical editor schema`](./docs/editor-schema.md).
 Durable readable aliases, archived reads, and reversible atomic subtree
 transitions are documented in the
 [`page alias and lifecycle API`](./docs/page-lifecycle-api.md).

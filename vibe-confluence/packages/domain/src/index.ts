@@ -1,10 +1,10 @@
 import type {
   Capability,
-  DocumentBlock,
   DocumentNode,
   OrganizationRole,
   SpaceRole,
 } from "@knowledge/contracts";
+import { extractPlainText } from "@knowledge/editor";
 import {
   randomBytes,
   scrypt as scryptCallback,
@@ -111,13 +111,7 @@ export function slugify(value: string): string {
   return slug || "page";
 }
 
-function blockText(block: DocumentBlock): string {
-  return block.content.map((node) => node.text).join("");
-}
-
-export function documentToPlainText(document: DocumentNode): string {
-  return document.content.map(blockText).join("\n");
-}
+export const documentToPlainText = extractPlainText;
 
 export interface DocumentDiffLine {
   kind: "unchanged" | "added" | "removed";

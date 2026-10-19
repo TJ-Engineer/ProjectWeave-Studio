@@ -1,6 +1,11 @@
 import type { PublishedPageView } from "@knowledge/contracts";
 import { getPageWorkspace, getPublishedPage } from "@knowledge/database";
 import { DomainError } from "@knowledge/domain";
+import {
+  openDocument,
+  renderDocumentToHtml,
+  renderFutureDocumentToHtml,
+} from "@knowledge/editor";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
@@ -10,6 +15,13 @@ export const dynamic = "force-dynamic";
 
 function PublishedPage({ view }: { view: PublishedPageView }) {
   const archived = view.page.state === "ARCHIVED";
+  const openedDocument = openDocument(
+    view.revision.futureDocument ?? view.revision.document,
+  );
+  const renderedDocument =
+    openedDocument.mode === "editable"
+      ? renderDocumentToHtml(openedDocument.document)
+      : renderFutureDocumentToHtml(openedDocument.document);
   return (
     <section className="page-shell">
       <nav className="breadcrumbs" aria-label="Breadcrumbs">
@@ -36,16 +48,13 @@ function PublishedPage({ view }: { view: PublishedPageView }) {
             </Link>
           ) : null}
         </div>
-        <div className="document-surface" aria-label="Published page content">
-          {view.revision.document.content.map((block, index) => {
-            const text = block.content.map((node) => node.text).join("");
-            return block.type === "heading" ? (
-              <h2 key={`${index}-${text}`}>{text}</h2>
-            ) : (
-              <p key={`${index}-${text}`}>{text}</p>
-            );
-          })}
-        </div>
+        <div
+          className="document-surface"
+          aria-label="Published page content"
+          dangerouslySetInnerHTML={{
+            __html: renderedDocument,
+          }}
+        />
         <footer className="published-page-footer">
           Revision {view.revision.number} · {view.revision.authorName} ·{" "}
           <time dateTime={view.revision.createdAt}>

@@ -9,6 +9,7 @@
   "dependencies": {
     "@knowledge/contracts": "0.0.1",
     "@knowledge/domain": "0.0.1",
+    "@knowledge/editor": "0.0.1",
     "pg": "8.23.1"
   }
 }

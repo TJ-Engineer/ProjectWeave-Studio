@@ -1,0 +1,15 @@
+{
+  "type": "doc",
+  "schemaVersion": 1,
+  "content": [
+    {
+      "type": "heading",
+      "attrs": { "level": 1 },
+      "content": [{ "type": "text", "text": "Release guide" }]
+    },
+    {
+      "type": "paragraph",
+      "content": [{ "type": "text", "text": "Legacy body" }]
+    }
+  ]
+}

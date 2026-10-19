@@ -1,7 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
-  documentNodeSchema,
-  emptyDocument,
   type DocumentNode,
   type DraftView,
   type MembershipMutationResult,
@@ -28,11 +26,18 @@ import {
   assertVersion,
   can,
   diffDocuments,
-  documentToPlainText,
   DomainError,
   slugify,
   verifyPassword,
 } from "@knowledge/domain";
+import {
+  CURRENT_SCHEMA_VERSION,
+  emptyDocument,
+  extractPlainText,
+  openDocument,
+  type DocumentNode as CanonicalDocumentNode,
+  type FutureDocumentEnvelope,
+} from "@knowledge/editor";
 import type { PoolClient, QueryResultRow } from "pg";
 import { getPool, inTransaction } from "./client";
 
@@ -178,11 +183,43 @@ function pageTreeFromRow(row: PageTreeRow): PageTreeNode {
   return { ...pageFromRow(row), hasChildren: row.has_children };
 }
 
+function readableDocument(value: unknown): {
+  document: CanonicalDocumentNode;
+  documentMode: "EDITABLE" | "READ_ONLY_FUTURE";
+  futureDocument: FutureDocumentEnvelope | null;
+} {
+  const opened = openDocument(value);
+  return opened.mode === "editable"
+    ? {
+        document: opened.document,
+        documentMode: "EDITABLE",
+        futureDocument: null,
+      }
+    : {
+        document: emptyDocument,
+        documentMode: "READ_ONLY_FUTURE",
+        futureDocument: opened.raw,
+      };
+}
+
+function canonicalDocument(value: unknown): CanonicalDocumentNode {
+  const opened = openDocument(value);
+  if (opened.mode === "readOnlyFuture") {
+    throw new DomainError(
+      "DOCUMENT_SCHEMA_NEWER",
+      "This document was created by a newer editor and is read only.",
+      409,
+    );
+  }
+  return opened.document;
+}
+
 function draftFromRow(row: DraftRow): DraftView {
+  const opened = readableDocument(row.body_json);
   return {
     id: row.id,
     title: row.title,
-    document: documentNodeSchema.parse(row.body_json),
+    ...opened,
     baseRevisionId: row.base_revision_id,
     version: row.version,
     savedAt: row.saved_at.toISOString(),
@@ -190,11 +227,12 @@ function draftFromRow(row: DraftRow): DraftView {
 }
 
 function revisionFromRow(row: RevisionRow): RevisionView {
+  const opened = readableDocument(row.body_json);
   return {
     id: row.id,
     number: row.number,
     title: row.title,
-    document: documentNodeSchema.parse(row.body_json),
+    ...opened,
     plainText: row.body_text,
     summary: row.summary,
     authorName: row.author_name,
@@ -1064,7 +1102,7 @@ export async function createPage(
     await client.query(
       `INSERT INTO drafts
         (id, organization_id, page_id, principal_id, title, body_json, schema_version)
-       VALUES ($1, $2, $3, $4, $5, $6, 1)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         randomUUID(),
         identity.organizationId,
@@ -1072,6 +1110,7 @@ export async function createPage(
         identity.id,
         input.title,
         emptyDocument,
+        CURRENT_SCHEMA_VERSION,
       ],
     );
     await client.query(
@@ -2576,11 +2615,17 @@ export async function getPageWorkspace(
         )
       : null;
     const source = current?.rows[0];
+    const openedSource = source ? readableDocument(source.body_json) : null;
+    const sourceDocument = openedSource?.futureDocument ?? emptyDocument;
+    const documentToStore =
+      openedSource?.documentMode === "EDITABLE"
+        ? openedSource.document
+        : sourceDocument;
     const inserted = await getPool().query<DraftRow>(
       `INSERT INTO drafts
         (id, organization_id, page_id, principal_id, base_revision_id, title,
          body_json, schema_version)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 1)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (page_id, principal_id) DO UPDATE SET page_id = EXCLUDED.page_id
        RETURNING id, title, body_json, base_revision_id, version, saved_at`,
       [
@@ -2590,7 +2635,8 @@ export async function getPageWorkspace(
         identity.id,
         source?.id ?? null,
         source?.title ?? access.page.title,
-        source ? documentNodeSchema.parse(source.body_json) : emptyDocument,
+        documentToStore,
+        documentToStore.schemaVersion,
       ],
     );
     draft = inserted.rows[0];
@@ -2619,10 +2665,12 @@ export async function saveDraft(
   assertCapability(identity.organizationRole, access.space.role, "page:edit");
   const result = await getPool().query<DraftRow>(
     `UPDATE drafts
-        SET title = $4, body_json = $5, schema_version = 1,
+        SET title = $4, body_json = $5, schema_version = $8,
             version = version + 1, saved_at = now()
       WHERE organization_id = $1 AND page_id = $2 AND principal_id = $3
         AND version = $6 AND base_revision_id IS NOT DISTINCT FROM $7
+        AND schema_version <= $8
+        AND (body_json ->> 'schemaVersion')::int <= $8
       RETURNING id, title, body_json, base_revision_id, version, saved_at`,
     [
       identity.organizationId,
@@ -2632,16 +2680,21 @@ export async function saveDraft(
       input.document,
       input.version,
       input.baseRevisionId,
+      CURRENT_SCHEMA_VERSION,
     ],
   );
   if (!result.rows[0]) {
-    const current = await getPool().query<{ version: number }>(
-      `SELECT version FROM drafts
+    const current = await getPool().query<{
+      version: number;
+      body_json: unknown;
+    }>(
+      `SELECT version, body_json FROM drafts
         WHERE organization_id = $1 AND page_id = $2 AND principal_id = $3`,
       [identity.organizationId, pageId, identity.id],
     );
     if (!current.rows[0])
       throw new DomainError("NOT_FOUND", "Draft not found", 404);
+    canonicalDocument(current.rows[0].body_json);
     assertVersion(input.version, current.rows[0].version);
     throw new DomainError(
       "DRAFT_BASE_CHANGED",
@@ -2706,6 +2759,7 @@ export async function publishPage(
     );
     const draft = draftResult.rows[0];
     if (!draft) throw new DomainError("NOT_FOUND", "Draft not found", 404);
+    canonicalDocument(draft.body_json);
     assertVersion(input.version, draft.version);
     if (draft.base_revision_id !== input.baseRevisionId) {
       throw new DomainError(
@@ -2759,9 +2813,9 @@ export async function publishPage(
       `INSERT INTO page_revisions
         (id, organization_id, page_id, number, author_id, title, body_json,
          body_text, schema_version, summary, idempotency_key, request_hash)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9, $10, $11)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING id, number, title, body_json, body_text, summary,
-                 $12::text AS author_name, created_at`,
+                 $13::text AS author_name, created_at`,
       [
         revisionId,
         identity.organizationId,
@@ -2770,7 +2824,8 @@ export async function publishPage(
         identity.id,
         input.title,
         input.document,
-        documentToPlainText(input.document),
+        extractPlainText(input.document),
+        CURRENT_SCHEMA_VERSION,
         input.summary,
         idempotencyKey,
         mutationHash,
@@ -2794,6 +2849,7 @@ export async function publishPage(
     await client.query(
       `UPDATE drafts
           SET base_revision_id = $4, title = $5, body_json = $6,
+              schema_version = $7,
               version = version + 1, saved_at = now()
         WHERE organization_id = $1 AND page_id = $2 AND principal_id = $3`,
       [
@@ -2803,6 +2859,7 @@ export async function publishPage(
         revisionId,
         input.title,
         input.document,
+        CURRENT_SCHEMA_VERSION,
       ],
     );
     await recordEffects(
@@ -2879,10 +2936,16 @@ export async function compareRevision(
   const target = revisions.find((revision) => revision.number === number);
   if (!target) throw new DomainError("NOT_FOUND", "Revision not found", 404);
   const previous = revisions.find((revision) => revision.number === number - 1);
+  const targetDocument = canonicalDocument(
+    target.futureDocument ?? target.document,
+  );
+  const previousDocument = previous
+    ? canonicalDocument(previous.futureDocument ?? previous.document)
+    : emptyDocument;
   return {
     from: previous?.number ?? null,
     to: target.number,
-    lines: diffDocuments(previous?.document ?? emptyDocument, target.document),
+    lines: diffDocuments(previousDocument, targetDocument),
   };
 }
 
@@ -2936,6 +2999,10 @@ export async function restoreRevision(
     );
     const source = sourceResult.rows[0];
     if (!source) throw new DomainError("NOT_FOUND", "Revision not found", 404);
+    const openedSource = readableDocument(source.body_json);
+    const sourceDocument = canonicalDocument(
+      openedSource.futureDocument ?? openedSource.document,
+    );
     const publishedTitle = await assignPublishedTitle(
       client,
       access.page,
@@ -2951,9 +3018,9 @@ export async function restoreRevision(
       `INSERT INTO page_revisions
         (id, organization_id, page_id, number, author_id, title, body_json,
          body_text, schema_version, summary, idempotency_key, request_hash)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9, $10, $11)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING id, number, title, body_json, body_text, summary,
-                 $12::text AS author_name, created_at`,
+                 $13::text AS author_name, created_at`,
       [
         revisionId,
         identity.organizationId,
@@ -2961,8 +3028,9 @@ export async function restoreRevision(
         next.rows[0]!.next_number,
         identity.id,
         source.title,
-        source.body_json,
-        source.body_text,
+        sourceDocument,
+        extractPlainText(sourceDocument),
+        CURRENT_SCHEMA_VERSION,
         input.summary || `Restored revision ${revisionNumber}`,
         idempotencyKey,
         mutationHash,
@@ -2987,10 +3055,11 @@ export async function restoreRevision(
       `INSERT INTO drafts
         (id, organization_id, page_id, principal_id, base_revision_id, title,
          body_json, schema_version)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 1)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (page_id, principal_id) DO UPDATE
          SET base_revision_id = EXCLUDED.base_revision_id,
              title = EXCLUDED.title, body_json = EXCLUDED.body_json,
+             schema_version = EXCLUDED.schema_version,
              version = drafts.version + 1, saved_at = now()`,
       [
         randomUUID(),
@@ -2999,7 +3068,8 @@ export async function restoreRevision(
         identity.id,
         revisionId,
         source.title,
-        source.body_json,
+        sourceDocument,
+        CURRENT_SCHEMA_VERSION,
       ],
     );
     await recordEffects(

@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { documentNodeSchema, type UserIdentity } from "@knowledge/contracts";
+import {
+  CURRENT_SCHEMA_VERSION,
+  documentNodeSchema,
+  emptyDocument,
+  type UserIdentity,
+} from "@knowledge/contracts";
 import {
   closePool,
   createPage,
@@ -80,16 +85,16 @@ describe.skipIf(!testDatabaseUrl)("publication lifecycle", () => {
     );
     const firstDocument = documentNodeSchema.parse({
       type: "doc",
-      schemaVersion: 1,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       content: [
         {
           type: "heading",
-          attrs: { level: 1 },
-          content: [{ type: "text", text: "Release" }],
+          attrs: { level: 2 },
+          content: [{ type: "text", text: "Release", marks: [] }],
         },
         {
           type: "paragraph",
-          content: [{ type: "text", text: "Revision one" }],
+          content: [{ type: "text", text: "Revision one", marks: [] }],
         },
       ],
     });
@@ -137,7 +142,7 @@ describe.skipIf(!testDatabaseUrl)("publication lifecycle", () => {
         firstDocument.content[0],
         {
           type: "paragraph",
-          content: [{ type: "text", text: "Revision two" }],
+          content: [{ type: "text", text: "Revision two", marks: [] }],
         },
       ],
     });
@@ -234,5 +239,147 @@ describe.skipIf(!testDatabaseUrl)("publication lifecycle", () => {
       code: "NOT_FOUND",
       status: 404,
     });
+  });
+
+  it("migrates stored v1 documents in memory and rewrites them only on save", async () => {
+    const space = await createSpace(
+      identity,
+      { key: "MIGR", name: "Schema migration", description: "Editor schema" },
+      randomUUID(),
+    );
+    const page = await createPage(
+      identity,
+      space.key,
+      { title: "Legacy document", parentId: null },
+      randomUUID(),
+    );
+    const legacyDocument = {
+      type: "doc",
+      schemaVersion: 1,
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [{ type: "text", text: "Legacy heading" }],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Legacy body" }],
+        },
+      ],
+    };
+    await getPool().query(
+      `UPDATE drafts
+          SET body_json = $3, schema_version = 1
+        WHERE organization_id = $1 AND page_id = $2`,
+      [organizationId, page.id, legacyDocument],
+    );
+
+    const workspace = await getPageWorkspace(identity, page.id);
+    expect(workspace.draft.document.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(workspace.draft.document.content[0]).toEqual({
+      type: "heading",
+      attrs: { level: 2 },
+      content: [{ type: "text", text: "Legacy heading", marks: [] }],
+    });
+    const beforeSave = await getPool().query<{
+      schema_version: number;
+      json_version: number;
+    }>(
+      `SELECT schema_version, (body_json ->> 'schemaVersion')::int AS json_version
+         FROM drafts
+        WHERE organization_id = $1 AND page_id = $2`,
+      [organizationId, page.id],
+    );
+    expect(beforeSave.rows[0]).toEqual({
+      schema_version: 1,
+      json_version: 1,
+    });
+
+    await saveDraft(identity, page.id, {
+      title: workspace.draft.title,
+      document: workspace.draft.document,
+      baseRevisionId: workspace.draft.baseRevisionId,
+      version: workspace.draft.version,
+    });
+    const afterSave = await getPool().query<{
+      schema_version: number;
+      json_version: number;
+    }>(
+      `SELECT schema_version, (body_json ->> 'schemaVersion')::int AS json_version
+         FROM drafts
+        WHERE organization_id = $1 AND page_id = $2`,
+      [organizationId, page.id],
+    );
+    expect(afterSave.rows[0]).toEqual({
+      schema_version: CURRENT_SCHEMA_VERSION,
+      json_version: CURRENT_SCHEMA_VERSION,
+    });
+  });
+
+  it("opens future documents read-only and blocks older-client save and publish", async () => {
+    const space = await createSpace(
+      identity,
+      { key: "FUTR", name: "Future schema", description: "Compatibility" },
+      randomUUID(),
+    );
+    const page = await createPage(
+      identity,
+      space.key,
+      { title: "Future document", parentId: null },
+      randomUUID(),
+    );
+    const futureDocument = {
+      type: "doc",
+      schemaVersion: CURRENT_SCHEMA_VERSION + 1,
+      clientMetadata: { preserved: true },
+      content: [
+        {
+          type: "diagram",
+          attrs: { source: "opaque" },
+        },
+      ],
+    };
+    await getPool().query(
+      `UPDATE drafts
+          SET body_json = $3, schema_version = $4
+        WHERE organization_id = $1 AND page_id = $2`,
+      [organizationId, page.id, futureDocument, futureDocument.schemaVersion],
+    );
+
+    const workspace = await getPageWorkspace(identity, page.id);
+    expect(workspace.draft).toMatchObject({
+      documentMode: "READ_ONLY_FUTURE",
+      futureDocument,
+    });
+    await expect(
+      saveDraft(identity, page.id, {
+        title: workspace.draft.title,
+        document: emptyDocument,
+        baseRevisionId: workspace.draft.baseRevisionId,
+        version: workspace.draft.version,
+      }),
+    ).rejects.toMatchObject({ code: "DOCUMENT_SCHEMA_NEWER", status: 409 });
+    await expect(
+      publishPage(
+        identity,
+        page.id,
+        {
+          title: workspace.draft.title,
+          document: emptyDocument,
+          baseRevisionId: workspace.draft.baseRevisionId,
+          version: workspace.draft.version,
+          summary: "Unsafe older-client publication",
+        },
+        "future-document-publish",
+        randomUUID(),
+      ),
+    ).rejects.toMatchObject({ code: "DOCUMENT_SCHEMA_NEWER", status: 409 });
+    const stored = await getPool().query<{ body_json: unknown }>(
+      `SELECT body_json FROM drafts
+        WHERE organization_id = $1 AND page_id = $2`,
+      [organizationId, page.id],
+    );
+    expect(stored.rows[0]?.body_json).toEqual(futureDocument);
   });
 });

@@ -1,4 +1,5 @@
 import {
+  CURRENT_SCHEMA_VERSION,
   documentNodeSchema,
   emptyDocument,
   movePageSchema,
@@ -69,12 +70,12 @@ describe("knowledge domain", () => {
     ).toThrow();
   });
 
-  it("validates only the versioned minimal document schema", () => {
+  it("validates only the frozen current document schema", () => {
     expect(documentNodeSchema.parse(emptyDocument)).toEqual(emptyDocument);
     expect(() =>
       documentNodeSchema.parse({
         type: "doc",
-        schemaVersion: 1,
+        schemaVersion: CURRENT_SCHEMA_VERSION,
         content: [{ type: "html", value: "<script>alert(1)</script>" }],
       }),
     ).toThrow();
@@ -83,16 +84,16 @@ describe("knowledge domain", () => {
   it("extracts text and produces a stable line diff", () => {
     const after = documentNodeSchema.parse({
       type: "doc",
-      schemaVersion: 1,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       content: [
         {
           type: "heading",
-          attrs: { level: 1 },
-          content: [{ type: "text", text: "Launch" }],
+          attrs: { level: 2 },
+          content: [{ type: "text", text: "Launch", marks: [] }],
         },
         {
           type: "paragraph",
-          content: [{ type: "text", text: "Ready" }],
+          content: [{ type: "text", text: "Ready", marks: [] }],
         },
       ],
     });

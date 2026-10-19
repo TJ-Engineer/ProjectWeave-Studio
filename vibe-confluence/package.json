@@ -20,6 +20,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:integration": "vitest run tests/integration",
+    "test:load": "node scripts/require-test-database.mjs && vitest run tests/load",
     "db:migrate": "tsx packages/database/src/migrate.ts",
     "db:seed": "tsx packages/database/src/seed.ts",
     "worker": "tsx packages/database/src/worker.ts",

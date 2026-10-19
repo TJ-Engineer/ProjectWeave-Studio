@@ -1,6 +1,9 @@
+import type { PageWorkspace } from "@knowledge/contracts";
 import { getPageWorkspace } from "@knowledge/database";
+import { DomainError } from "@knowledge/domain";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { z } from "zod";
 import { KnowledgeEditor } from "@/components/knowledge-editor";
 import { currentIdentity } from "@/lib/session";
 
@@ -14,7 +17,19 @@ export default async function PageEditor({
   const identity = await currentIdentity();
   if (!identity) redirect("/login");
   const { pageId } = await params;
-  const workspace = await getPageWorkspace(identity, pageId);
+  if (!z.uuid().safeParse(pageId).success) notFound();
+  let workspace: PageWorkspace;
+  try {
+    workspace = await getPageWorkspace(identity, pageId);
+  } catch (error) {
+    if (
+      error instanceof DomainError &&
+      ["NOT_FOUND", "FORBIDDEN"].includes(error.code)
+    ) {
+      notFound();
+    }
+    throw error;
+  }
   return (
     <section className="editor-shell">
       <nav className="breadcrumbs" aria-label="Breadcrumbs">

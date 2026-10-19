@@ -261,7 +261,7 @@ support a completion claim.
 | `KNW-18` | Implement versioned hierarchy moves and ordering                | Done          |
 | `KNW-19` | Implement durable aliases and atomic subtree lifecycle          | Done          |
 | `KNW-20` | Ship lazy accessible tree and explicit read/edit views          | Done          |
-| `KNW-21` | Prove hierarchy concurrency, recovery, authorization, and scale | To Do         |
+| `KNW-21` | Prove hierarchy concurrency, recovery, authorization, and scale | In Progress   |
 | `KNW-13` | `EDT-01` canonical story                                        | To Do         |
 | `KNW-22` | Freeze editor schema, migrations, and adapter                   | To Do         |
 | `KNW-23` | Implement rich nodes, commands, paste, and safe rendering       | To Do         |
@@ -291,7 +291,8 @@ as `d98dd59`; `KNW-19` is Done. `feat/knw-20-accessible-page-tree` merged
 through
 [GitHub pull request #13](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/13)
 as `2f0e4dd`; `KNW-20` is Done. `KNW-21` is the next and final hierarchy gate
-before any `PGE-01` completion claim.
+before any `PGE-01` completion claim. It is active on
+`test/knw-21-hierarchy-evidence`.
 Subsequent branches follow `<type>/<tracker-key-lowercase>-<short-slug>` and
 start only when their issue becomes the active work item.
 

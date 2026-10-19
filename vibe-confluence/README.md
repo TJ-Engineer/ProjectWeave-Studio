@@ -44,6 +44,7 @@ to the host.
 ```sh
 npm run check
 TEST_DATABASE_URL=postgres://knowledge:knowledge@localhost:5433/knowledge_test npm run test:integration
+TEST_DATABASE_URL=postgres://knowledge:knowledge@localhost:5433/knowledge_test npm run test:load
 ```
 
 Integration tests refuse to use a database whose name does not end in `_test`.
@@ -67,6 +68,8 @@ The versioned membership and page-restriction endpoints are documented in the
 Bounded, permission-filtered tree navigation, explicit read/edit routes, and
 versioned subtree movement are documented in the
 [`page hierarchy API`](./docs/page-hierarchy-api.md).
+The hierarchy concurrency, recovery, non-disclosure, scale, and load gate is
+recorded in the [`PGE-01 evidence record`](./docs/pge01-evidence.md).
 Durable readable aliases, archived reads, and reversible atomic subtree
 transitions are documented in the
 [`page alias and lifecycle API`](./docs/page-lifecycle-api.md).

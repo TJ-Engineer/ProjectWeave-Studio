@@ -205,12 +205,16 @@ a:focus-visible {
   outline-offset: 2px;
 }
 .primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 9px;
   padding: 10px 16px;
   color: white;
   background: var(--brand);
   font-weight: 750;
+  text-decoration: none;
   cursor: pointer;
 }
 .secondary-button,
@@ -269,27 +273,102 @@ a:focus-visible {
   text-align: center;
 }
 
-.page-tree li {
+.section-heading,
+.published-page-heading {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 12px;
-  border-bottom: 1px solid var(--line);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
 }
-.page-tree a {
-  display: flex;
-  gap: 10px;
-  flex: 1;
-  text-decoration: none;
-  font-weight: 650;
+.section-heading h2 {
+  margin-bottom: 5px;
 }
-.page-tree .inline-action {
+.tree-help {
+  margin: 0 0 18px;
+  font-size: 0.84rem;
+}
+.tree-result-count {
   flex: 0 0 auto;
-  padding: 5px 9px;
+  color: var(--muted);
   font-size: 0.78rem;
 }
-.child-page {
-  margin-left: 28px;
+.page-tree,
+.page-tree-group {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.page-tree-group {
+  margin-left: 24px;
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+}
+.page-tree-item {
+  display: grid;
+  grid-template-columns: 38px minmax(120px, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 52px;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 8px;
+}
+.page-tree-item:focus {
+  outline: 3px solid #80b8aa;
+  outline-offset: -2px;
+  background: #f6fbf9;
+}
+.tree-page-link {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 650;
+  text-decoration: none;
+}
+.tree-page-link:hover {
+  text-decoration: underline;
+}
+.tree-toggle,
+.tree-move-button {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+.tree-toggle:hover,
+.tree-move-button:hover {
+  border-color: var(--line);
+  color: var(--brand-dark);
+  background: var(--accent);
+}
+.tree-move-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.tree-leaf {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  color: #8a98a8;
+}
+.tree-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.page-tree .inline-action,
+.page-tree-group .inline-action {
+  padding: 6px 9px;
+  font-size: 0.78rem;
+}
+.tree-pagination {
+  padding: 12px 4px;
 }
 .published-badge,
 .draft-badge {
@@ -304,6 +383,18 @@ a:focus-visible {
 .draft-badge {
   color: #7b5816;
   background: #fff3d6;
+}
+.published-page-heading {
+  padding: 28px 44px 0;
+}
+.published-page-heading h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+}
+.published-page-footer {
+  padding: 18px 44px 28px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.86rem;
 }
 
 .auth-shell {
@@ -550,5 +641,35 @@ a:focus-visible {
   }
   .access-list li {
     grid-template-columns: 1fr;
+  }
+  .published-page-heading {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 22px 22px 0;
+  }
+  .published-page-heading .primary-button {
+    align-self: flex-start;
+  }
+  .published-page-footer {
+    padding: 16px 22px 22px;
+  }
+  .page-tree-group {
+    margin-left: 10px;
+    padding-left: 6px;
+  }
+  .page-tree-item {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    gap: 6px;
+    min-height: 56px;
+  }
+  .tree-toggle,
+  .tree-move-button,
+  .tree-leaf {
+    width: 40px;
+    height: 40px;
+  }
+  .tree-actions {
+    grid-column: 2 / -1;
+    flex-wrap: wrap;
   }
 }

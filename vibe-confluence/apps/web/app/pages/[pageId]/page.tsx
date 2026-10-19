@@ -3,27 +3,37 @@ import { getPageWorkspace, getPublishedPage } from "@knowledge/database";
 import { DomainError } from "@knowledge/domain";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { KnowledgeEditor } from "@/components/knowledge-editor";
 import { currentIdentity } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-function ArchivedPage({ view }: { view: PublishedPageView }) {
+function PublishedPage({ view }: { view: PublishedPageView }) {
+  const archived = view.page.state === "ARCHIVED";
   return (
     <section className="page-shell">
-      <div className="breadcrumbs">
+      <nav className="breadcrumbs" aria-label="Breadcrumbs">
         <Link href="/spaces">Spaces</Link>
-        <span>/</span>
+        <span aria-hidden="true">/</span>
         <Link href={`/spaces/${view.space.key}`}>{view.space.name}</Link>
-        <span>/</span>
-        Archived
-      </div>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">{view.revision.title}</span>
+      </nav>
       <article className="editor-card published-page" aria-readonly="true">
-        <div className="page-heading">
+        <div className="published-page-heading">
           <div>
-            <p className="eyebrow">Archived · Read only</p>
+            <p className="eyebrow">
+              {archived ? "Archived · Read only" : "Published · Read mode"}
+            </p>
             <h1>{view.revision.title}</h1>
           </div>
+          {view.canEdit ? (
+            <Link
+              className="primary-button"
+              href={`/pages/${view.page.id}/edit`}
+            >
+              Edit page
+            </Link>
+          ) : null}
         </div>
         <div className="document-surface" aria-label="Published page content">
           {view.revision.document.content.map((block, index) => {
@@ -35,18 +45,18 @@ function ArchivedPage({ view }: { view: PublishedPageView }) {
             );
           })}
         </div>
-        <p className="muted">
+        <footer className="published-page-footer">
           Revision {view.revision.number} · {view.revision.authorName} ·{" "}
           <time dateTime={view.revision.createdAt}>
             {new Date(view.revision.createdAt).toLocaleString()}
           </time>
-        </p>
+        </footer>
       </article>
     </section>
   );
 }
 
-export default async function PageEditor({
+export default async function PageRead({
   params,
 }: {
   params: Promise<{ pageId: string }>;
@@ -54,35 +64,19 @@ export default async function PageEditor({
   const identity = await currentIdentity();
   if (!identity) redirect("/login");
   const { pageId } = await params;
-  let workspace;
+  let view: PublishedPageView;
   try {
-    workspace = await getPageWorkspace(identity, pageId);
+    view = await getPublishedPage(identity, pageId);
   } catch (error) {
     if (!(error instanceof DomainError) || error.code !== "NOT_FOUND") {
       throw error;
     }
-    const published = await getPublishedPage(identity, pageId);
-    if (published.page.state !== "ARCHIVED") throw error;
-    return <ArchivedPage view={published} />;
+    try {
+      await getPageWorkspace(identity, pageId);
+    } catch {
+      throw error;
+    }
+    redirect(`/pages/${pageId}/edit`);
   }
-  return (
-    <section className="editor-shell">
-      <div className="breadcrumbs">
-        <Link href="/spaces">Spaces</Link>
-        <span>/</span>
-        <Link href={`/spaces/${workspace.space.key}`}>
-          {workspace.space.name}
-        </Link>
-        <span>/</span>
-        Draft
-        {workspace.space.role === "ADMIN" ? (
-          <>
-            <span>/</span>
-            <Link href={`/pages/${workspace.page.id}/access`}>Access</Link>
-          </>
-        ) : null}
-      </div>
-      <KnowledgeEditor initialWorkspace={workspace} />
-    </section>
-  );
+  return <PublishedPage view={view} />;
 }

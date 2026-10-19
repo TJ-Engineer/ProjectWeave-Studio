@@ -1,4 +1,4 @@
-import { listPages } from "@knowledge/database";
+import { listPageTree } from "@knowledge/database";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SpacePages } from "@/components/space-pages";
@@ -14,35 +14,40 @@ export default async function SpacePage({
   const identity = await currentIdentity();
   if (!identity) redirect("/login");
   const { spaceKey } = await params;
-  const result = await listPages(identity, spaceKey);
+  const tree = await listPageTree(identity, spaceKey, {
+    parentId: null,
+    cursor: null,
+    limit: 50,
+  });
   return (
     <section className="page-shell">
       <div className="breadcrumbs">
         <Link href="/spaces">Spaces</Link>
         <span>/</span>
-        {result.space.name}
+        {tree.space.name}
       </div>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">{result.space.key}</p>
-          <h1>{result.space.name}</h1>
+          <p className="eyebrow">{tree.space.key}</p>
+          <h1>{tree.space.name}</h1>
           <p className="muted">
-            {result.space.description || "No description yet."}
+            {tree.space.description || "No description yet."}
           </p>
         </div>
-        {result.space.role === "ADMIN" ? (
+        {tree.space.role === "ADMIN" ? (
           <Link
             className="secondary-button"
-            href={`/spaces/${result.space.key}/access`}
+            href={`/spaces/${tree.space.key}/access`}
           >
             Manage access
           </Link>
         ) : null}
       </div>
       <SpacePages
-        canAdminister={result.space.role === "ADMIN"}
-        spaceKey={result.space.key}
-        initialPages={result.pages}
+        canAdminister={tree.space.role === "ADMIN"}
+        canCreate={tree.space.role !== "VIEWER"}
+        spaceKey={tree.space.key}
+        initialTree={tree}
       />
     </section>
   );

@@ -328,6 +328,7 @@ export interface PublishedPageView {
   page: PageSummary;
   space: SpaceSummary;
   revision: RevisionView;
+  canEdit: boolean;
   readOnly: true;
 }
 

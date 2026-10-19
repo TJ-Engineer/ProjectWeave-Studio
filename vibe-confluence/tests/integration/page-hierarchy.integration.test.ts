@@ -468,6 +468,117 @@ describe.skipIf(!testDatabaseUrl)("versioned page hierarchy", () => {
     });
   });
 
+  it("rejects stale source and destination versions without partial movement", async () => {
+    const source = await createPage(
+      organizationAdmin,
+      spaceKey,
+      { title: "Stale source parent", parentId: null },
+      randomUUID(),
+    );
+    const destination = await createPage(
+      organizationAdmin,
+      spaceKey,
+      { title: "Stale destination parent", parentId: null },
+      randomUUID(),
+    );
+    const moving = await createPage(
+      organizationAdmin,
+      spaceKey,
+      { title: "Version checked movement", parentId: source.id },
+      randomUUID(),
+    );
+    for (const page of [source, destination, moving]) {
+      await publishFreshPage(organizationAdmin, page.id);
+    }
+
+    let sourceTree = await listPageTree(organizationAdmin, spaceKey, {
+      parentId: source.id,
+      cursor: null,
+      limit: 100,
+    });
+    let destinationTree = await listPageTree(organizationAdmin, spaceKey, {
+      parentId: destination.id,
+      cursor: null,
+      limit: 100,
+    });
+    await createPage(
+      organizationAdmin,
+      spaceKey,
+      { title: "Bump source version", parentId: source.id },
+      randomUUID(),
+    );
+    await expect(
+      movePage(
+        organizationAdmin,
+        moving.id,
+        {
+          destinationParentId: destination.id,
+          beforePageId: null,
+          afterPageId: null,
+          expectedSourceVersion: sourceTree.parentVersion,
+          expectedDestinationVersion: destinationTree.parentVersion,
+        },
+        "stale-source-version",
+      ),
+    ).rejects.toMatchObject({
+      code: "SIBLING_LIST_VERSION_CONFLICT",
+      status: 409,
+    });
+
+    sourceTree = await listPageTree(organizationAdmin, spaceKey, {
+      parentId: source.id,
+      cursor: null,
+      limit: 100,
+    });
+    destinationTree = await listPageTree(organizationAdmin, spaceKey, {
+      parentId: destination.id,
+      cursor: null,
+      limit: 100,
+    });
+    await createPage(
+      organizationAdmin,
+      spaceKey,
+      { title: "Bump destination version", parentId: destination.id },
+      randomUUID(),
+    );
+    await expect(
+      movePage(
+        organizationAdmin,
+        moving.id,
+        {
+          destinationParentId: destination.id,
+          beforePageId: null,
+          afterPageId: null,
+          expectedSourceVersion: sourceTree.parentVersion,
+          expectedDestinationVersion: destinationTree.parentVersion,
+        },
+        "stale-destination-version",
+      ),
+    ).rejects.toMatchObject({
+      code: "SIBLING_LIST_VERSION_CONFLICT",
+      status: 409,
+    });
+
+    const movementState = await getPool().query<{
+      failed_effects: string;
+      parent_id: string;
+    }>(
+      `SELECT page.parent_id,
+              (SELECT count(*)::text FROM audit_events audit
+                WHERE audit.organization_id = $1
+                  AND audit.correlation_id IN
+                    ('stale-source-version', 'stale-destination-version'))
+                AS failed_effects
+         FROM pages page
+        WHERE page.organization_id = $1 AND page.id = $2`,
+      [organizationId, moving.id],
+    );
+    expect(movementState.rows[0]).toEqual({
+      parent_id: source.id,
+      failed_effects: "0",
+    });
+  });
+
   it("rebalances only the exhausted destination list and paginates children", async () => {
     const source = await createPage(
       organizationAdmin,

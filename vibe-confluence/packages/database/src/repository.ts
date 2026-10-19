@@ -834,8 +834,48 @@ async function listPageTreeSnapshot(
     cursorRank = cursor.rows[0].sibling_rank;
   }
 
+  // The parent access check above proves every inherited ancestor policy once.
+  // Each direct child therefore adds only its own restriction and private-draft
+  // ownership rule; evaluating the recursive access function per sibling would
+  // turn bounded pagination into an N-by-depth query at scale.
   const result = await client.query<PageTreeRow>(
-    `SELECT page.id, page.organization_id, page.space_id, page.parent_id,
+    `WITH authorized_siblings AS (
+       SELECT page.id, page.organization_id, page.space_id, page.parent_id,
+              page.current_revision_id, page.title, page.slug,
+              page.sibling_rank, page.state, page.lifecycle_root_id,
+              page.version, page.created_by
+         FROM pages page
+        WHERE page.organization_id = $1 AND page.space_id = $2
+          AND page.parent_id IS NOT DISTINCT FROM $3
+          AND page.state = 'ACTIVE'
+          AND (page.current_revision_id IS NOT NULL OR page.created_by = $4)
+          AND (
+            $8::text = 'ADMIN' OR $9::text = 'ADMIN'
+            OR NOT EXISTS (
+              SELECT 1
+                FROM page_restrictions restriction
+               WHERE restriction.organization_id = page.organization_id
+                 AND restriction.space_id = page.space_id
+                 AND restriction.page_id = page.id
+                 AND restriction.enabled
+                 AND NOT EXISTS (
+                   SELECT 1
+                     FROM page_restriction_members allowed_member
+                    WHERE allowed_member.organization_id = restriction.organization_id
+                      AND allowed_member.space_id = restriction.space_id
+                      AND allowed_member.page_id = restriction.page_id
+                      AND allowed_member.user_id = $4
+                 )
+            )
+          )
+          AND (
+            $5::numeric IS NULL
+            OR (page.sibling_rank, page.id) > ($5::numeric, $6::uuid)
+          )
+        ORDER BY page.sibling_rank, page.id
+        LIMIT $7
+     )
+     SELECT page.id, page.organization_id, page.space_id, page.parent_id,
             page.current_revision_id,
             CASE WHEN page.current_revision_id IS NULL
                  THEN COALESCE((SELECT draft.title FROM drafts draft
@@ -852,19 +892,32 @@ async function listPageTreeSnapshot(
                  AND child.space_id = page.space_id
                  AND child.parent_id = page.id
                  AND child.state = 'ACTIVE'
-                 AND has_effective_page_access($1, $4, child.id)
+                 AND (
+                   child.current_revision_id IS NOT NULL
+                   OR child.created_by = $4
+                 )
+                 AND (
+                   $8::text = 'ADMIN' OR $9::text = 'ADMIN'
+                   OR NOT EXISTS (
+                     SELECT 1
+                       FROM page_restrictions restriction
+                      WHERE restriction.organization_id = child.organization_id
+                        AND restriction.space_id = child.space_id
+                        AND restriction.page_id = child.id
+                        AND restriction.enabled
+                        AND NOT EXISTS (
+                          SELECT 1
+                            FROM page_restriction_members allowed_member
+                           WHERE allowed_member.organization_id = restriction.organization_id
+                             AND allowed_member.space_id = restriction.space_id
+                             AND allowed_member.page_id = restriction.page_id
+                             AND allowed_member.user_id = $4
+                        )
+                   )
+                 )
             ) AS has_children
-       FROM pages page
-      WHERE page.organization_id = $1 AND page.space_id = $2
-        AND page.parent_id IS NOT DISTINCT FROM $3
-        AND page.state = 'ACTIVE'
-        AND has_effective_page_access($1, $4, page.id)
-        AND (
-          $5::numeric IS NULL
-          OR (page.sibling_rank, page.id) > ($5::numeric, $6::uuid)
-        )
-      ORDER BY page.sibling_rank, page.id
-      LIMIT $7`,
+       FROM authorized_siblings page
+      ORDER BY page.sibling_rank, page.id`,
     [
       identity.organizationId,
       space.id,
@@ -873,6 +926,8 @@ async function listPageTreeSnapshot(
       cursorRank,
       input.cursor,
       input.limit + 1,
+      identity.organizationRole,
+      space.role,
     ],
   );
   const hasNext = result.rows.length > input.limit;

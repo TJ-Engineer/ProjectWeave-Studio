@@ -2,7 +2,8 @@ import type { PublishedPageView } from "@knowledge/contracts";
 import { getPageWorkspace, getPublishedPage } from "@knowledge/database";
 import { DomainError } from "@knowledge/domain";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { z } from "zod";
 import { currentIdentity } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -64,6 +65,7 @@ export default async function PageRead({
   const identity = await currentIdentity();
   if (!identity) redirect("/login");
   const { pageId } = await params;
+  if (!z.uuid().safeParse(pageId).success) notFound();
   let view: PublishedPageView;
   try {
     view = await getPublishedPage(identity, pageId);
@@ -73,8 +75,14 @@ export default async function PageRead({
     }
     try {
       await getPageWorkspace(identity, pageId);
-    } catch {
-      throw error;
+    } catch (workspaceError) {
+      if (
+        workspaceError instanceof DomainError &&
+        ["NOT_FOUND", "FORBIDDEN"].includes(workspaceError.code)
+      ) {
+        notFound();
+      }
+      throw workspaceError;
     }
     redirect(`/pages/${pageId}/edit`);
   }

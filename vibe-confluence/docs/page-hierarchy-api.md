@@ -37,6 +37,14 @@ Tree authorization is applied before pagination. Results include authorized
 published pages and only the current principal's own unpublished pages. Hidden
 titles, ranks, paths, and counts are not sent to the browser.
 
+The parent authorization check establishes inherited policy once. The bounded
+child query then evaluates only each direct child's own restriction and
+private-draft ownership rule, including for the `hasChildren` projection. This
+set-based boundary preserves the same policy semantics without recursively
+re-evaluating the full ancestor path for every sibling. The 10,000-page and
+1,000-sibling regression gate is documented in
+[`pge01-evidence.md`](./pge01-evidence.md).
+
 ## Read a child list
 
 `GET /api/v1/spaces/{spaceKey}/tree`

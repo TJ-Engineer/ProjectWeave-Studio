@@ -257,11 +257,11 @@ support a completion claim.
 | `KNW-15` | Enforce effective permissions on every read and mutation        | Done          |
 | `KNW-16` | Ship bounded membership and restriction administration          | Done          |
 | `KNW-17` | Prove adversarial access and offboarding behavior               | Done          |
-| `KNW-12` | `PGE-01` canonical story                                        | Selected      |
+| `KNW-12` | `PGE-01` canonical story                                        | Done          |
 | `KNW-18` | Implement versioned hierarchy moves and ordering                | Done          |
 | `KNW-19` | Implement durable aliases and atomic subtree lifecycle          | Done          |
 | `KNW-20` | Ship lazy accessible tree and explicit read/edit views          | Done          |
-| `KNW-21` | Prove hierarchy concurrency, recovery, authorization, and scale | Review        |
+| `KNW-21` | Prove hierarchy concurrency, recovery, authorization, and scale | Done          |
 | `KNW-13` | `EDT-01` canonical story                                        | To Do         |
 | `KNW-22` | Freeze editor schema, migrations, and adapter                   | To Do         |
 | `KNW-23` | Implement rich nodes, commands, paste, and safe rendering       | To Do         |
@@ -290,11 +290,12 @@ as `8a70012`; `KNW-18` is Done. The durable-alias and atomic-lifecycle branch
 as `d98dd59`; `KNW-19` is Done. `feat/knw-20-accessible-page-tree` merged
 through
 [GitHub pull request #13](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/13)
-as `2f0e4dd`; `KNW-20` is Done. The final hierarchy gate, `KNW-21`, is in
-Review through
+as `2f0e4dd`; `KNW-20` is Done. The final hierarchy gate, `KNW-21`, merged
+through
 [GitHub pull request #15](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/15)
-from `test/knw-21-hierarchy-evidence` at implementation commit `eb23354`. No
-`PGE-01` completion is claimed before review, merge, and final reconciliation.
+as `0c5de14` after the exact concurrency, recovery, authorization, scale,
+automated, desktop, and responsive evidence was recorded. `KNW-21`, canonical
+story `KNW-12`, and `PGE-01` are Done; `KNW-22` is the next bounded M1 slice.
 Subsequent branches follow `<type>/<tracker-key-lowercase>-<short-slug>` and
 start only when their issue becomes the active work item.
 

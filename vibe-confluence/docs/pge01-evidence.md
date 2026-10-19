@@ -1,10 +1,11 @@
 # PGE-01 hierarchy evidence
 
-Status: KNW-21 in progress
+Status: Complete through GitHub PR #15 (`0c5de14`)
 
-This record maps the final `PGE-01` evidence gate to repeatable automated and
-manual checks. It does not mark `PGE-01` complete before the evidence branch is
-reviewed, merged, and reconciled in Vibe JIRA.
+This record maps the completed `PGE-01` evidence gate to repeatable automated
+and manual checks. The evidence branch was reviewed and merged through GitHub
+PR #15 as `0c5de14`; the completion workflow reconciles `KNW-21` and canonical
+story `KNW-12` in Vibe JIRA.
 
 ## Automated evidence map
 
@@ -85,5 +86,6 @@ authorization integration fixtures still pass against that optimized query.
   query optimization: administrators and editors receive Edit only through
   `page:edit`, while viewers never receive draft content.
 
-Record the pull request, review, and merge commit before advancing `KNW-21` or
-canonical story `KNW-12` to Done.
+GitHub PR #15 records the review and merged implementation. `KNW-21`, canonical
+story `KNW-12`, and `PGE-01` advance together because all four bounded
+execution issues and the final evidence gate are complete.

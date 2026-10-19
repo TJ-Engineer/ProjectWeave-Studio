@@ -1,4 +1,26 @@
 import { z } from "zod";
+import {
+  documentNodeSchema,
+  normalizeDocument,
+  type DocumentNode,
+  type FutureDocumentEnvelope,
+} from "@knowledge/editor";
+
+export {
+  CURRENT_SCHEMA_VERSION,
+  DOCUMENT_LIMITS,
+  SUPPORTED_SCHEMA_VERSIONS,
+  documentNodeSchema,
+  emptyDocument,
+} from "@knowledge/editor";
+export type {
+  BlockNode,
+  DocumentBlock,
+  DocumentNode,
+  FutureDocumentEnvelope,
+  InlineNode,
+  TextMark,
+} from "@knowledge/editor";
 
 export const organizationRoleSchema = z.enum(["ADMIN", "MEMBER"]);
 export type OrganizationRole = z.infer<typeof organizationRoleSchema>;
@@ -21,52 +43,6 @@ export const capabilitySchema = z.enum([
   "audit:read",
 ]);
 export type Capability = z.infer<typeof capabilitySchema>;
-
-const textNodeSchema = z.object({
-  type: z.literal("text"),
-  text: z.string().max(20_000),
-});
-
-const inlineContentSchema = z.array(textNodeSchema).max(500);
-
-const headingNodeSchema = z.object({
-  type: z.literal("heading"),
-  attrs: z.object({
-    level: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-  }),
-  content: inlineContentSchema,
-});
-
-const paragraphNodeSchema = z.object({
-  type: z.literal("paragraph"),
-  content: inlineContentSchema,
-});
-
-export const documentNodeSchema = z
-  .object({
-    type: z.literal("doc"),
-    schemaVersion: z.literal(1),
-    content: z
-      .array(z.union([headingNodeSchema, paragraphNodeSchema]))
-      .min(1)
-      .max(500),
-  })
-  .superRefine((document, context) => {
-    if (JSON.stringify(document).length > 100_000) {
-      context.addIssue({
-        code: "custom",
-        message: "Document exceeds the 100 KB structured-content limit",
-      });
-    }
-  });
-export type DocumentNode = z.infer<typeof documentNodeSchema>;
-export type DocumentBlock = DocumentNode["content"][number];
-
-export const emptyDocument: DocumentNode = {
-  type: "doc",
-  schemaVersion: 1,
-  content: [{ type: "paragraph", content: [] }],
-};
 
 export const loginSchema = z.object({
   email: z.email().trim().toLowerCase(),
@@ -165,7 +141,7 @@ export const pageSlugSchema = z
 
 export const saveDraftSchema = z.object({
   title: z.string().trim().min(1).max(200),
-  document: documentNodeSchema,
+  document: documentNodeSchema.transform(normalizeDocument),
   baseRevisionId: z.uuid().nullable(),
   version: z.number().int().positive(),
 });
@@ -246,6 +222,8 @@ export interface DraftView {
   id: string;
   title: string;
   document: DocumentNode;
+  documentMode: "EDITABLE" | "READ_ONLY_FUTURE";
+  futureDocument: FutureDocumentEnvelope | null;
   baseRevisionId: string | null;
   version: number;
   savedAt: string;
@@ -256,6 +234,8 @@ export interface RevisionView {
   number: number;
   title: string;
   document: DocumentNode;
+  documentMode: "EDITABLE" | "READ_ONLY_FUTURE";
+  futureDocument: FutureDocumentEnvelope | null;
   plainText: string;
   summary: string;
   authorName: string;

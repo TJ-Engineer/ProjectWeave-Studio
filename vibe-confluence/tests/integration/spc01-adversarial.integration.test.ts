@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { type DocumentNode, type UserIdentity } from "@knowledge/contracts";
+import {
+  CURRENT_SCHEMA_VERSION,
+  type DocumentNode,
+  type UserIdentity,
+} from "@knowledge/contracts";
 import {
   closePool,
   createPage,
@@ -66,11 +70,11 @@ const identities = [
 
 const secretDocument: DocumentNode = {
   type: "doc",
-  schemaVersion: 1,
+  schemaVersion: CURRENT_SCHEMA_VERSION,
   content: [
     {
       type: "paragraph",
-      content: [{ type: "text", text: "sealed private draft body" }],
+      content: [{ type: "text", text: "sealed private draft body", marks: [] }],
     },
   ],
 };

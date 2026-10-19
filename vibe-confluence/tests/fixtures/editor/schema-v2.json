@@ -1,0 +1,175 @@
+{
+  "type": "doc",
+  "schemaVersion": 2,
+  "content": [
+    {
+      "type": "heading",
+      "attrs": { "level": 2 },
+      "content": [
+        {
+          "type": "text",
+          "text": "Release guide",
+          "marks": [
+            { "type": "bold" },
+            {
+              "type": "link",
+              "attrs": { "href": "https://example.test/guide", "title": null }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "Owner ", "marks": [{ "type": "italic" }] },
+        {
+          "type": "userMention",
+          "attrs": {
+            "userId": "00000000-0000-4000-8000-000000000001",
+            "label": "Ada"
+          }
+        },
+        { "type": "text", "text": " on ", "marks": [{ "type": "underline" }] },
+        { "type": "date", "attrs": { "value": "2026-10-18" } },
+        { "type": "text", "text": " ", "marks": [{ "type": "strike" }] },
+        {
+          "type": "status",
+          "attrs": { "text": "Ready", "tone": "success" }
+        },
+        { "type": "text", "text": " ", "marks": [{ "type": "code" }] },
+        {
+          "type": "pageLink",
+          "attrs": {
+            "pageId": "00000000-0000-4000-8000-000000000002",
+            "label": "Runbook"
+          }
+        },
+        { "type": "labelReference", "attrs": { "label": "release" } },
+        {
+          "type": "taskReference",
+          "attrs": { "taskId": "KNW-22", "label": "Freeze schema" }
+        }
+      ]
+    },
+    {
+      "type": "orderedList",
+      "attrs": { "start": 1 },
+      "content": [
+        {
+          "type": "listItem",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [{ "type": "text", "text": "First", "marks": [] }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "unorderedList",
+      "content": [
+        {
+          "type": "listItem",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [{ "type": "text", "text": "Bullet", "marks": [] }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "taskList",
+      "content": [
+        {
+          "type": "taskItem",
+          "attrs": { "checked": false },
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [{ "type": "text", "text": "Verify", "marks": [] }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "blockquote",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [{ "type": "text", "text": "Quoted", "marks": [] }]
+        }
+      ]
+    },
+    { "type": "divider" },
+    {
+      "type": "callout",
+      "attrs": { "tone": "info", "title": "Note" },
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [{ "type": "text", "text": "Callout", "marks": [] }]
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "content": [
+        {
+          "type": "tableRow",
+          "content": [
+            {
+              "type": "tableCell",
+              "attrs": { "header": true },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [{ "type": "text", "text": "Column", "marks": [] }]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "codeBlock",
+      "attrs": { "language": "typescript" },
+      "code": "const safe = true;"
+    },
+    {
+      "type": "image",
+      "attrs": {
+        "assetId": "00000000-0000-4000-8000-000000000003",
+        "altText": "Architecture diagram",
+        "caption": "Deferred asset"
+      }
+    },
+    {
+      "type": "attachment",
+      "attrs": {
+        "assetId": "00000000-0000-4000-8000-000000000004",
+        "fileName": "release.pdf",
+        "caption": null
+      }
+    },
+    {
+      "type": "expand",
+      "attrs": { "summary": "Details" },
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [{ "type": "text", "text": "Expanded", "marks": [] }]
+        }
+      ]
+    },
+    {
+      "type": "tableOfContents",
+      "attrs": { "minLevel": 2, "maxLevel": 4 }
+    }
+  ]
+}

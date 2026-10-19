@@ -1,0 +1,15 @@
+{
+  "type": "doc",
+  "schemaVersion": 3,
+  "content": [
+    {
+      "type": "diagram",
+      "attrs": { "format": "future-safe" },
+      "content": [{ "type": "shape", "attrs": { "kind": "box" } }]
+    },
+    {
+      "type": "paragraph",
+      "content": [{ "type": "text", "text": "Future text", "marks": [] }]
+    }
+  ]
+}

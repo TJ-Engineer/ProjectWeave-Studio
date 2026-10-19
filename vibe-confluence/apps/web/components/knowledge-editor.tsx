@@ -5,32 +5,77 @@ import type {
   PageWorkspace,
   RevisionView,
 } from "@knowledge/contracts";
+import {
+  CURRENT_SCHEMA_VERSION,
+  type CanonicalEditorAdapter,
+  openWithAdapter,
+  renderDocumentToHtml,
+  renderFutureDocumentToHtml,
+} from "@knowledge/editor";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-function textFor(
-  document: DocumentNode,
-  type: "heading" | "paragraph",
-): string {
-  const block = document.content.find((candidate) => candidate.type === type);
-  return block?.content.map((node) => node.text).join("") ?? "";
+interface MinimalEditorDocument {
+  heading: string;
+  paragraph: string;
+}
+
+const minimalEditorAdapter: CanonicalEditorAdapter<MinimalEditorDocument> = {
+  id: "minimal-text-v1",
+  canEdit(document) {
+    return document.content.every(
+      (block) =>
+        (block.type === "heading" || block.type === "paragraph") &&
+        block.content.every(
+          (node) => node.type === "text" && node.marks.length === 0,
+        ),
+    );
+  },
+  toEngine(document) {
+    if (!this.canEdit(document)) {
+      throw new Error("The minimal editor cannot safely edit this document");
+    }
+    const textFor = (type: "heading" | "paragraph") => {
+      const block = document.content.find(
+        (candidate) => candidate.type === type,
+      );
+      if (!block || (block.type !== "heading" && block.type !== "paragraph"))
+        return "";
+      return block.content
+        .map((node) => (node.type === "text" ? node.text : ""))
+        .join("");
+    };
+    return { heading: textFor("heading"), paragraph: textFor("paragraph") };
+  },
+  toCanonical(document) {
+    return {
+      type: "doc",
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 2 },
+          content: document.heading
+            ? [{ type: "text", text: document.heading, marks: [] }]
+            : [],
+        },
+        {
+          type: "paragraph",
+          content: document.paragraph
+            ? [{ type: "text", text: document.paragraph, marks: [] }]
+            : [],
+        },
+      ],
+    };
+  },
+};
+
+function textState(document: unknown): MinimalEditorDocument | null {
+  const opened = openWithAdapter(document, minimalEditorAdapter);
+  return opened.mode === "editable" ? opened.engineDocument : null;
 }
 
 function makeDocument(heading: string, paragraph: string): DocumentNode {
-  return {
-    type: "doc",
-    schemaVersion: 1,
-    content: [
-      {
-        type: "heading",
-        attrs: { level: 1 },
-        content: heading ? [{ type: "text", text: heading }] : [],
-      },
-      {
-        type: "paragraph",
-        content: paragraph ? [{ type: "text", text: paragraph }] : [],
-      },
-    ],
-  };
+  return minimalEditorAdapter.toCanonical({ heading, paragraph });
 }
 
 interface EditorSnapshot {
@@ -44,13 +89,15 @@ export function KnowledgeEditor({
 }: {
   initialWorkspace: PageWorkspace;
 }) {
+  const initialSource =
+    initialWorkspace.draft.futureDocument ?? initialWorkspace.draft.document;
+  const initialOpened = openWithAdapter(initialSource, minimalEditorAdapter);
+  const initialDocument =
+    initialOpened.mode === "editable" ? initialOpened.engineDocument : null;
+  const adapterReadOnly = initialDocument === null;
   const [title, setTitle] = useState(initialWorkspace.draft.title);
-  const [heading, setHeading] = useState(
-    textFor(initialWorkspace.draft.document, "heading"),
-  );
-  const [paragraph, setParagraph] = useState(
-    textFor(initialWorkspace.draft.document, "paragraph"),
-  );
+  const [heading, setHeading] = useState(initialDocument?.heading ?? "");
+  const [paragraph, setParagraph] = useState(initialDocument?.paragraph ?? "");
   const [status, setStatus] = useState("Saved");
   const [error, setError] = useState("");
   const [revisions, setRevisions] = useState(initialWorkspace.revisions);
@@ -75,7 +122,7 @@ export function KnowledgeEditor({
     setDiff([]);
     setRevisions([]);
     window.location.replace("/spaces");
-  }, []);
+  }, [setHeading, setParagraph, setTitle]);
 
   const flushSave = useCallback(async (): Promise<boolean> => {
     while (savedGeneration.current < dirtyGeneration.current) {
@@ -242,8 +289,17 @@ export function KnowledgeEditor({
       return;
     }
     const nextTitle = body.revision.title;
-    const nextHeading = textFor(body.revision.document, "heading");
-    const nextParagraph = textFor(body.revision.document, "paragraph");
+    const restoredDocument = textState(
+      body.revision.futureDocument ?? body.revision.document,
+    );
+    if (!restoredDocument) {
+      setError(
+        "This revision uses content that the current editor cannot change safely.",
+      );
+      return;
+    }
+    const nextHeading = restoredDocument.heading;
+    const nextParagraph = restoredDocument.paragraph;
     baseRef.current = body.revision.id;
     versionRef.current += 1;
     latestRef.current = {
@@ -259,6 +315,33 @@ export function KnowledgeEditor({
     setParagraph(nextParagraph);
     setRevisions((current) => [body.revision!, ...current]);
     setStatus(`Restored as revision ${body.revision.number}`);
+  }
+
+  const readOnlyHtml =
+    initialOpened.mode === "readOnlyFuture"
+      ? renderFutureDocumentToHtml(initialOpened.document)
+      : initialOpened.mode === "readOnlyCanonical"
+        ? renderDocumentToHtml(initialOpened.document)
+        : "";
+
+  if (adapterReadOnly) {
+    return (
+      <article className="editor-card">
+        <p className="eyebrow">Read only</p>
+        <h1>{initialWorkspace.draft.title}</h1>
+        <p role="status">
+          This document uses canonical content that the current editor cannot
+          change without loss. Its source remains preserved.
+        </p>
+        <div
+          className="document-surface"
+          aria-label="Read-only page content"
+          dangerouslySetInnerHTML={{
+            __html: readOnlyHtml,
+          }}
+        />
+      </article>
+    );
   }
 
   return (

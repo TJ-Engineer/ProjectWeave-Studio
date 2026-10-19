@@ -1,6 +1,6 @@
 # Canonical editor schema
 
-Status: KNW-22 implementation contract
+Status: In review through GitHub PR #17
 
 `@knowledge/editor` is the sole owner of persisted structured-document syntax.
 The contract is independent of Tiptap, ProseMirror, or any other editing

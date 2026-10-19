@@ -263,7 +263,7 @@ support a completion claim.
 | `KNW-20` | Ship lazy accessible tree and explicit read/edit views          | Done          |
 | `KNW-21` | Prove hierarchy concurrency, recovery, authorization, and scale | Done          |
 | `KNW-13` | `EDT-01` canonical story                                        | To Do         |
-| `KNW-22` | Freeze editor schema, migrations, and adapter                   | Review        |
+| `KNW-22` | Freeze editor schema, migrations, and adapter                   | Done          |
 | `KNW-23` | Implement rich nodes, commands, paste, and safe rendering       | To Do         |
 | `KNW-24` | Preserve private drafts, recovery, and publish conflicts        | To Do         |
 | `KNW-25` | Prove lossless schema and accessible authoring                  | To Do         |
@@ -295,9 +295,9 @@ through
 [GitHub pull request #15](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/15)
 as `0c5de14` after the exact concurrency, recovery, authorization, scale,
 automated, desktop, and responsive evidence was recorded. `KNW-21`, canonical
-story `KNW-12`, and `PGE-01` are Done. `KNW-22` is in Review through
+story `KNW-12`, and `PGE-01` are Done. `KNW-22` merged through
 [GitHub pull request #17](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/17)
-from `feat/knw-22-editor-schema-adapter` at `f38bb59`.
+as `2f94e09`; `KNW-22` is Done and `KNW-23` is the next bounded M1 slice.
 Subsequent branches follow `<type>/<tracker-key-lowercase>-<short-slug>` and
 start only when their issue becomes the active work item.
 

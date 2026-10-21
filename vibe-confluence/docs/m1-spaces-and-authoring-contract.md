@@ -264,7 +264,7 @@ support a completion claim.
 | `KNW-21` | Prove hierarchy concurrency, recovery, authorization, and scale | Done          |
 | `KNW-13` | `EDT-01` canonical story                                        | To Do         |
 | `KNW-22` | Freeze editor schema, migrations, and adapter                   | Done          |
-| `KNW-23` | Implement rich nodes, commands, paste, and safe rendering       | To Do         |
+| `KNW-23` | Implement rich nodes, commands, paste, and safe rendering       | In Progress   |
 | `KNW-24` | Preserve private drafts, recovery, and publish conflicts        | To Do         |
 | `KNW-25` | Prove lossless schema and accessible authoring                  | To Do         |
 
@@ -297,7 +297,11 @@ as `0c5de14` after the exact concurrency, recovery, authorization, scale,
 automated, desktop, and responsive evidence was recorded. `KNW-21`, canonical
 story `KNW-12`, and `PGE-01` are Done. `KNW-22` merged through
 [GitHub pull request #17](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/17)
-as `2f94e09`; `KNW-22` is Done and `KNW-23` is the next bounded M1 slice.
+as `2f94e09`; completion reconciliation merged through
+[GitHub pull request #18](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/18)
+as `61293e2`. `KNW-22` is Done and `KNW-23` is active on
+`feat/knw-23-rich-authoring-rendering`. No `KNW-23` implementation or completion
+evidence is claimed yet.
 Subsequent branches follow `<type>/<tracker-key-lowercase>-<short-slug>` and
 start only when their issue becomes the active work item.
 

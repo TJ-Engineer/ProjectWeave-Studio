@@ -11,11 +11,13 @@ import {
   createSpace,
   getPageWorkspace,
   getPool,
+  getPublishedPage,
   listPages,
   publishPage,
   restoreRevision,
   saveDraft,
 } from "@knowledge/database";
+import schemaV2 from "../fixtures/editor/schema-v2.json";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
@@ -381,5 +383,53 @@ describe.skipIf(!testDatabaseUrl)("publication lifecycle", () => {
       [organizationId, page.id],
     );
     expect(stored.rows[0]?.body_json).toEqual(futureDocument);
+  });
+
+  it("persists and publishes the complete rich schema without formatting loss", async () => {
+    const space = await createSpace(
+      identity,
+      { key: "RICH", name: "Rich authoring", description: "Editor fixture" },
+      randomUUID(),
+    );
+    const page = await createPage(
+      identity,
+      space.key,
+      { title: "Rich document", parentId: null },
+      randomUUID(),
+    );
+    const richDocument = documentNodeSchema.parse(schemaV2);
+    const workspace = await getPageWorkspace(identity, page.id);
+    const saved = await saveDraft(identity, page.id, {
+      title: "Rich document",
+      document: richDocument,
+      baseRevisionId: workspace.draft.baseRevisionId,
+      version: workspace.draft.version,
+    });
+    const revision = await publishPage(
+      identity,
+      page.id,
+      {
+        title: saved.title,
+        document: richDocument,
+        baseRevisionId: saved.baseRevisionId,
+        version: saved.version,
+        summary: "Complete rich schema",
+      },
+      "publish-complete-rich-schema",
+      randomUUID(),
+    );
+
+    expect(revision.document).toEqual(richDocument);
+    const published = await getPublishedPage(identity, page.id);
+    expect(published.revision.document).toEqual(richDocument);
+    expect(
+      published.revision.document.content.map((node) => node.type),
+    ).toEqual(richDocument.content.map((node) => node.type));
+    const stored = await getPool().query<{ body_json: unknown }>(
+      `SELECT body_json FROM drafts
+        WHERE organization_id = $1 AND page_id = $2`,
+      [organizationId, page.id],
+    );
+    expect(stored.rows[0]?.body_json).toEqual(richDocument);
   });
 });

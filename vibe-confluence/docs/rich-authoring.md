@@ -1,6 +1,6 @@
 # Rich authoring
 
-Status: KNW-23 implementation complete before review
+Status: KNW-23 in Review through GitHub PR #19
 
 Vibe Knowledge edits schema-v2 documents through a project-owned
 `tiptap-canonical-v2` adapter. Tiptap and ProseMirror are UI implementation
@@ -104,7 +104,8 @@ are generated from canonical headings in both modes.
 - `npm run check` passes formatting, lint, strict TypeScript, twenty-seven
   non-database tests, and the production build.
 
-Focused review, a pull request, and Vibe JIRA completion reconciliation remain
-required before KNW-23 is Done. KNW-24 owns IndexedDB recovery and
-publish-conflict workflows; KNW-25 owns the final losslessness and WCAG
-evidence gate.
+GitHub PR [#19](https://github.com/TJ-Engineer/ProjectWeave-Studio/pull/19)
+records the implementation and exact verification evidence. Focused review,
+merge, and Vibe JIRA completion reconciliation remain required before KNW-23
+is Done. KNW-24 owns IndexedDB recovery and publish-conflict workflows; KNW-25
+owns the final losslessness and WCAG evidence gate.

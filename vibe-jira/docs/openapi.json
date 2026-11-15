@@ -3,7 +3,7 @@
   "info": {
     "title": "Vibe JIRA API",
     "version": "0.1.0",
-    "description": "Versioned Vibe JIRA API for browser sessions and role-scoped software-factory agents. Runtime bodies are validated by the Zod schemas in @vibe/contracts."
+    "description": "Same-origin Release 1 API. Runtime bodies are validated by the Zod schemas in @vibe/contracts."
   },
   "servers": [{ "url": "/", "description": "Application origin" }],
   "paths": {
@@ -12,7 +12,7 @@
         "tags": ["administration"],
         "summary": "GET /api/v1/administration/audit",
         "operationId": "get__api_v1_administration_audit",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -40,7 +40,7 @@
         "tags": ["administration"],
         "summary": "PUT /api/v1/administration/audit",
         "operationId": "put__api_v1_administration_audit",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -80,7 +80,7 @@
         "tags": ["administration"],
         "summary": "POST /api/v1/administration/invitations",
         "operationId": "post__api_v1_administration_invitations",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -120,7 +120,7 @@
         "tags": ["administration"],
         "summary": "POST /api/v1/administration/outbox/retry",
         "operationId": "post__api_v1_administration_outbox_retry",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -160,7 +160,7 @@
         "tags": ["administration"],
         "summary": "GET /api/v1/administration/outbox",
         "operationId": "get__api_v1_administration_outbox",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -190,7 +190,7 @@
         "tags": ["administration"],
         "summary": "PUT /api/v1/administration/projects/{projectId}",
         "operationId": "put__api_v1_administration_projects_projectId_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectId",
@@ -238,7 +238,7 @@
         "tags": ["administration"],
         "summary": "GET /api/v1/administration/settings",
         "operationId": "get__api_v1_administration_settings",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -266,7 +266,7 @@
         "tags": ["administration"],
         "summary": "PUT /api/v1/administration/settings",
         "operationId": "put__api_v1_administration_settings",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -306,7 +306,7 @@
         "tags": ["administration"],
         "summary": "PUT /api/v1/administration/teams/{teamId}",
         "operationId": "put__api_v1_administration_teams_teamId_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "teamId",
@@ -352,7 +352,7 @@
         "tags": ["administration"],
         "summary": "GET /api/v1/administration/teams",
         "operationId": "get__api_v1_administration_teams",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -380,7 +380,7 @@
         "tags": ["administration"],
         "summary": "POST /api/v1/administration/teams",
         "operationId": "post__api_v1_administration_teams",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -418,7 +418,7 @@
         "tags": ["administration"],
         "summary": "PUT /api/v1/administration/users/{userId}",
         "operationId": "put__api_v1_administration_users_userId_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "userId",
@@ -629,7 +629,7 @@
         "tags": ["boards"],
         "summary": "GET /api/v1/boards/{boardId}/columns/{columnId}/issues",
         "operationId": "get__api_v1_boards_boardId_columns_columnId_issues",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "boardId",
@@ -673,7 +673,7 @@
         "tags": ["boards"],
         "summary": "GET /api/v1/boards/{boardId}/events",
         "operationId": "get__api_v1_boards_boardId_events",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "boardId",
@@ -711,7 +711,7 @@
         "tags": ["boards"],
         "summary": "GET /api/v1/boards/{boardId}/issues",
         "operationId": "get__api_v1_boards_boardId_issues",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "boardId",
@@ -749,7 +749,7 @@
         "tags": ["filters"],
         "summary": "GET /api/v1/filters/{filterId}",
         "operationId": "get__api_v1_filters_filterId_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "filterId",
@@ -785,7 +785,7 @@
         "tags": ["filters"],
         "summary": "PUT /api/v1/filters/{filterId}",
         "operationId": "put__api_v1_filters_filterId_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "filterId",
@@ -831,7 +831,7 @@
         "tags": ["filters"],
         "summary": "DELETE /api/v1/filters/{filterId}",
         "operationId": "delete__api_v1_filters_filterId_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "filterId",
@@ -877,7 +877,7 @@
         "tags": ["filters"],
         "summary": "GET /api/v1/filters",
         "operationId": "get__api_v1_filters",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -905,7 +905,7 @@
         "tags": ["filters"],
         "summary": "POST /api/v1/filters",
         "operationId": "post__api_v1_filters",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -945,7 +945,7 @@
         "tags": ["issues"],
         "summary": "DELETE /api/v1/issues/{issueKey}/attachments/{attachmentId}",
         "operationId": "delete__api_v1_issues_issueKey_attachments_attachmentId_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "issueKey",
@@ -989,7 +989,7 @@
         "tags": ["issues"],
         "summary": "GET /api/v1/issues/{issueKey}/attachments",
         "operationId": "get__api_v1_issues_issueKey_attachments",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "issueKey",
@@ -1025,7 +1025,7 @@
         "tags": ["issues"],
         "summary": "POST /api/v1/issues/{issueKey}/attachments",
         "operationId": "post__api_v1_issues_issueKey_attachments",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "issueKey",
@@ -1077,7 +1077,7 @@
         "tags": ["issues"],
         "summary": "GET /api/v1/issues/{issueKey}/comments",
         "operationId": "get__api_v1_issues_issueKey_comments",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "issueKey",
@@ -1113,7 +1113,7 @@
         "tags": ["issues"],
         "summary": "POST /api/v1/issues/{issueKey}/comments",
         "operationId": "post__api_v1_issues_issueKey_comments",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "issueKey",
@@ -1159,7 +1159,7 @@
         "tags": ["issues"],
         "summary": "POST /api/v1/issues/{issueKey}/restore",
         "operationId": "post__api_v1_issues_issueKey_restore",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "issueKey",
@@ -1205,7 +1205,7 @@
         "tags": ["issues"],
         "summary": "GET /api/v1/issues/{issueKey}",
         "operationId": "get__api_v1_issues_issueKey_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "issueKey",
@@ -1241,7 +1241,7 @@
         "tags": ["issues"],
         "summary": "PATCH /api/v1/issues/{issueKey}",
         "operationId": "patch__api_v1_issues_issueKey_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "issueKey",
@@ -1285,7 +1285,7 @@
         "tags": ["issues"],
         "summary": "DELETE /api/v1/issues/{issueKey}",
         "operationId": "delete__api_v1_issues_issueKey_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "issueKey",
@@ -1331,7 +1331,7 @@
         "tags": ["issues"],
         "summary": "POST /api/v1/issues/{issueKey}/transitions",
         "operationId": "post__api_v1_issues_issueKey_transitions",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "issueKey",
@@ -1377,7 +1377,7 @@
         "tags": ["issues"],
         "summary": "PUT /api/v1/issues/{issueKey}/watch",
         "operationId": "put__api_v1_issues_issueKey_watch",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "issueKey",
@@ -1413,7 +1413,7 @@
         "tags": ["issues"],
         "summary": "DELETE /api/v1/issues/{issueKey}/watch",
         "operationId": "delete__api_v1_issues_issueKey_watch",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "issueKey",
@@ -1451,7 +1451,7 @@
         "tags": ["notification-preferences"],
         "summary": "GET /api/v1/notification-preferences",
         "operationId": "get__api_v1_notification_preferences",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -1479,7 +1479,7 @@
         "tags": ["notification-preferences"],
         "summary": "PUT /api/v1/notification-preferences",
         "operationId": "put__api_v1_notification_preferences",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -1519,7 +1519,7 @@
         "tags": ["notifications"],
         "summary": "PUT /api/v1/notifications/{notificationId}/read",
         "operationId": "put__api_v1_notifications_notificationId_read",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "notificationId",
@@ -1557,7 +1557,7 @@
         "tags": ["notifications"],
         "summary": "PUT /api/v1/notifications/read-all",
         "operationId": "put__api_v1_notifications_read_all",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -1587,7 +1587,7 @@
         "tags": ["notifications"],
         "summary": "GET /api/v1/notifications",
         "operationId": "get__api_v1_notifications",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -1617,7 +1617,7 @@
         "tags": ["projects"],
         "summary": "PUT /api/v1/projects/{projectKey}/board/columns/{columnId}",
         "operationId": "put__api_v1_projects_projectKey_board_columns_columnId_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -1671,7 +1671,7 @@
         "tags": ["projects"],
         "summary": "GET /api/v1/projects/{projectKey}/board",
         "operationId": "get__api_v1_projects_projectKey_board",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -1709,7 +1709,7 @@
         "tags": ["projects"],
         "summary": "GET /api/v1/projects/{projectKey}/data-jobs/{jobId}/download",
         "operationId": "get__api_v1_projects_projectKey_data_jobs_jobId_download",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -1753,7 +1753,7 @@
         "tags": ["projects"],
         "summary": "POST /api/v1/projects/{projectKey}/data-jobs/export",
         "operationId": "post__api_v1_projects_projectKey_data_jobs_export",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -1791,7 +1791,7 @@
         "tags": ["projects"],
         "summary": "POST /api/v1/projects/{projectKey}/data-jobs/import/dry-run",
         "operationId": "post__api_v1_projects_projectKey_data_jobs_import_dry_run",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -1837,7 +1837,7 @@
         "tags": ["projects"],
         "summary": "POST /api/v1/projects/{projectKey}/data-jobs/import",
         "operationId": "post__api_v1_projects_projectKey_data_jobs_import",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -1885,7 +1885,7 @@
         "tags": ["projects"],
         "summary": "GET /api/v1/projects/{projectKey}/data-jobs",
         "operationId": "get__api_v1_projects_projectKey_data_jobs",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -1923,7 +1923,7 @@
         "tags": ["projects"],
         "summary": "GET /api/v1/projects/{projectKey}/issues/deleted",
         "operationId": "get__api_v1_projects_projectKey_issues_deleted",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -1961,7 +1961,7 @@
         "tags": ["projects"],
         "summary": "GET /api/v1/projects/{projectKey}/issues",
         "operationId": "get__api_v1_projects_projectKey_issues",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -1997,7 +1997,7 @@
         "tags": ["projects"],
         "summary": "POST /api/v1/projects/{projectKey}/issues",
         "operationId": "post__api_v1_projects_projectKey_issues",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -2043,7 +2043,7 @@
         "tags": ["projects"],
         "summary": "PUT /api/v1/projects/{projectKey}/members/{userId}",
         "operationId": "put__api_v1_projects_projectKey_members_userId_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -2095,7 +2095,7 @@
         "tags": ["projects"],
         "summary": "DELETE /api/v1/projects/{projectKey}/members/{userId}",
         "operationId": "delete__api_v1_projects_projectKey_members_userId_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -2139,7 +2139,7 @@
         "tags": ["projects"],
         "summary": "GET /api/v1/projects/{projectKey}/members",
         "operationId": "get__api_v1_projects_projectKey_members",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -2177,7 +2177,7 @@
         "tags": ["projects"],
         "summary": "GET /api/v1/projects/{projectKey}/reports",
         "operationId": "get__api_v1_projects_projectKey_reports",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -2215,7 +2215,7 @@
         "tags": ["projects"],
         "summary": "PUT /api/v1/projects/{projectKey}/teams/{teamId}",
         "operationId": "put__api_v1_projects_projectKey_teams_teamId_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -2267,7 +2267,7 @@
         "tags": ["projects"],
         "summary": "DELETE /api/v1/projects/{projectKey}/teams/{teamId}",
         "operationId": "delete__api_v1_projects_projectKey_teams_teamId_",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -2311,7 +2311,7 @@
         "tags": ["projects"],
         "summary": "GET /api/v1/projects/{projectKey}/teams",
         "operationId": "get__api_v1_projects_projectKey_teams",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -2349,7 +2349,7 @@
         "tags": ["projects"],
         "summary": "GET /api/v1/projects/{projectKey}/workflow",
         "operationId": "get__api_v1_projects_projectKey_workflow",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -2385,7 +2385,7 @@
         "tags": ["projects"],
         "summary": "PUT /api/v1/projects/{projectKey}/workflow",
         "operationId": "put__api_v1_projects_projectKey_workflow",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "parameters": [
           {
             "name": "projectKey",
@@ -2433,7 +2433,7 @@
         "tags": ["projects"],
         "summary": "GET /api/v1/projects",
         "operationId": "get__api_v1_projects",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -2461,7 +2461,7 @@
         "tags": ["projects"],
         "summary": "POST /api/v1/projects",
         "operationId": "post__api_v1_projects",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -2499,7 +2499,7 @@
         "tags": ["search"],
         "summary": "GET /api/v1/search/issues",
         "operationId": "get__api_v1_search_issues",
-        "security": [{ "sessionCookie": [] }, { "agentBearer": [] }],
+        "security": [{ "sessionCookie": [] }],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -2531,12 +2531,6 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "vibe_session"
-      },
-      "agentBearer": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "vibe_agent_ token",
-        "description": "Expiring, revocable agent token. Authorization is inherited from the owning active user and project memberships."
       }
     },
     "schemas": {

@@ -28,14 +28,6 @@ case "${1:-web}" in
   recovery-verify)
     exec node --import tsx packages/database/src/recovery-verify.ts
     ;;
-  agent-token)
-    shift
-    exec node --import tsx scripts/agent-token.ts "$@"
-    ;;
-  factory-api)
-    shift
-    exec node --import tsx scripts/software-factory-api.ts "$@"
-    ;;
   *)
     echo "Unknown Vibe JIRA process: $1" >&2
     exit 64

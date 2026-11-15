@@ -79,9 +79,6 @@ Required capabilities:
 - CSV import and export
 - Responsive and accessible UI
 - Automated testing, backups, logging, and deployment documentation
-- Controlled first-party REST access for least-privilege software-factory agents
-- Dry-run-first OpenRM requirement synchronization with exact Jira label mapping, idempotent creation, optimistic updates, and preserved human-authored issue context
-- Bounded project-wide requirement reconciliation with full read-only preflight before sequential audited writes
 
 ### Release 2 — Team planning
 
@@ -92,7 +89,7 @@ Required capabilities:
 - Reusable workflow templates
 - Automation rules
 - Email notifications and inbound email issue creation
-- Webhooks and end-user-managed public API tokens
+- Webhooks and public API tokens
 - Dashboards and richer reports
 - Bulk edit and bulk transitions
 - Git provider links for branches, commits, and pull requests
@@ -700,7 +697,7 @@ Resolve these during Phase 0:
 9. Required import compatibility: generic CSV only, or JIRA export mapping?
 10. Required deployment target and operational budget?
 
-Recommended defaults: browser-only human UI plus controlled first-party agent REST access; one application image; Docker Compose for self-hosting; external PostgreSQL and S3-compatible storage; both self-hosted and hosted-ready; single organization in Release 1; managed authentication; REST/OpenAPI; SSE; Markdown with safe preview; PostgreSQL search; generic CSV plus documented JIRA CSV mapping.
+Recommended defaults: browser-only UI; one application image; Docker Compose for self-hosting; external PostgreSQL and S3-compatible storage; both self-hosted and hosted-ready; single organization in Release 1; managed authentication; REST/OpenAPI; SSE; Markdown with safe preview; PostgreSQL search; generic CSV plus documented JIRA CSV mapping.
 
 ## 19. Release 1 acceptance gate
 

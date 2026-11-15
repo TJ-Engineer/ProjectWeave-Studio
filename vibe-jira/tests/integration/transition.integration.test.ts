@@ -22,7 +22,7 @@ describe.skipIf(!testDatabaseUrl)("atomic issue writes", () => {
       );
     }
     await getPool().query(`
-      TRUNCATE agent_api_tokens, worker_heartbeats, outbox_deliveries, idempotency_records, outbox_events, audit_events, issue_events, issue_labels, labels, issues, column_statuses,
+      TRUNCATE worker_heartbeats, outbox_deliveries, idempotency_records, outbox_events, audit_events, issue_events, issue_labels, labels, issues, column_statuses,
         board_columns, boards, transitions, statuses, workflows, issue_types,
         project_members, projects, memberships, users, organizations CASCADE
     `);
@@ -4157,130 +4157,5 @@ describe.skipIf(!testDatabaseUrl)("atomic issue writes", () => {
         (issue) => issue.summary === "Publish the v0.1.0 release candidate",
       ),
     ).toMatchObject({ issueType: "TASK" });
-  });
-
-  it("authenticates, audits, expires, and revokes agent API tokens", async () => {
-    const {
-      createAgentApiToken,
-      getIdentityByAgentApiToken,
-      getPool,
-      listAgentApiTokens,
-      revokeAgentApiToken,
-    } = await import("@vibe/database");
-    const organizationId = randomUUID();
-    const administratorId = randomUUID();
-    const agentId = randomUUID();
-    const administratorEmail = `${administratorId}@example.test`;
-    const agentEmail = `${agentId}@example.test`;
-    await getPool().query(
-      `INSERT INTO organizations (id, name, slug)
-       VALUES ($1, 'Agent Token Test', $2)`,
-      [organizationId, `agent-token-${organizationId}`],
-    );
-    await getPool().query(
-      `INSERT INTO users
-        (id, organization_id, email, display_name, password_hash)
-       VALUES ($1, $3, $4, 'Token Administrator', 'unused'),
-              ($2, $3, $5, 'Factory Agent', 'unused')`,
-      [
-        administratorId,
-        agentId,
-        organizationId,
-        administratorEmail,
-        agentEmail,
-      ],
-    );
-    await getPool().query(
-      `INSERT INTO memberships (organization_id, user_id, organization_role)
-       VALUES ($1, $2, 'ADMIN'), ($1, $3, 'MEMBER')`,
-      [organizationId, administratorId, agentId],
-    );
-
-    await expect(
-      createAgentApiToken({
-        userEmail: administratorEmail,
-        actorEmail: agentEmail,
-        organizationId,
-        name: "unauthorized-token",
-      }),
-    ).rejects.toMatchObject<Partial<DomainError>>({
-      code: "FORBIDDEN",
-      status: 403,
-    });
-
-    const created = await createAgentApiToken({
-      userEmail: agentEmail,
-      actorEmail: administratorEmail,
-      organizationId,
-      name: "software-factory-agent",
-      expiresInDays: 30,
-    });
-    expect(created.token).toMatch(/^vibe_agent_/);
-    await expect(
-      getIdentityByAgentApiToken(created.token),
-    ).resolves.toMatchObject({
-      id: agentId,
-      organizationId,
-      organizationRole: "MEMBER",
-    });
-    const listed = await listAgentApiTokens({
-      userEmail: agentEmail,
-      actorEmail: administratorEmail,
-      organizationId,
-    });
-    expect(listed).toHaveLength(1);
-    expect(listed[0]).toMatchObject({
-      id: created.id,
-      tokenPrefix: created.tokenPrefix,
-      revokedAt: null,
-    });
-    const evidence = await getPool().query<{
-      action: string;
-      metadata: Record<string, unknown>;
-    }>(
-      `SELECT action, metadata FROM audit_events
-        WHERE target_type = 'agent_api_token' AND target_id = $1
-        ORDER BY created_at, id`,
-      [created.id],
-    );
-    expect(evidence.rows).toHaveLength(1);
-    expect(evidence.rows[0]?.action).toBe("agent_token.created");
-    expect(JSON.stringify(evidence.rows[0]?.metadata)).not.toContain(
-      created.token,
-    );
-
-    await getPool().query(
-      `UPDATE agent_api_tokens SET expires_at = now() - interval '1 second'
-        WHERE id = $1`,
-      [created.id],
-    );
-    await expect(getIdentityByAgentApiToken(created.token)).resolves.toBeNull();
-    await getPool().query(
-      `UPDATE agent_api_tokens SET expires_at = now() + interval '1 day'
-        WHERE id = $1`,
-      [created.id],
-    );
-
-    await revokeAgentApiToken({
-      tokenId: created.id,
-      actorEmail: administratorEmail,
-    });
-    await expect(getIdentityByAgentApiToken(created.token)).resolves.toBeNull();
-    const revoked = await listAgentApiTokens({
-      userEmail: agentEmail,
-      actorEmail: administratorEmail,
-      organizationId,
-    });
-    expect(revoked[0]?.revokedAt).toBeInstanceOf(Date);
-    const actions = await getPool().query<{ action: string }>(
-      `SELECT action FROM audit_events
-        WHERE target_type = 'agent_api_token' AND target_id = $1
-        ORDER BY created_at, id`,
-      [created.id],
-    );
-    expect(actions.rows.map((row) => row.action).sort()).toEqual([
-      "agent_token.created",
-      "agent_token.revoked",
-    ]);
   });
 });

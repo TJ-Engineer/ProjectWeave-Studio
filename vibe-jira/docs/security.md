@@ -1,6 +1,6 @@
 # Security baseline and threat model
 
-Vibe JIRA Release 1 is a single-organization application with browser and controlled first-party agent clients. PostgreSQL, object storage, ClamAV, and the worker network are trusted deployment dependencies. TLS terminates at a configured reverse proxy or load balancer; the application image contains no secrets.
+Vibe JIRA Release 1 is a single-organization, browser-only application. PostgreSQL, object storage, ClamAV, and the worker network are trusted deployment dependencies. TLS terminates at a configured reverse proxy or load balancer; the application image contains no secrets.
 
 ## Identity and sessions
 
@@ -9,12 +9,10 @@ Vibe JIRA Release 1 is a single-organization application with browser and contro
 - Local password authentication remains available for development. When OIDC is configured in production it is disabled unless `ALLOW_PASSWORD_AUTH=true` is explicitly set.
 - Invitations use a random 256-bit, one-time token. Only its SHA-256 digest is stored; it expires after 72 hours. Activation and deactivation preserve the immutable user ID used by historical records.
 - Session cookies are signed, HTTP-only, SameSite=Lax, scoped to `/`, and Secure in production. A plain-HTTP deployment reached through a non-localhost name therefore cannot authenticate; production must use HTTPS.
-- Agent API credentials contain 256 random bits, are returned once, and are stored only as SHA-256 digests with a display prefix. They expire after 1–365 days, are individually revocable, stop working when their user is inactive, and inherit the owning user's live organization/project permissions.
-- Agent token creation and revocation require either the owning active user or an active organization administrator acting in the same organization. The operator command records audit and outbox evidence without the token value.
 
 ## Web and API boundary
 
-- Every mutation performs a same-origin check. Requests without `Origin` and `Sec-Fetch-Site` are accepted for authenticated non-browser clients. Agent clients must use the bearer token rather than copying a browser cookie.
+- Every mutation performs a same-origin check. Requests without `Origin` and `Sec-Fetch-Site` are accepted for non-browser API clients, so bearer-less cookie credentials must not be exposed outside the same controlled origin.
 - `x-forwarded-host`, `x-forwarded-for`, and `x-real-ip` are trusted only when `TRUST_PROXY=true`. Enable it only when a trusted proxy strips and rewrites these headers.
 - Login, OIDC callback, invitation activation, search, upload, and export paths use PostgreSQL-backed bounded rate limits. Keys are one-way hashed and contain no raw email or address.
 - Global response headers deny framing and MIME sniffing, restrict referrers and browser features, isolate opener/resources, and apply a restrictive Content Security Policy. HSTS is emitted by production builds.
@@ -34,4 +32,3 @@ Vibe JIRA Release 1 is a single-organization application with browser and contro
 - CSP permits inline script/style because the current Next.js runtime and chart widths require them. Removing these allowances with nonces is a post-Release 1 hardening item.
 - The application verifies RS256 OIDC ID tokens only. Providers configured for another algorithm must be reconfigured or explicitly supported and tested before use.
 - Email delivery is deployment-owned in Release 1. Administrators must transmit the displayed one-time invitation link through an approved secure channel.
-- Agent tokens currently inherit complete application permissions from their owning user rather than carrying narrower token-specific scopes. Deploy one dedicated least-privilege user per agent role, review memberships at token rotation, and revoke the token when the role is no longer needed.

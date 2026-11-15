@@ -7,7 +7,6 @@
     "apps/**/*.ts",
     "apps/**/*.tsx",
     "packages/**/*.ts",
-    "scripts/**/*.ts",
     "tests/**/*.ts",
     "next-env.d.ts",
     ".next/types/**/*.ts"

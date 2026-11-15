@@ -12,6 +12,7 @@ Release 1 is a single-organization deployment delivered as one immutable applica
 4. Set `ALLOW_PASSWORD_AUTH=false` for production. Use local passwords only for development or an explicitly accepted break-glass policy.
 5. Set an immutable `APP_VERSION` and `APP_REVISION`. Pin third-party images and the Vibe JIRA image by digest.
 6. Keep PostgreSQL, object storage, ClamAV, and `/health/metrics` off the public network. Set `METRICS_TOKEN` when metrics cross a trust boundary.
+7. For software-factory agents, create dedicated least-privilege users and expiring tokens using the [agent REST guide](./agent-rest-api.md). Store clear tokens only in the runtime secret manager and rotate them at least at expiry.
 
 The application container runs as a non-root user with a read-only filesystem and `/tmp` as its only writable runtime path.
 

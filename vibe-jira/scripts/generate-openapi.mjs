@@ -43,7 +43,9 @@ function operation(path, method, requestSchema, multipart) {
     tags: [tag],
     summary: `${method.toUpperCase()} ${path}`,
     operationId: `${method}_${path.replace(/[^a-zA-Z0-9]+/g, "_")}`,
-    ...(unauthenticated ? {} : { security: [{ sessionCookie: [] }] }),
+    ...(unauthenticated
+      ? {}
+      : { security: [{ sessionCookie: [] }, { agentBearer: [] }] }),
     ...(parameters.length ? { parameters } : {}),
     ...(requestSchema
       ? {
@@ -145,13 +147,20 @@ const document = {
     title: "Vibe JIRA API",
     version: process.env.APP_VERSION ?? "0.1.0",
     description:
-      "Same-origin Release 1 API. Runtime bodies are validated by the Zod schemas in @vibe/contracts.",
+      "Versioned Vibe JIRA API for browser sessions and role-scoped software-factory agents. Runtime bodies are validated by the Zod schemas in @vibe/contracts.",
   },
   servers: [{ url: "/", description: "Application origin" }],
   paths,
   components: {
     securitySchemes: {
       sessionCookie: { type: "apiKey", in: "cookie", name: "vibe_session" },
+      agentBearer: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "vibe_agent_ token",
+        description:
+          "Expiring, revocable agent token. Authorization is inherited from the owning active user and project memberships.",
+      },
     },
     schemas: {
       ...contractComponents,

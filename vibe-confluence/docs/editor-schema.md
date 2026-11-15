@@ -72,9 +72,12 @@ documents fail validation.
 - `openWithAdapter` prevents an adapter that cannot represent a valid canonical
   document from editing it lossily.
 
-The current simple heading/paragraph UI is one adapter implementation. Rich
-creation commands, paste conversion, and full authoring interaction belong to
-KNW-23; private recovery and conflict behavior belong to KNW-24.
+The web UI uses the `tiptap-canonical-v2` adapter. It converts every frozen
+canonical node to project-owned Tiptap extensions and converts the engine JSON
+back through strict canonical validation before save or publish. Engine JSON
+never crosses the request boundary. Authoring controls and paste behavior are
+documented in [`rich-authoring.md`](./rich-authoring.md); private recovery and
+conflict behavior belong to KNW-24.
 
 ## KNW-22 verification
 
@@ -99,6 +102,7 @@ KNW-23; private recovery and conflict behavior belong to KNW-24.
 - At 320 CSS pixels the published projection has a 320-pixel client and scroll
   width; its document surface has matching 294-pixel client and scroll widths.
 
-No database migration or editor-engine dependency is introduced. The version
-is carried in both the canonical JSON and the existing draft/revision schema
-columns.
+KNW-22 introduced no database migration or editor-engine dependency. KNW-23
+adds the Tiptap/ProseMirror engine only to the web workspace; the canonical
+package and database remain engine-independent. The version is carried in both
+the canonical JSON and the existing draft/revision schema columns.

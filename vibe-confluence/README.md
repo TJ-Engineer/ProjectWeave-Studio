@@ -56,8 +56,11 @@ Integration tests refuse to use a database whose name does not end in `_test`.
   query each other's databases.
 - `@knowledge/editor` freezes the complete Release 1 canonical vocabulary,
   deterministic v1-to-v2 migration, safety budgets, safe projections, and UI
-  adapter boundary. The current heading-and-paragraph UI remains intentionally
-  minimal until KNW-23 and never persists engine-native JSON or arbitrary HTML.
+  adapter boundary. The KNW-23 Tiptap adapter authors the non-service-backed
+  vocabulary, sanitizes semantic HTML before paste conversion, and never
+  persists engine-native JSON or arbitrary HTML. Image, attachment, user
+  mention, and task-reference creation remain disabled until their owning
+  services exist.
 - Comments, attachments, search, macros, import/export, realtime editing, and
   cross-product embeds are intentionally later stories.
 
@@ -75,6 +78,9 @@ recorded in the [`PGE-01 evidence record`](./docs/pge01-evidence.md).
 The frozen document vocabulary, compatibility behavior, limits, projections,
 and adapter boundary are documented in the
 [`canonical editor schema`](./docs/editor-schema.md).
+The rich-editor controls, paste allowlist, shared preview/read renderer, and
+keyboard behavior are documented in the
+[`rich authoring guide`](./docs/rich-authoring.md).
 Durable readable aliases, archived reads, and reversible atomic subtree
 transitions are documented in the
 [`page alias and lifecycle API`](./docs/page-lifecycle-api.md).

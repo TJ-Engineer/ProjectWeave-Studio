@@ -57,6 +57,8 @@ Required capabilities:
 - Personal and team spaces
 - Page tree with create, move, reorder, archive, and restore
 - Rich structured editor with keyboard shortcuts and slash commands
+- Wiki-page creation from blank or template with durable links to internal
+  pages, authorized uploaded documents, and safe external document URLs
 - Draft autosave, explicit publish, version history, diff, and restore
 - Page titles, stable IDs, editable slugs, and durable links
 - Page links, backlinks, labels, mentions, and watchers
@@ -116,8 +118,10 @@ Required capabilities:
 
 ### Author
 
-- Create a page from blank or a template.
+- Create a wiki page from blank or a template.
 - Write with headings, tables, task lists, code, images, and internal links.
+- Link the page to another wiki page, an authorized uploaded document, or a
+  safe external document URL without exposing restricted target metadata.
 - Leave and return without losing a draft.
 - Publish, review the resulting revision, and share a durable link.
 
@@ -176,7 +180,8 @@ Release 1 content nodes:
 
 - Paragraphs, headings, bold, italic, underline, strike, and inline code
 - Ordered, unordered, and task lists
-- Links, internal page links, user mentions, and labels
+- Safe external document links, durable internal page links, user mentions,
+  and labels
 - Block quotes, dividers, callouts, and status lozenges
 - Tables with header rows and accessible navigation
 - Fenced code blocks with language metadata
@@ -194,6 +199,40 @@ Editor behavior:
 - Preview rendered through the same schema and sanitization rules as published pages
 - No arbitrary script, inline event handler, or unsandboxed embedded HTML
 - Unknown future nodes remain recoverable during schema migration rather than being silently discarded
+
+Wiki-page and document-link behavior:
+
+- Authors can create a wiki page and add document links in the same accessible
+  editing workflow.
+- Internal page links store the target page UUID rather than a mutable slug;
+  renames and moves preserve the link and backlinks.
+- Managed-document links store a stable attachment UUID, never a temporary
+  signed URL. Following or downloading the link re-checks current page and
+  attachment permission and scan state.
+- External document links accept only the safe link schemes allowed by the
+  editor contract. The application does not fetch, embed, or generate a remote
+  preview merely because an author pasted a URL.
+- Link pickers and autocomplete are permission-filtered, bounded, and
+  keyboard-operable. Restricted pages and files do not reveal titles,
+  filenames, existence, or counts.
+- Every rendered link has an author-visible label and accessible name. Missing,
+  deleted, quarantined, or newly restricted targets render a generic unavailable
+  state without leaking metadata.
+- Publishing extracts internal page-link edges in the same transaction as the
+  immutable revision. Attachment references remain tied to authorized,
+  versioned attachment records; external URLs do not enter the backlink graph.
+
+Acceptance criteria:
+
+- An author creates and publishes a wiki page containing a link to another wiki
+  page, a clean uploaded PDF or office document, and a safe external document
+  URL using keyboard-only controls.
+- Renaming or moving the internal target does not break the link, and its
+  backlink appears only to authorized readers.
+- Removing access to either internal target prevents subsequent navigation or
+  download without disclosing the former page title or filename.
+- Unsafe schemes, temporary signed object URLs, and links to unscanned or
+  rejected attachments cannot be published as managed-document links.
 
 Service-backed nodes must validate, migrate, round-trip, and render safely in
 M1 fixtures. Their creation controls remain disabled until the attachment,
@@ -606,6 +645,8 @@ Enforce dependency direction: UI and transport layers depend on domain contracts
 ### Browser tests
 
 - Create space → create page → edit → autosave → publish → refresh
+- Create a wiki page and publish keyboard-authored links to an internal page, an
+  authorized document attachment, and a safe external document URL
 - Navigate and keyboard-control a deep page tree
 - Rename/move page and verify old/internal links
 - Publish conflict between two browser contexts
@@ -704,6 +745,8 @@ Estimates assume a small experienced team using AI-assisted development with act
 ### Phase 2 — Editing, drafts, and revisions (2–3 weeks)
 
 - Rich editor node set, commands, paste, and safe renderer
+- Blank/template wiki-page creation plus durable internal-page and safe external
+  document links
 - Autosave, local recovery, publish conflict handling
 - Immutable revisions, history, diff, and restore
 - Deliver: safe end-to-end authoring workflow
@@ -711,7 +754,8 @@ Estimates assume a small experienced team using AI-assisted development with act
 ### Phase 3 — Collaboration around content (2 weeks)
 
 - Page/inline comments, mentions, watchers, notifications
-- Attachments, previews, versions, scanning state
+- Attachments, previews, versions, scanning state, and authorized
+  managed-document links from wiki pages
 - Labels, links, backlinks, favorites, and activity
 - Deliver: team-ready asynchronous collaboration
 
@@ -857,7 +901,9 @@ and ADRs 0002–0004.
 Release 1 is ready only when a clean Docker host can demonstrate:
 
 1. An admin launches the stack, creates a space, invites users, and assigns roles.
-2. An author creates a structured page from a template and never loses an acknowledged draft.
+2. An author creates a structured wiki page from a template, adds durable links
+   to an internal page, an authorized uploaded document, and a safe external
+   document URL, and never loses an acknowledged draft.
 3. Publishing creates an immutable, attributable revision with searchable content.
 4. A second author causes a controlled conflict rather than a silent overwrite.
 5. History, structural diff, and restore-as-new-revision work.

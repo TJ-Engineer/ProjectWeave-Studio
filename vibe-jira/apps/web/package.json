@@ -15,9 +15,9 @@
     "@vibe/domain": "0.1.0",
     "@vibe/observability": "0.1.0",
     "@vibe/ui": "0.1.0",
-    "next": "16.4.0",
+    "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   }
 }

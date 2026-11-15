@@ -11,6 +11,7 @@ Release 1 includes:
 - project-member add/change/remove settings for existing organization users;
 - organization teams with effective project roles granted through team membership;
 - one-time invitations, activation/deactivation, and provider-neutral OIDC with PKCE;
+- expiring, revocable, digest-only bearer tokens for role-scoped software-factory agents;
 - audited role changes with last-admin and active-assignment safeguards;
 - project creation with a default workflow and three-column Kanban board;
 - cursor-paginated project and issue collection APIs;
@@ -118,6 +119,9 @@ npm run format:check
 npm run lint
 npm run typecheck
 npm test
+npm run agent-token -- --help
+npm run factory:api -- --help
+npm run factory:sync -- --help
 npm run build
 npm run test:e2e
 npm run test:load

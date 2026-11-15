@@ -1,9 +1,13 @@
 import "server-only";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import type { UserIdentity } from "@vibe/contracts";
-import { getIdentity } from "@vibe/database";
+import {
+  agentApiTokenFromAuthorization,
+  getIdentity,
+  getIdentityByAgentApiToken,
+} from "@vibe/database";
 
 const cookieName = "vibe_session";
 const sessionLifetimeSeconds = 60 * 60 * 12;
@@ -69,6 +73,11 @@ export async function destroySession(): Promise<void> {
 }
 
 export async function currentIdentity(): Promise<UserIdentity | null> {
+  const authorization = (await headers()).get("authorization");
+  if (authorization !== null) {
+    const token = agentApiTokenFromAuthorization(authorization);
+    return token ? getIdentityByAgentApiToken(token) : null;
+  }
   const store = await cookies();
   const value = store.get(cookieName)?.value;
   if (!value) return null;

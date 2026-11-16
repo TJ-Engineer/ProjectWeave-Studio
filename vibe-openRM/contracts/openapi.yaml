@@ -1,0 +1,4575 @@
+openapi: 3.1.0
+info:
+  title: OpenRM API
+  version: 0.1.0
+  description: >-
+    Versioned foundation contract for OpenRM. All controlled product endpoints
+    live under /api/v1; health and readiness endpoints remain operational.
+servers:
+  - url: http://127.0.0.1:8080
+    description: Local development
+tags:
+  - name: Operations
+  - name: Identity
+  - name: Users
+  - name: Projects
+  - name: Requirements
+  - name: Agent Provenance
+  - name: Traceability
+  - name: Controlled Change
+  - name: Baselines
+  - name: Reviews
+  - name: Verification
+  - name: Storage
+  - name: Connectors
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      tags: [Operations]
+      summary: Report process liveness and build metadata
+      responses:
+        "200":
+          description: The process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /ready:
+    get:
+      operationId: getReadiness
+      tags: [Operations]
+      summary: Verify that required dependencies are available
+      responses:
+        "200":
+          description: The service and database are ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/session:
+    get:
+      operationId: getSession
+      tags: [Identity]
+      summary: Verify authentication, tenant scope, policy, and database access
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Authenticated principal and database status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects:
+    get:
+      operationId: listProjects
+      tags: [Projects]
+      summary: List projects in the selected organization
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Tenant-scoped projects.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: createProject
+      tags: [Projects]
+      summary: Create a project with its default requirement workspace
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+        - $ref: "#/components/parameters/IdempotencyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "200":
+          description: Idempotent replay of a prior project command.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "201":
+          description: Project created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/users:
+    get:
+      operationId: listUsers
+      tags: [Users]
+      summary: List organization users and their project memberships
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Organization user profiles.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: inviteUser
+      tags: [Users]
+      summary: Invite a user and assign organization and project roles
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteUserRequest"
+      responses:
+        "201":
+          description: Cognito invitation sent and OpenRM profile created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/profile:
+    get:
+      operationId: getProfile
+      tags: [Users]
+      summary: Read the signed-in user's OpenRM profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Current user profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    put:
+      operationId: updateProfile
+      tags: [Users]
+      summary: Update the signed-in user's editable profile fields
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Updated current user profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/members:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listProjectMemberships
+      tags: [Projects]
+      summary: List project-scoped roles
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Project memberships.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectMembershipListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: setProjectMembership
+      tags: [Projects]
+      summary: Assign or replace a project-scoped role
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectMembershipRequest"
+      responses:
+        "200":
+          description: Membership assigned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectMembership"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/workspace/{resource}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/WorkspaceResource"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listWorkspaceResources
+      tags: [Projects]
+      summary: List folders, tags, attribute definitions, or saved views
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Workspace resources.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResourceListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: createWorkspaceResource
+      tags: [Projects]
+      summary: Create a folder, tag, attribute definition, or saved view
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceResourceRequest"
+      responses:
+        "201":
+          description: Workspace resource created.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/requirements:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listRequirements
+      tags: [Requirements]
+      summary: Search and page through current requirements
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: folder_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: tag_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Current requirement results.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequirementListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: createRequirement
+      tags: [Requirements]
+      summary: Create a controlled requirement and its first revision
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRequirementRequest"
+      responses:
+        "200":
+          description: Idempotent replay of an existing successful command.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Requirement"
+        "201":
+          description: Requirement created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Requirement"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/requirements/{requirement_id}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/RequirementId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: getRequirement
+      tags: [Requirements]
+      summary: Read the current materialized requirement
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current requirement.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Requirement"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    put:
+      operationId: reviseRequirement
+      tags: [Requirements]
+      summary: Append a revision using optimistic concurrency
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviseRequirementRequest"
+      responses:
+        "200":
+          description: Revised requirement.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Requirement"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/requirements/{requirement_id}/derived:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/RequirementId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    post:
+      operationId: createDerivedRequirement
+      tags: [Requirements, Traceability]
+      summary: Create a requirement derived from a selected base requirement
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRequirementRequest"
+      responses:
+        "201":
+          description: Derived requirement and DECOMPOSES_TO relationship created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DerivedRequirementResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/requirements/{requirement_id}/revisions:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/RequirementId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listRequirementRevisions
+      tags: [Requirements]
+      summary: List immutable requirement revisions newest first
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Requirement revision history.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequirementRevisionListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/requirements/{requirement_id}/compare:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/RequirementId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: compareRequirementRevisions
+      tags: [Requirements]
+      summary: Compare two immutable requirement revisions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from_revision
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: to_revision
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Revision comparison.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequirementComparison"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/agent-runs:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listAgentRuns
+      tags: [Agent Provenance]
+      summary: List immutable signed agent-run configuration records
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Bounded project-scoped agent-run history with verified signatures.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRunListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: createAgentRun
+      tags: [Agent Provenance]
+      summary: Record one immutable signed agent execution and its exact outputs
+      description: >-
+        Authors record completed agent executions. Structured credential-bearing
+        fields are rejected; secrets must never be included in prompts or evidence.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAgentRunRequest"
+      responses:
+        "200":
+          description: Idempotent replay of the original agent-run command.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRun"
+        "201":
+          description: Immutable signed agent-run evidence created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRun"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/agent-runs/{agent_run_id}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/AgentRunId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: getAgentRun
+      tags: [Agent Provenance]
+      summary: Read one immutable agent run and verify its evidence signature
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Agent execution, exact output links, and signature state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRun"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/storage/objects:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listStorageObjects
+      tags: [Storage]
+      summary: List project-scoped objects and immutable evidence links
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: Project object inventory.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageObjectListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    delete:
+      operationId: deleteStorageObject
+      tags: [Storage]
+      summary: Delete an unlinked project object
+      description: Administrator-only. Objects referenced by immutable evidence are rejected with a conflict.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: key
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 768
+      responses:
+        "200":
+          description: The unlinked object was deleted. Versioned stores may retain a recoverable prior version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteStorageObjectResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/requirements/import:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+      - $ref: "#/components/parameters/IdempotencyHeader"
+    post:
+      operationId: importRequirements
+      tags: [Requirements]
+      summary: Import up to 100 requirements using idempotent row commands
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequirementImportRequest"
+      responses:
+        "201":
+          description: Imported requirements.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequirementImportResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/requirements/export:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: exportRequirements
+      tags: [Requirements]
+      summary: Export all current requirements as JSON
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Complete current requirement export.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequirementListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/relationship-types:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listRelationshipTypes
+      tags: [Traceability]
+      summary: List directed relationship rules configured for a project
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Project-scoped relationship types and cardinality rules.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelationshipTypeListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/relationships:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listRelationships
+      tags: [Traceability]
+      summary: List directed relationships, optionally around one artifact
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: artifact_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: direction
+          in: query
+          description: Source means outgoing; target means incoming.
+          schema:
+            type: string
+            enum: [both, source, target]
+            default: both
+      responses:
+        "200":
+          description: Current typed relationships bound to exact endpoint revisions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelationshipListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: createRelationship
+      tags: [Traceability]
+      summary: Create a directed relationship at the endpoints' current revisions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRelationshipRequest"
+      responses:
+        "200":
+          description: Idempotent replay of an existing successful command.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Relationship"
+        "201":
+          description: Directed relationship created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Relationship"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/relationships/{relationship_id}/resolve:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/RelationshipId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+      - $ref: "#/components/parameters/IdempotencyHeader"
+    post:
+      operationId: resolveSuspectRelationship
+      tags: [Traceability]
+      summary: Record a reviewer disposition against exact endpoint revisions
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveRelationshipRequest"
+      responses:
+        "200":
+          description: Suspect impact resolved, or an idempotent replay returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Relationship"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/relationships/{relationship_id}/revisions:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/RelationshipId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listRelationshipRevisions
+      tags: [Traceability]
+      summary: List immutable relationship versions newest first
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Attributable relationship version history.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelationshipRevisionListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/trace/summary:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: getTraceSummary
+      tags: [Traceability]
+      summary: Calculate trace coverage, gaps, relationships, and suspect impact
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current project trace coverage summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TraceSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/trace/matrix:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: getTraceMatrix
+      tags: [Traceability]
+      summary: List artifact trace counts and gap state
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current project trace matrix.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TraceMatrixResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/trace/graph:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: getTraceGraph
+      tags: [Traceability]
+      summary: Read graph nodes, exact directed edges, and coverage
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current project trace graph.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TraceGraph"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/changesets:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listChangesets
+      tags: [Controlled Change]
+      summary: List immutable attributable project snapshots
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Changesets newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangesetListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: createChangeset
+      tags: [Controlled Change]
+      summary: Snapshot current artifact revisions with parent-relative diffs
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChangesetRequest"
+      responses:
+        "200":
+          description: Idempotent replay of a successful changeset command.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Changeset"
+        "201":
+          description: Changeset created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Changeset"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/changesets/{changeset_id}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/ChangesetId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: getChangeset
+      tags: [Controlled Change]
+      summary: Read an immutable changeset and its artifact diff entries
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Attributable changeset snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Changeset"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/baselines:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listBaselines
+      tags: [Baselines]
+      summary: List immutable signed project baselines
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Baselines newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaselineListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: createBaseline
+      tags: [Baselines]
+      summary: Freeze and sign an exact project evidence manifest
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBaselineRequest"
+      responses:
+        "200":
+          description: Idempotent replay of a successful baseline command.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Baseline"
+        "201":
+          description: Signed baseline created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Baseline"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/baselines/compare:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: compareBaselines
+      tags: [Baselines]
+      summary: Compare exact artifact and relationship revisions between baselines
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from_baseline_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: to_baseline_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Deterministic baseline comparison.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaselineComparison"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/baselines/{baseline_id}/evidence:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/BaselineId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: exportBaselineEvidence
+      tags: [Baselines]
+      summary: Export a deterministic signed evidence envelope
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Signed baseline evidence with server-side verification state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceExport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/reviews:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listReviews
+      tags: [Reviews]
+      summary: List baseline-bound controlled review packages
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Review packages newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewPackageListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: createReview
+      tags: [Reviews]
+      summary: Assemble a draft review package from an immutable baseline
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReviewRequest"
+      responses:
+        "200":
+          description: Idempotent replay of a successful create command.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewCommandResponse"
+        "201":
+          description: Draft review package created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewCommandResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/reviews/{review_id}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/ReviewId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: getReview
+      tags: [Reviews]
+      summary: Read a review package with participants, comments, and signed decisions
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current review state backed by append-only evidence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewPackage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/reviews/{review_id}/participants:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/ReviewId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+      - $ref: "#/components/parameters/IdempotencyHeader"
+    post:
+      operationId: addReviewParticipant
+      tags: [Reviews]
+      summary: Assign a project reviewer before review start
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddReviewParticipantRequest"
+      responses:
+        "200":
+          description: Idempotent replay of an assignment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewParticipant"
+        "201":
+          description: Participant assigned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewParticipant"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/reviews/{review_id}/start:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/ReviewId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+      - $ref: "#/components/parameters/IdempotencyHeader"
+    post:
+      operationId: startReview
+      tags: [Reviews]
+      summary: Start a review round after approval-policy validation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartReviewRequest"
+      responses:
+        "200":
+          description: Review round started or replayed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewCommandResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/reviews/{review_id}/comments:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/ReviewId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+      - $ref: "#/components/parameters/IdempotencyHeader"
+    post:
+      operationId: addReviewComment
+      tags: [Reviews]
+      summary: Add an append-only comment bound to an exact baseline revision
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddReviewCommentRequest"
+      responses:
+        "200":
+          description: Idempotent replay of a comment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewComment"
+        "201":
+          description: Review comment recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewComment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/reviews/{review_id}/comments/{comment_id}/resolve:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/ReviewId"
+      - $ref: "#/components/parameters/CommentId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+      - $ref: "#/components/parameters/IdempotencyHeader"
+    post:
+      operationId: resolveReviewComment
+      tags: [Reviews]
+      summary: Append an attributable review-comment resolution
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveReviewCommentRequest"
+      responses:
+        "200":
+          description: Idempotent replay of a resolution.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewCommentResolution"
+        "201":
+          description: Comment resolution recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewCommentResolution"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/reviews/{review_id}/decisions:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/ReviewId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+      - $ref: "#/components/parameters/IdempotencyHeader"
+    post:
+      operationId: recordReviewDecision
+      tags: [Reviews]
+      summary: Record a signed participant decision under segregation-of-duty policy
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordReviewDecisionRequest"
+      responses:
+        "200":
+          description: Idempotent replay of a signed decision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewDecision"
+        "201":
+          description: Signed decision recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewDecision"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/reviews/{review_id}/evidence:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/ReviewId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: exportGateEvidence
+      tags: [Verification]
+      summary: Export deterministic signed review and verification gate evidence
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Complete signed gate evidence with server-side signature verification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GateEvidenceExport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/verification/cases:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listVerificationCases
+      tags: [Verification]
+      summary: List immutable verification cases and attributable executions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: review_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Verification cases bound to the selected review baseline.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationCaseListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: createVerificationCase
+      tags: [Verification]
+      summary: Create immutable verification intent against exact baseline revisions
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVerificationCaseRequest"
+      responses:
+        "200":
+          description: Idempotent replay of the case command.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationCase"
+        "201":
+          description: Verification case created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationCase"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/verification/cases/{case_id}/runs:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/VerificationCaseId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+      - $ref: "#/components/parameters/IdempotencyHeader"
+    post:
+      operationId: startVerificationRun
+      tags: [Verification]
+      summary: Start an attributable independent execution
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartVerificationRunRequest"
+      responses:
+        "200":
+          description: Idempotent replay of the run command.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationRun"
+        "201":
+          description: Verification execution started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationRun"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/verification/runs/{run_id}/results:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/VerificationRunId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+      - $ref: "#/components/parameters/IdempotencyHeader"
+    post:
+      operationId: recordVerificationResult
+      tags: [Verification]
+      summary: Record a signed result and content-addressed attachment manifest
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordVerificationResultRequest"
+      responses:
+        "200":
+          description: Idempotent replay of the result command.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationResult"
+        "201":
+          description: Signed verification result recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/verification/coverage:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: getVerificationCoverage
+      tags: [Verification]
+      summary: Roll exact baseline requirements up to verification outcomes
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: review_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Exact baseline coverage and per-artifact status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationCoverage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/verification/readiness:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: getGateReadiness
+      tags: [Verification]
+      summary: Calculate explainable review and verification gate readiness
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: review_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Gate status, contributors, and blockers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GateReadiness"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/verification/due-events:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listVerificationDueEvents
+      tags: [Verification]
+      summary: List attributable due-date and completion events
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: review_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Append-only due-date event history.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationDueEventListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: generateVerificationDueEvents
+      tags: [Verification]
+      summary: Emit idempotent due-soon and overdue events
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateDueEventsRequest"
+      responses:
+        "201":
+          description: Newly emitted due-date events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationDueEventListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /metrics:
+    get:
+      operationId: getPrometheusMetrics
+      tags: [Operations]
+      summary: Export service and connector SLIs in Prometheus text format
+      responses:
+        "200":
+          description: Prometheus metrics exposition.
+          content:
+            text/plain:
+              schema:
+                type: string
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/operations/status:
+    get:
+      operationId: getOperationsStatus
+      tags: [Operations]
+      summary: Inspect administrator-only service, queue, audit, and SLO status
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Operational health and queue status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationsStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/connectors/jira:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: getJiraConnector
+      tags: [Connectors]
+      summary: Read Jira connector policy, history, and delivery health
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Jira connector status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JiraConnector"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    put:
+      operationId: configureJiraConnector
+      tags: [Connectors]
+      summary: Create or revise project Jira connector policy
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertJiraConfigurationRequest"
+      responses:
+        "200":
+          description: Materialized Jira connector configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JiraConfiguration"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/connectors/jira/deliveries:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      operationId: listJiraDeliveries
+      tags: [Connectors]
+      summary: List Jira delivery state and append-only attempt evidence
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ConnectorDeliveryStatus"
+      responses:
+        "200":
+          description: Jira deliveries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JiraDeliveryListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: enqueueJiraDelivery
+      tags: [Connectors]
+      summary: Enqueue an idempotent governed Jira delivery
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnqueueJiraDeliveryRequest"
+      responses:
+        "200":
+          description: Idempotent replay of an existing delivery.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JiraDelivery"
+        "201":
+          description: Delivery enqueued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JiraDelivery"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/projects/{project_id}/connectors/jira/deliveries/{delivery_id}/replay:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+      - $ref: "#/components/parameters/DeliveryId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    post:
+      operationId: replayJiraDelivery
+      tags: [Connectors]
+      summary: Replay a dead-letter Jira delivery with attributable audit evidence
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Delivery returned to the pending queue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JiraDelivery"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OIDC access token. Outside production, development mode accepts dev:<subject> and dev:<subject>:<project-role>.
+  parameters:
+    OrganizationHeader:
+      name: X-OpenRM-Organization
+      in: header
+      required: true
+      description: Organization UUID selected for the request.
+      schema:
+        type: string
+        format: uuid
+    ProjectId:
+      name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RequirementId:
+      name: requirement_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AgentRunId:
+      name: agent_run_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RelationshipId:
+      name: relationship_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ChangesetId:
+      name: changeset_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    BaselineId:
+      name: baseline_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ReviewId:
+      name: review_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    VerificationCaseId:
+      name: case_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    VerificationRunId:
+      name: run_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    DeliveryId:
+      name: delivery_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CommentId:
+      name: comment_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    WorkspaceResource:
+      name: resource
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [folders, tags, attribute-definitions, saved-views]
+    IdempotencyHeader:
+      name: X-Idempotency-Key
+      in: header
+      required: true
+      description: Stable client command identifier scoped to tenant, actor, and operation.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+  responses:
+    Unauthorized:
+      description: Authentication is missing or invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Forbidden:
+      description: The principal is not authorized for the selected tenant or action.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    BadRequest:
+      description: The request failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotFound:
+      description: The selected project or requirement does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Conflict:
+      description: The command conflicts with current state or prior idempotency evidence.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    ServiceUnavailable:
+      description: A required dependency is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    BuildInfo:
+      type: object
+      additionalProperties: false
+      required: [service, version, git_sha, profile]
+      properties:
+        service:
+          type: string
+          const: openrm-api
+        version:
+          type: string
+        git_sha:
+          type: string
+        profile:
+          type: string
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, build, timestamp]
+      properties:
+        status:
+          type: string
+          const: ok
+        build:
+          $ref: "#/components/schemas/BuildInfo"
+        timestamp:
+          type: string
+          format: date-time
+    ReadinessResponse:
+      type: object
+      additionalProperties: false
+      required: [status, database, timestamp]
+      properties:
+        status:
+          type: string
+          const: ready
+        database:
+          type: string
+          const: available
+        timestamp:
+          type: string
+          format: date-time
+    SessionResponse:
+      type: object
+      additionalProperties: false
+      required: [subject, organization_id, roles, database]
+      properties:
+        subject:
+          type: string
+        organization_id:
+          type: string
+          format: uuid
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [administrator, author, reviewer, viewer]
+        database:
+          type: string
+          const: available
+    UserProjectMembership:
+      type: object
+      additionalProperties: false
+      required: [project_id, role]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        project_key:
+          type: [string, "null"]
+        project_name:
+          type: [string, "null"]
+        role:
+          type: string
+          enum: [administrator, author, reviewer, viewer]
+    InviteUserRequest:
+      type: object
+      additionalProperties: false
+      required: [email, organization_role]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        display_name:
+          type: [string, "null"]
+          maxLength: 160
+        title:
+          type: [string, "null"]
+          maxLength: 160
+        department:
+          type: [string, "null"]
+          maxLength: 160
+        organization_role:
+          type: string
+          enum: [administrator, author, reviewer, viewer]
+        project_memberships:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/UserProjectMembership"
+          default: []
+    UpdateProfileRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        display_name:
+          type: [string, "null"]
+          maxLength: 160
+        title:
+          type: [string, "null"]
+          maxLength: 160
+        department:
+          type: [string, "null"]
+          maxLength: 160
+        bio:
+          type: [string, "null"]
+          maxLength: 2000
+    UserProfile:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - subject
+        - email
+        - display_name
+        - title
+        - department
+        - bio
+        - organization_role
+        - project_memberships
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        subject:
+          type: string
+        email:
+          type: [string, "null"]
+          format: email
+        display_name:
+          type: [string, "null"]
+        title:
+          type: [string, "null"]
+        department:
+          type: [string, "null"]
+        bio:
+          type: [string, "null"]
+        organization_role:
+          type: string
+          enum: [administrator, author, reviewer, viewer]
+        project_memberships:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserProjectMembership"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    UserListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserProfile"
+    Project:
+      type: object
+      additionalProperties: false
+      required: [id, key, name, requirement_prefix, next_requirement_number, description, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        name:
+          type: string
+        requirement_prefix:
+          type: string
+          pattern: "^[A-Z][A-Z0-9]{1,7}$"
+        next_requirement_number:
+          type: integer
+          minimum: 1
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    ProjectListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Project"
+    CreateProjectRequest:
+      type: object
+      additionalProperties: false
+      required: [key, name, requirement_prefix]
+      properties:
+        key:
+          type: string
+          pattern: "^[A-Z][A-Z0-9-]{1,15}$"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        requirement_prefix:
+          type: string
+          pattern: "^[A-Z][A-Z0-9]{1,7}$"
+        description:
+          type: string
+          maxLength: 2000
+          default: ""
+    ProjectMembershipRequest:
+      type: object
+      additionalProperties: false
+      required: [subject, role]
+      properties:
+        subject:
+          type: string
+        role:
+          type: string
+          enum: [administrator, author, reviewer, viewer]
+    ProjectMembership:
+      type: object
+      additionalProperties: false
+      required: [subject, role, created_at]
+      properties:
+        subject:
+          type: string
+        role:
+          type: string
+          enum: [administrator, author, reviewer, viewer]
+        created_at:
+          type: string
+          format: date-time
+    ProjectMembershipListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectMembership"
+    WorkspaceResourceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        parent_id:
+          type: [string, "null"]
+          format: uuid
+        color:
+          type: string
+          pattern: "^#[0-9a-fA-F]{6}$"
+        key:
+          type: string
+        label:
+          type: string
+        value_type:
+          type: string
+          enum: [text, number, boolean, enum]
+        required:
+          type: boolean
+        config:
+          type: object
+          additionalProperties: true
+        filters:
+          type: object
+          additionalProperties: true
+    WorkspaceResourceListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    AgentRunOutputInput:
+      type: object
+      additionalProperties: false
+      required: [relation]
+      description: >-
+        Exactly one identity form is required: artifact_id plus
+        artifact_revision_id for an exact OpenRM revision, or external_system
+        plus external_reference for a Jira issue, commit, build, or other output.
+      properties:
+        relation:
+          type: string
+          enum: [created, updated, generated, referenced, verified]
+        artifact_id:
+          type: [string, "null"]
+          format: uuid
+        artifact_revision_id:
+          type: [string, "null"]
+          format: uuid
+        external_system:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 80
+          pattern: "^[a-z0-9][a-z0-9._-]{0,79}$"
+        external_reference:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 500
+        external_uri:
+          type: [string, "null"]
+          format: uri
+          maxLength: 2000
+        sha256:
+          type: [string, "null"]
+          pattern: "^[0-9a-f]{64}$"
+    CreateAgentRunRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - external_run_id
+        - model
+        - prompt
+        - output
+        - outcome
+        - started_at
+        - completed_at
+      properties:
+        external_run_id:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: "^[A-Za-z0-9._:/-]+$"
+        model:
+          type: string
+          minLength: 1
+          maxLength: 200
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 100000
+          description: Sanitized task prompt; credentials and hidden system instructions must not be recorded.
+        context:
+          type: object
+          additionalProperties: true
+          default: {}
+        tool_calls:
+          type: array
+          maxItems: 1000
+          default: []
+          items: {}
+        output:
+          description: Sanitized structured or scalar output produced by the agent execution.
+        outcome:
+          type: string
+          enum: [succeeded, failed, cancelled]
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        outputs:
+          type: array
+          maxItems: 500
+          default: []
+          items:
+            $ref: "#/components/schemas/AgentRunOutputInput"
+    AgentRunOutput:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - relation
+        - artifact_id
+        - artifact_revision_id
+        - artifact_key
+        - external_system
+        - external_reference
+        - external_uri
+        - sha256
+        - recorded_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        relation:
+          type: string
+          enum: [created, updated, generated, referenced, verified]
+        artifact_id:
+          type: [string, "null"]
+          format: uuid
+        artifact_revision_id:
+          type: [string, "null"]
+          format: uuid
+        artifact_key:
+          type: [string, "null"]
+        external_system:
+          type: [string, "null"]
+        external_reference:
+          type: [string, "null"]
+        external_uri:
+          type: [string, "null"]
+          format: uri
+        sha256:
+          type: [string, "null"]
+          pattern: "^[0-9a-f]{64}$"
+        recorded_at:
+          type: string
+          format: date-time
+    AgentRun:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - project_id
+        - external_run_id
+        - model
+        - prompt
+        - context
+        - tool_calls
+        - output
+        - outcome
+        - started_at
+        - completed_at
+        - evidence_hash
+        - signature
+        - signing_algorithm
+        - signing_key_id
+        - recorded_by
+        - recorded_at
+        - signature_valid
+        - outputs
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        external_run_id:
+          type: string
+        model:
+          type: string
+        prompt:
+          type: string
+        context:
+          type: object
+          additionalProperties: true
+        tool_calls:
+          type: array
+          items: {}
+        output: {}
+        outcome:
+          type: string
+          enum: [succeeded, failed, cancelled]
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        evidence_hash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        signature:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        signing_algorithm:
+          type: string
+          const: HMAC-SHA256
+        signing_key_id:
+          type: string
+        recorded_by:
+          type: string
+        recorded_at:
+          type: string
+          format: date-time
+        signature_valid:
+          type: boolean
+        outputs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentRunOutput"
+    AgentRunListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentRun"
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        offset:
+          type: integer
+          minimum: 0
+    StorageObject:
+      type: object
+      additionalProperties: false
+      required: [key, size_bytes, etag, last_modified, linked, link_count]
+      properties:
+        key:
+          type: string
+        size_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        etag:
+          type: [string, "null"]
+        last_modified:
+          type: [string, "null"]
+          format: date-time
+        linked:
+          type: boolean
+        link_count:
+          type: integer
+          minimum: 0
+    StorageObjectListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, prefix, total_size_bytes]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StorageObject"
+        prefix:
+          type: string
+        total_size_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+    DeleteStorageObjectResponse:
+      type: object
+      additionalProperties: false
+      required: [key, deleted, version_id]
+      properties:
+        key:
+          type: string
+        deleted:
+          type: boolean
+        version_id:
+          type: [string, "null"]
+    Requirement:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - project_id
+        - key
+        - title
+        - statement
+        - attributes
+        - folder_id
+        - tag_ids
+        - revision
+        - created_by
+        - created_by_name
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        title:
+          type: string
+        statement:
+          type: string
+        attributes:
+          type: object
+          additionalProperties: true
+        folder_id:
+          type: [string, "null"]
+          format: uuid
+        tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        revision:
+          type: integer
+          minimum: 1
+        created_by:
+          type: string
+        created_by_name:
+          type: string
+          description: Human-readable author label formatted as first initial and last name.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    RequirementListResponse:
+      type: object
+      additionalProperties: false
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Requirement"
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 1
+        offset:
+          type: integer
+          minimum: 0
+    CreateRequirementRequest:
+      type: object
+      additionalProperties: false
+      required: [title, statement]
+      properties:
+        key:
+          type: string
+          pattern: "^[A-Z][A-Z0-9-]{1,31}$"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        statement:
+          type: string
+          minLength: 1
+          maxLength: 20000
+        attributes:
+          type: object
+          additionalProperties: true
+          default: {}
+        folder_id:
+          type: [string, "null"]
+          format: uuid
+        tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          default: []
+    ReviseRequirementRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, title, statement]
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        statement:
+          type: string
+          minLength: 1
+          maxLength: 20000
+        attributes:
+          type: object
+          additionalProperties: true
+          default: {}
+        folder_id:
+          type: [string, "null"]
+          format: uuid
+        tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          default: []
+    RequirementRevision:
+      type: object
+      additionalProperties: false
+      required: [id, revision, title, statement, attributes, folder_id, tag_ids, created_by, created_by_name, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+        statement:
+          type: string
+        attributes:
+          type: object
+          additionalProperties: true
+        folder_id:
+          type: [string, "null"]
+          format: uuid
+        tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        created_by:
+          type: string
+        created_by_name:
+          type: string
+          description: Human-readable revision author label formatted as first initial and last name.
+        created_at:
+          type: string
+          format: date-time
+    RequirementRevisionListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RequirementRevision"
+    RequirementComparison:
+      type: object
+      additionalProperties: false
+      required: [requirement_id, from, to, changed_fields]
+      properties:
+        requirement_id:
+          type: string
+          format: uuid
+        from:
+          $ref: "#/components/schemas/RequirementRevision"
+        to:
+          $ref: "#/components/schemas/RequirementRevision"
+        changed_fields:
+          type: array
+          items:
+            type: string
+            enum: [title, statement, attributes, folder_id, tag_ids]
+    RequirementImportRequest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/CreateRequirementRequest"
+    RequirementImportResponse:
+      type: object
+      additionalProperties: false
+      required: [items, imported]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Requirement"
+        imported:
+          type: integer
+          minimum: 1
+    DerivedRequirementResponse:
+      type: object
+      additionalProperties: false
+      required: [requirement, relationship_id]
+      properties:
+        requirement:
+          $ref: "#/components/schemas/Requirement"
+        relationship_id:
+          type: string
+          format: uuid
+    RelationshipType:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - key
+        - name
+        - source_artifact_type
+        - target_artifact_type
+        - max_targets_per_source
+        - max_sources_per_target
+        - propagates_suspect
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        name:
+          type: string
+        source_artifact_type:
+          type: string
+        target_artifact_type:
+          type: string
+        max_targets_per_source:
+          type: [integer, "null"]
+          minimum: 1
+        max_sources_per_target:
+          type: [integer, "null"]
+          minimum: 1
+        propagates_suspect:
+          type: boolean
+    RelationshipTypeListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RelationshipType"
+    CreateRelationshipRequest:
+      type: object
+      additionalProperties: false
+      required: [relationship_type_id, source_artifact_id, target_artifact_id]
+      properties:
+        relationship_type_id:
+          type: string
+          format: uuid
+        source_artifact_id:
+          type: string
+          format: uuid
+        target_artifact_id:
+          type: string
+          format: uuid
+    ResolveRelationshipRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version, disposition]
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+        disposition:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    Relationship:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - project_id
+        - relationship_type_id
+        - relationship_type_key
+        - relationship_type_name
+        - source_artifact_id
+        - source_key
+        - source_title
+        - source_revision
+        - target_artifact_id
+        - target_key
+        - target_title
+        - target_revision
+        - version
+        - suspect
+        - suspect_reason
+        - disposition
+        - created_by
+        - created_at
+        - updated_at
+        - version_created_by
+        - version_created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        relationship_type_id:
+          type: string
+          format: uuid
+        relationship_type_key:
+          type: string
+        relationship_type_name:
+          type: string
+        source_artifact_id:
+          type: string
+          format: uuid
+        source_key:
+          type: string
+        source_title:
+          type: string
+        source_revision:
+          type: integer
+          minimum: 1
+        target_artifact_id:
+          type: string
+          format: uuid
+        target_key:
+          type: string
+        target_title:
+          type: string
+        target_revision:
+          type: integer
+          minimum: 1
+        version:
+          type: integer
+          minimum: 1
+        suspect:
+          type: boolean
+        suspect_reason:
+          type: [string, "null"]
+        disposition:
+          type: [string, "null"]
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        version_created_by:
+          type: string
+        version_created_at:
+          type: string
+          format: date-time
+    RelationshipListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Relationship"
+    RelationshipRevision:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - version
+        - source_revision
+        - target_revision
+        - suspect
+        - suspect_reason
+        - disposition
+        - created_by
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+        source_revision:
+          type: integer
+          minimum: 1
+        target_revision:
+          type: integer
+          minimum: 1
+        suspect:
+          type: boolean
+        suspect_reason:
+          type: [string, "null"]
+        disposition:
+          type: [string, "null"]
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    RelationshipRevisionListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RelationshipRevision"
+    TraceMatrixRow:
+      type: object
+      additionalProperties: false
+      required: [artifact_id, key, title, revision, upstream_count, downstream_count, suspect_count, gap]
+      properties:
+        artifact_id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        title:
+          type: string
+        revision:
+          type: integer
+          minimum: 1
+        upstream_count:
+          type: integer
+          minimum: 0
+        downstream_count:
+          type: integer
+          minimum: 0
+        suspect_count:
+          type: integer
+          minimum: 0
+        gap:
+          type: boolean
+    TraceMatrixResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TraceMatrixRow"
+    TraceEdge:
+      type: object
+      additionalProperties: false
+      required: [relationship_id, relationship_type_key, source_artifact_id, target_artifact_id, version, suspect]
+      properties:
+        relationship_id:
+          type: string
+          format: uuid
+        relationship_type_key:
+          type: string
+        source_artifact_id:
+          type: string
+          format: uuid
+        target_artifact_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+        suspect:
+          type: boolean
+    TraceSummary:
+      type: object
+      additionalProperties: false
+      required: [total_artifacts, covered_artifacts, orphan_artifacts, relationships, suspect_relationships, coverage_percent]
+      properties:
+        total_artifacts:
+          type: integer
+          minimum: 0
+        covered_artifacts:
+          type: integer
+          minimum: 0
+        orphan_artifacts:
+          type: integer
+          minimum: 0
+        relationships:
+          type: integer
+          minimum: 0
+        suspect_relationships:
+          type: integer
+          minimum: 0
+        coverage_percent:
+          type: number
+          minimum: 0
+          maximum: 100
+    TraceGraph:
+      type: object
+      additionalProperties: false
+      required: [nodes, edges, summary]
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/TraceMatrixRow"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/TraceEdge"
+        summary:
+          $ref: "#/components/schemas/TraceSummary"
+    CreateChangesetRequest:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    ChangesetEntry:
+      type: object
+      additionalProperties: false
+      required: [artifact_id, artifact_revision_id, artifact_key, revision_number, change_type]
+      properties:
+        artifact_id:
+          type: string
+          format: uuid
+        artifact_revision_id:
+          type: string
+          format: uuid
+        artifact_key:
+          type: string
+        revision_number:
+          type: integer
+          minimum: 1
+        change_type:
+          type: string
+          enum: [added, modified, unchanged]
+    Changeset:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, sequence, message, parent_changeset_id, manifest_hash, added, modified, unchanged, created_by, created_at, entries]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          minimum: 1
+        message:
+          type: string
+        parent_changeset_id:
+          type: [string, "null"]
+          format: uuid
+        manifest_hash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        added:
+          type: integer
+          minimum: 0
+        modified:
+          type: integer
+          minimum: 0
+        unchanged:
+          type: integer
+          minimum: 0
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChangesetEntry"
+    ChangesetListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Changeset"
+    CreateBaselineRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        changeset_id:
+          type: [string, "null"]
+          format: uuid
+        supersedes_baseline_id:
+          type: [string, "null"]
+          format: uuid
+    Baseline:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, sequence, name, changeset_id, supersedes_baseline_id, artifact_count, relationship_count, manifest_hash, signature, signing_algorithm, signing_key_id, created_by, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+        changeset_id:
+          type: [string, "null"]
+          format: uuid
+        supersedes_baseline_id:
+          type: [string, "null"]
+          format: uuid
+        artifact_count:
+          type: integer
+          minimum: 0
+        relationship_count:
+          type: integer
+          minimum: 0
+        manifest_hash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        signature:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        signing_algorithm:
+          type: string
+          const: HMAC-SHA256
+        signing_key_id:
+          type: string
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    BaselineListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Baseline"
+    BaselineComparison:
+      type: object
+      additionalProperties: false
+      required: [from_baseline_id, to_baseline_id, artifacts_added, artifacts_modified, artifacts_removed, relationships_changed]
+      properties:
+        from_baseline_id:
+          type: string
+          format: uuid
+        to_baseline_id:
+          type: string
+          format: uuid
+        artifacts_added:
+          type: array
+          items:
+            type: string
+        artifacts_modified:
+          type: array
+          items:
+            type: string
+        artifacts_removed:
+          type: array
+          items:
+            type: string
+        relationships_changed:
+          type: integer
+          minimum: 0
+    EvidenceExport:
+      type: object
+      additionalProperties: false
+      required: [baseline_id, project_id, schema_version, manifest, manifest_hash, signature, signing_algorithm, signing_key_id, signature_valid]
+      properties:
+        baseline_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        schema_version:
+          type: string
+          const: openrm-evidence-v1
+        manifest:
+          type: object
+          additionalProperties: true
+        manifest_hash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        signature:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        signing_algorithm:
+          type: string
+          const: HMAC-SHA256
+        signing_key_id:
+          type: string
+        signature_valid:
+          type: boolean
+    CreateReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [baseline_id, title, required_approvals]
+      properties:
+        baseline_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 4000
+          default: ""
+        due_at:
+          type: [string, "null"]
+          format: date-time
+        required_approvals:
+          type: integer
+          minimum: 1
+          maximum: 50
+    AddReviewParticipantRequest:
+      type: object
+      additionalProperties: false
+      required: [subject, role_label]
+      properties:
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 200
+        role_label:
+          type: string
+          minLength: 1
+          maxLength: 120
+        required:
+          type: boolean
+          default: true
+    StartReviewRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        rationale:
+          type: string
+          maxLength: 2000
+          default: ""
+    AddReviewCommentRequest:
+      type: object
+      additionalProperties: false
+      required: [body]
+      properties:
+        target_artifact_id:
+          type: [string, "null"]
+          format: uuid
+        body:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        blocking:
+          type: boolean
+          default: false
+    ResolveReviewCommentRequest:
+      type: object
+      additionalProperties: false
+      required: [resolution]
+      properties:
+        resolution:
+          type: string
+          minLength: 1
+          maxLength: 4000
+    RecordReviewDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approved, changes_requested]
+        comment:
+          type: string
+          maxLength: 4000
+          default: ""
+    ReviewCommandResponse:
+      type: object
+      additionalProperties: false
+      required: [review_id, status, current_round]
+      properties:
+        review_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [draft, in_review, changes_requested, approved, closed]
+        current_round:
+          type: integer
+          minimum: 0
+    ReviewParticipant:
+      type: object
+      additionalProperties: false
+      required: [id, subject, role_label, required, assigned_by, created_at, current_decision, decision_comment, decided_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        subject:
+          type: string
+        role_label:
+          type: string
+        required:
+          type: boolean
+        assigned_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        current_decision:
+          type: [string, "null"]
+          enum: [approved, changes_requested, null]
+        decision_comment:
+          type: [string, "null"]
+        decided_at:
+          type: [string, "null"]
+          format: date-time
+    ReviewComment:
+      type: object
+      additionalProperties: false
+      required: [id, target_artifact_id, target_revision_id, target_key, body, blocking, created_by, created_at, resolved, resolution, resolved_by, resolved_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        target_artifact_id:
+          type: [string, "null"]
+          format: uuid
+        target_revision_id:
+          type: [string, "null"]
+          format: uuid
+        target_key:
+          type: [string, "null"]
+        body:
+          type: string
+        blocking:
+          type: boolean
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        resolved:
+          type: boolean
+        resolution:
+          type: [string, "null"]
+        resolved_by:
+          type: [string, "null"]
+        resolved_at:
+          type: [string, "null"]
+          format: date-time
+    ReviewCommentResolution:
+      type: object
+      additionalProperties: false
+      required: [id, review_id, comment_id, resolution, resolved_by, resolved_at, package_status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        review_id:
+          type: string
+          format: uuid
+        comment_id:
+          type: string
+          format: uuid
+        resolution:
+          type: string
+        resolved_by:
+          type: string
+        resolved_at:
+          type: string
+          format: date-time
+        package_status:
+          type: string
+          enum: [draft, in_review, changes_requested, approved, closed]
+    ReviewDecision:
+      type: object
+      additionalProperties: false
+      required: [id, participant_id, subject, round, decision, comment, evidence_hash, signature, signing_algorithm, signing_key_id, decided_by, decided_at, signature_valid, package_status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        participant_id:
+          type: string
+          format: uuid
+        subject:
+          type: string
+        round:
+          type: integer
+          minimum: 1
+        decision:
+          type: string
+          enum: [approved, changes_requested]
+        comment:
+          type: string
+        evidence_hash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        signature:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        signing_algorithm:
+          type: string
+          const: HMAC-SHA256
+        signing_key_id:
+          type: string
+        decided_by:
+          type: string
+        decided_at:
+          type: string
+          format: date-time
+        signature_valid:
+          type: boolean
+        package_status:
+          type: string
+          enum: [draft, in_review, changes_requested, approved, closed]
+    ReviewPackage:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, sequence, baseline_id, baseline_sequence, title, description, status, due_at, required_approvals, current_round, artifact_count, participant_count, approval_count, open_comment_count, blocking_comment_count, created_by, created_at, updated_at, participants, comments, decisions]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          minimum: 1
+        baseline_id:
+          type: string
+          format: uuid
+        baseline_sequence:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [draft, in_review, changes_requested, approved, closed]
+        due_at:
+          type: [string, "null"]
+          format: date-time
+        required_approvals:
+          type: integer
+          minimum: 1
+        current_round:
+          type: integer
+          minimum: 0
+        artifact_count:
+          type: integer
+          minimum: 0
+        participant_count:
+          type: integer
+          minimum: 0
+        approval_count:
+          type: integer
+          minimum: 0
+        open_comment_count:
+          type: integer
+          minimum: 0
+        blocking_comment_count:
+          type: integer
+          minimum: 0
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReviewParticipant"
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReviewComment"
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReviewDecision"
+    ReviewPackageListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReviewPackage"
+    CreateVerificationCaseRequest:
+      type: object
+      additionalProperties: false
+      required: [review_id, key, title, method, procedure, acceptance_criteria, owner_subject, target_artifact_ids]
+      properties:
+        review_id:
+          type: string
+          format: uuid
+        key:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_-]{1,63}$"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        method:
+          type: string
+          enum: [analysis, inspection, demonstration, test]
+        procedure:
+          type: string
+          minLength: 1
+          maxLength: 8000
+        acceptance_criteria:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        owner_subject:
+          type: string
+          minLength: 1
+          maxLength: 200
+        due_at:
+          type: [string, "null"]
+          format: date-time
+        target_artifact_ids:
+          type: array
+          minItems: 1
+          maxItems: 500
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    StartVerificationRunRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        execution_note:
+          type: string
+          maxLength: 8000
+          default: ""
+    VerificationAttachmentInput:
+      type: object
+      additionalProperties: false
+      required: [object_key, file_name, media_type, size_bytes, sha256]
+      properties:
+        object_key:
+          type: string
+          minLength: 1
+          maxLength: 512
+        file_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        media_type:
+          type: string
+          minLength: 1
+          maxLength: 127
+        size_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        sha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+    RecordVerificationResultRequest:
+      type: object
+      additionalProperties: false
+      required: [outcome]
+      properties:
+        outcome:
+          type: string
+          enum: [passed, failed, blocked]
+        notes:
+          type: string
+          maxLength: 8000
+          default: ""
+        measured_values:
+          type: object
+          additionalProperties: true
+          default: {}
+        attachments:
+          type: array
+          maxItems: 20
+          default: []
+          items:
+            $ref: "#/components/schemas/VerificationAttachmentInput"
+    GenerateDueEventsRequest:
+      type: object
+      additionalProperties: false
+      required: [review_id]
+      properties:
+        review_id:
+          type: string
+          format: uuid
+    VerificationTarget:
+      type: object
+      additionalProperties: false
+      required: [id, artifact_id, artifact_revision_id, artifact_key]
+      properties:
+        id:
+          type: string
+          format: uuid
+        artifact_id:
+          type: string
+          format: uuid
+        artifact_revision_id:
+          type: string
+          format: uuid
+        artifact_key:
+          type: string
+    VerificationAttachment:
+      type: object
+      additionalProperties: false
+      required: [id, object_key, file_name, media_type, size_bytes, sha256, recorded_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        object_key:
+          type: string
+        file_name:
+          type: string
+        media_type:
+          type: string
+        size_bytes:
+          type: integer
+          format: int64
+        sha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        recorded_at:
+          type: string
+          format: date-time
+    VerificationResult:
+      type: object
+      additionalProperties: false
+      required: [id, run_id, outcome, notes, measured_values, evidence_hash, signature, signing_algorithm, signing_key_id, recorded_by, recorded_at, signature_valid, attachments]
+      properties:
+        id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        outcome:
+          type: string
+          enum: [passed, failed, blocked]
+        notes:
+          type: string
+        measured_values:
+          type: object
+          additionalProperties: true
+        evidence_hash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        signature:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        signing_algorithm:
+          type: string
+          const: HMAC-SHA256
+        signing_key_id:
+          type: string
+        recorded_by:
+          type: string
+        recorded_at:
+          type: string
+          format: date-time
+        signature_valid:
+          type: boolean
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationAttachment"
+    VerificationRun:
+      type: object
+      additionalProperties: false
+      required: [id, case_id, sequence, status, executed_by, started_at, completed_at, result]
+      properties:
+        id:
+          type: string
+          format: uuid
+        case_id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [in_progress, passed, failed, blocked]
+        executed_by:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: [string, "null"]
+          format: date-time
+        result:
+          oneOf:
+            - $ref: "#/components/schemas/VerificationResult"
+            - type: "null"
+    VerificationCase:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, review_id, baseline_id, sequence, key, title, method, procedure, acceptance_criteria, owner_subject, due_at, created_by, created_at, status, targets, runs]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        review_id:
+          type: string
+          format: uuid
+        baseline_id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          minimum: 1
+        key:
+          type: string
+        title:
+          type: string
+        method:
+          type: string
+          enum: [analysis, inspection, demonstration, test]
+        procedure:
+          type: string
+        acceptance_criteria:
+          type: string
+        owner_subject:
+          type: string
+        due_at:
+          type: [string, "null"]
+          format: date-time
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [planned, in_progress, passed, failed, blocked]
+        targets:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationTarget"
+        runs:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationRun"
+    VerificationCaseListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationCase"
+    VerificationCoverageItem:
+      type: object
+      additionalProperties: false
+      required: [artifact_id, artifact_revision_id, artifact_key, status, case_count]
+      properties:
+        artifact_id:
+          type: string
+          format: uuid
+        artifact_revision_id:
+          type: string
+          format: uuid
+        artifact_key:
+          type: string
+        status:
+          type: string
+          enum: [unverified, planned, in_progress, passed, failed, blocked]
+        case_count:
+          type: integer
+          minimum: 0
+    VerificationCoverage:
+      type: object
+      additionalProperties: false
+      required: [review_id, baseline_id, total_artifacts, passed_artifacts, coverage_percent, items]
+      properties:
+        review_id:
+          type: string
+          format: uuid
+        baseline_id:
+          type: string
+          format: uuid
+        total_artifacts:
+          type: integer
+          minimum: 0
+        passed_artifacts:
+          type: integer
+          minimum: 0
+        coverage_percent:
+          type: number
+          minimum: 0
+          maximum: 100
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationCoverageItem"
+    GateReadiness:
+      type: object
+      additionalProperties: false
+      required: [review_id, review_status, ready, coverage_percent, total_cases, passed_cases, failed_cases, blocked_cases, in_progress_cases, planned_cases, open_blocking_comments, invalid_signatures, contributors, blockers]
+      properties:
+        review_id:
+          type: string
+          format: uuid
+        review_status:
+          type: string
+          enum: [draft, in_review, changes_requested, approved, closed]
+        ready:
+          type: boolean
+        coverage_percent:
+          type: number
+          minimum: 0
+          maximum: 100
+        total_cases:
+          type: integer
+          minimum: 0
+        passed_cases:
+          type: integer
+          minimum: 0
+        failed_cases:
+          type: integer
+          minimum: 0
+        blocked_cases:
+          type: integer
+          minimum: 0
+        in_progress_cases:
+          type: integer
+          minimum: 0
+        planned_cases:
+          type: integer
+          minimum: 0
+        open_blocking_comments:
+          type: integer
+          minimum: 0
+        invalid_signatures:
+          type: integer
+          minimum: 0
+        contributors:
+          type: array
+          items:
+            type: string
+        blockers:
+          type: array
+          items:
+            type: string
+    VerificationDueEvent:
+      type: object
+      additionalProperties: false
+      required: [id, review_id, case_id, case_key, event_type, due_at, actor_subject, occurred_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        review_id:
+          type: string
+          format: uuid
+        case_id:
+          type: string
+          format: uuid
+        case_key:
+          type: string
+        event_type:
+          type: string
+          enum: [due_soon, overdue, completed]
+        due_at:
+          type: [string, "null"]
+          format: date-time
+        actor_subject:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+    VerificationDueEventListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationDueEvent"
+    GateEvidenceExport:
+      type: object
+      additionalProperties: false
+      required: [review_id, project_id, schema_version, manifest, manifest_hash, signature, signing_algorithm, signing_key_id, signature_valid]
+      properties:
+        review_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        schema_version:
+          type: string
+          const: openrm-gate-evidence-v1
+        manifest:
+          type: object
+          additionalProperties: true
+        manifest_hash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        signature:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        signing_algorithm:
+          type: string
+          const: HMAC-SHA256
+        signing_key_id:
+          type: string
+        signature_valid:
+          type: boolean
+    ConnectorMode:
+      type: string
+      enum: [disabled, dry_run, active]
+    ConnectorDeliveryStatus:
+      type: string
+      enum: [pending, processing, retry, delivered, dead_letter]
+    ConnectorOperation:
+      type: string
+      enum: [link_issue, comment_revision, sync_status]
+    UpsertJiraConfigurationRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_version, mode, base_url, remote_project_key, secret_ref, field_mapping, max_attempts]
+      properties:
+        expected_version:
+          type: integer
+          minimum: 0
+        mode:
+          $ref: "#/components/schemas/ConnectorMode"
+        base_url:
+          type: string
+          format: uri
+        remote_project_key:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_-]{1,31}$"
+        secret_ref:
+          type: string
+          const: env:JIRA_API_TOKEN
+          description: Fixed external secret reference for the pilot Jira adapter; the credential value is never persisted.
+          minLength: 1
+          maxLength: 200
+        field_mapping:
+          type: object
+          additionalProperties: true
+        max_attempts:
+          type: integer
+          minimum: 1
+          maximum: 20
+    JiraConfiguration:
+      type: object
+      additionalProperties: false
+      required: [id, project_id, mode, base_url, remote_project_key, secret_ref, field_mapping, max_attempts, version, created_by, created_at, updated_by, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        mode:
+          $ref: "#/components/schemas/ConnectorMode"
+        base_url:
+          type: string
+          format: uri
+        remote_project_key:
+          type: string
+        secret_ref:
+          type: string
+        field_mapping:
+          type: object
+          additionalProperties: true
+        max_attempts:
+          type: integer
+        version:
+          type: integer
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+    JiraConfigurationEvent:
+      type: object
+      additionalProperties: false
+      required: [id, version, mode, base_url, remote_project_key, secret_ref, field_mapping, max_attempts, actor_subject, occurred_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        mode:
+          $ref: "#/components/schemas/ConnectorMode"
+        base_url:
+          type: string
+          format: uri
+        remote_project_key:
+          type: string
+        secret_ref:
+          type: string
+        field_mapping:
+          type: object
+          additionalProperties: true
+        max_attempts:
+          type: integer
+        actor_subject:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+    JiraConnector:
+      type: object
+      additionalProperties: false
+      required: [configuration, configuration_history, pending, retrying, delivered, dead_letters]
+      properties:
+        configuration:
+          oneOf:
+            - $ref: "#/components/schemas/JiraConfiguration"
+            - type: "null"
+        configuration_history:
+          type: array
+          items:
+            $ref: "#/components/schemas/JiraConfigurationEvent"
+        pending:
+          type: integer
+          format: int64
+        retrying:
+          type: integer
+          format: int64
+        delivered:
+          type: integer
+          format: int64
+        dead_letters:
+          type: integer
+          format: int64
+    EnqueueJiraDeliveryRequest:
+      type: object
+      additionalProperties: false
+      required: [event_key, operation, external_issue_key, payload]
+      properties:
+        event_key:
+          type: string
+          minLength: 8
+          maxLength: 128
+        operation:
+          $ref: "#/components/schemas/ConnectorOperation"
+        external_issue_key:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_-]{1,31}-[1-9][0-9]*$"
+        payload:
+          type: object
+          additionalProperties: true
+    JiraDeliveryAttempt:
+      type: object
+      additionalProperties: false
+      required: [id, attempt, outcome, response_status, retry_after_seconds, error, occurred_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        attempt:
+          type: integer
+        outcome:
+          type: string
+          enum: [delivered, retry, dead_letter]
+        response_status:
+          type: [integer, "null"]
+        retry_after_seconds:
+          type: [integer, "null"]
+        error:
+          type: [string, "null"]
+        occurred_at:
+          type: string
+          format: date-time
+    JiraDelivery:
+      type: object
+      additionalProperties: false
+      required: [id, connector_id, event_key, operation, external_issue_key, payload, payload_hash, status, attempts, available_at, delivered_at, last_error, created_by, created_at, attempt_history]
+      properties:
+        id:
+          type: string
+          format: uuid
+        connector_id:
+          type: string
+          format: uuid
+        event_key:
+          type: string
+        operation:
+          $ref: "#/components/schemas/ConnectorOperation"
+        external_issue_key:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        payload_hash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        status:
+          $ref: "#/components/schemas/ConnectorDeliveryStatus"
+        attempts:
+          type: integer
+        available_at:
+          type: string
+          format: date-time
+        delivered_at:
+          type: [string, "null"]
+          format: date-time
+        last_error:
+          type: [string, "null"]
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        attempt_history:
+          type: array
+          items:
+            $ref: "#/components/schemas/JiraDeliveryAttempt"
+    JiraDeliveryListResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/JiraDelivery"
+    OperationsStatus:
+      type: object
+      additionalProperties: false
+      required: [status, database, telemetry, service_levels, queues, latest_audit_event_at, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [healthy, attention_required]
+        database:
+          type: string
+          const: available
+        telemetry:
+          type: object
+          additionalProperties: false
+          required: [structured_logs, prometheus_metrics, otlp_traces_configured]
+          properties:
+            structured_logs:
+              type: boolean
+            prometheus_metrics:
+              type: boolean
+            otlp_traces_configured:
+              type: boolean
+        service_levels:
+          type: object
+          additionalProperties: false
+          required: [availability_target_percent, latency_p95_target_ms, request_count, server_error_count, observed_server_success_percent]
+          properties:
+            availability_target_percent:
+              type: number
+            latency_p95_target_ms:
+              type: integer
+            request_count:
+              type: integer
+              format: int64
+            server_error_count:
+              type: integer
+              format: int64
+            observed_server_success_percent:
+              type: number
+        queues:
+          type: object
+          additionalProperties: false
+          required: [outbox_pending, connector_pending, connector_retrying, connector_dead_letters, oldest_connector_age_seconds]
+          properties:
+            outbox_pending:
+              type: integer
+              format: int64
+            connector_pending:
+              type: integer
+              format: int64
+            connector_retrying:
+              type: integer
+              format: int64
+            connector_dead_letters:
+              type: integer
+              format: int64
+            oldest_connector_age_seconds:
+              type: [integer, "null"]
+              format: int64
+        latest_audit_event_at:
+          type: [string, "null"]
+          format: date-time
+        timestamp:
+          type: string
+          format: date-time
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ErrorBody:
+      type: object
+      additionalProperties: false
+      required: [code, message, request_id]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        request_id:
+          type: string
+          format: uuid
+        details: {}
+

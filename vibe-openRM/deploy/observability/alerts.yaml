@@ -1,0 +1,27 @@
+groups:
+  - name: openrm
+    rules:
+      - alert: OpenRMApiUnavailable
+        expr: up{job="openrm-api"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: OpenRM API is unavailable
+      - alert: OpenRMServerErrorBudgetBurn
+        expr: rate(openrm_http_server_errors_total[5m]) / clamp_min(rate(openrm_http_requests_total[5m]), 0.001) > 0.01
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: OpenRM is consuming its HTTP error budget
+      - alert: OpenRMConnectorDeadLetters
+        expr: openrm_connector_deliveries{status="dead_letter"} > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: Jira deliveries require attributable replay
+      - alert: OpenRMConnectorBacklog
+        expr: sum(openrm_connector_deliveries{status=~"pending|retry|processing"}) > 100
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: Jira connector backlog exceeds the pilot threshold

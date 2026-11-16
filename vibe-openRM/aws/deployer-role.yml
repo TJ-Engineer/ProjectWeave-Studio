@@ -1,0 +1,124 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Content-only deployment role for the OpenRM demo — routine releases are
+  isolated from the project administration session and cannot modify
+  infrastructure or IAM.
+
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  "com.aws.cloudformation.Context":
+    arch: project admin principal -> restricted deployment role -> exact stack, bucket, and tagged distribution
+    must:
+      - deployment trust remains limited to the authenticated same-project principal
+      - content role cannot create or modify infrastructure or IAM
+
+Parameters:
+  RoleName:
+    Type: String
+    Default: OpenRMDeploymentRole
+    AllowedPattern: "^[A-Za-z0-9+=,.@_-]{1,64}$"
+
+  DeploymentPrincipalArn:
+    Type: String
+    AllowedPattern: "^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]{12}:(root|role/[A-Za-z0-9+=,.@_/-]+)$"
+    Description: Same-project root or managed role ARN allowed to assume the content deployment role.
+
+  SiteStackName:
+    Type: String
+    Default: openrm-demo
+    AllowedPattern: "^openrm-[a-z0-9-]{1,20}$"
+
+  ProjectName:
+    Type: String
+    Default: openrm
+    AllowedPattern: "^openrm[a-z0-9-]{0,14}$"
+
+  EnvironmentName:
+    Type: String
+    Default: demo
+    AllowedPattern: "^[a-z][a-z0-9-]{1,9}$"
+
+Resources:
+  DeploymentRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      "com.aws.cloudformation.Context":
+        why: least-privilege profile for routine static-site releases; keeps project admin session out of content deploys
+        must:
+          - trust only DeploymentPrincipalArn through same-project account principal
+          - keep stack, bucket, and distribution permissions scoped to this OpenRM environment
+        mutable: change-with-constraints
+        mutability:
+          RoleName: review-required
+    Properties:
+      RoleName: !Ref RoleName
+      Description: Content-only deployment role for the OpenRM preview
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowOnlyProvisioningPrincipal
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"
+            Action: sts:AssumeRole
+            Condition:
+              ArnEquals:
+                aws:PrincipalArn: !Ref DeploymentPrincipalArn
+      Policies:
+        - PolicyName: OpenRMContentDeploymentPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadOpenRMSiteStack
+                Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                Resource: !Sub >-
+                  arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${SiteStackName}/*
+              - Sid: ListExactOpenRMBucket
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                Resource: !Sub >-
+                  arn:${AWS::Partition}:s3:::${ProjectName}-${EnvironmentName}-${AWS::AccountId}-${AWS::Region}
+              - Sid: DeployOpenRMSiteObjects
+                Effect: Allow
+                Action:
+                  - s3:AbortMultipartUpload
+                  - s3:DeleteObject
+                  - s3:GetObject
+                  - s3:ListMultipartUploadParts
+                  - s3:PutObject
+                Resource: !Sub >-
+                  arn:${AWS::Partition}:s3:::${ProjectName}-${EnvironmentName}-${AWS::AccountId}-${AWS::Region}/*
+              - Sid: InvalidateTaggedOpenRMDistribution
+                Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                  - cloudfront:GetInvalidation
+                Resource: !Sub >-
+                  arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/*
+                Condition:
+                  StringEquals:
+                    aws:ResourceTag/Project: !Ref ProjectName
+                    aws:ResourceTag/Environment: !Ref EnvironmentName
+              - Sid: VerifyCaller
+                Effect: Allow
+                Action: sts:GetCallerIdentity
+                Resource: "*"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: ManagedBy
+          Value: CloudFormation
+
+Outputs:
+  RoleArn:
+    Description: ARN of the content-only OpenRM deployment role.
+    Value: !GetAtt DeploymentRole.Arn

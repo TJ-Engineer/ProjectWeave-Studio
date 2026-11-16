@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+!.env.example
+.DS_Store
+node_modules
+target
+coverage
+playwright-report
+test-results
+.data
+*.log

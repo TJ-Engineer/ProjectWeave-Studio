@@ -1,0 +1,84 @@
+name: openrm-production
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: openrm
+      POSTGRES_USER: openrm
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes:
+      - openrm-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openrm -d openrm"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    security_opt: ["no-new-privileges:true"]
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/openrm-api.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      AUTH_MODE: oidc
+      API_BIND_ADDRESS: 0.0.0.0:8080
+      DATABASE_URL: ${OPENRM_DATABASE_URL:?set OPENRM_DATABASE_URL}
+      RUN_MIGRATIONS: "false"
+      OIDC_ISSUER: ${OPENRM_OIDC_ISSUER:?set OPENRM_OIDC_ISSUER}
+      OIDC_AUDIENCE: ${OPENRM_OIDC_AUDIENCE:?set OPENRM_OIDC_AUDIENCE}
+      EVIDENCE_SIGNING_KEY: ${OPENRM_EVIDENCE_SIGNING_KEY:?set OPENRM_EVIDENCE_SIGNING_KEY}
+      EVIDENCE_SIGNING_KEY_ID: ${OPENRM_EVIDENCE_SIGNING_KEY_ID:?set OPENRM_EVIDENCE_SIGNING_KEY_ID}
+      EVIDENCE_VERIFICATION_KEYS: ${OPENRM_EVIDENCE_VERIFICATION_KEYS:-}
+      JIRA_API_TOKEN: ${OPENRM_JIRA_API_TOKEN:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      RUST_LOG: openrm_api=info,tower_http=info
+    ports:
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.138.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    security_opt: ["no-new-privileges:true"]
+
+  prometheus:
+    image: prom/prometheus:v3.7.3
+    command: ["--config.file=/etc/prometheus/prometheus.yaml"]
+    volumes:
+      - ./observability/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - ./observability/alerts.yaml:/etc/prometheus/alerts.yaml:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+    security_opt: ["no-new-privileges:true"]
+
+  grafana:
+    image: grafana/grafana:12.2.1
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_ADMIN_PASSWORD: ${OPENRM_GRAFANA_ADMIN_PASSWORD:?set OPENRM_GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    security_opt: ["no-new-privileges:true"]
+
+secrets:
+  postgres_password:
+    file: ${OPENRM_POSTGRES_PASSWORD_FILE:?set OPENRM_POSTGRES_PASSWORD_FILE}
+
+volumes:
+  openrm-postgres:

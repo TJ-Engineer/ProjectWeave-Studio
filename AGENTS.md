@@ -1,8 +1,9 @@
 # ProjectWeave — instructions for agents
 
-ProjectWeave is a self-hostable work-management suite. `vibe-jira/` provides
-Kanban-first project and issue management; `vibe-confluence/` is the separately
-deployable knowledge workspace.
+ProjectWeave Studio is a self-hostable software-factory suite maintained in one
+repository. `OpenJira/` provides project and issue management,
+`OpenConfluence/` provides the separately deployable knowledge workspace, and
+`OpenRM/` provides requirements, traceability, review, and verification.
 
 ## Start every session here
 
@@ -13,11 +14,12 @@ deployable knowledge workspace.
 
 ## Source of truth
 
-- `vibe-jira/` is the active issue-management application.
-- `vibe-confluence/` is the active knowledge-workspace application. It owns its
-  database and migrations and may share identity claims, but it must not query
-  Vibe JIRA's database directly.
-- The repository-level `backend/` and `frontend/` directories are disposable prototypes and are not dependencies of the active application.
+- `OpenJira/` is the active issue-management application.
+- `OpenConfluence/` is the active knowledge-workspace application.
+- `OpenRM/` is the active requirements-management application.
+- Each application owns its database and migrations. Applications may share
+  external identity claims and integrate through authenticated APIs, but they
+  must not query one another's databases directly.
 - Keep implementation status and planning documents accurate when work changes their claims.
 - Do not claim that a release gate is complete without corresponding automated or documented manual evidence.
 

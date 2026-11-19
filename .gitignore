@@ -15,10 +15,12 @@ eggs/
 .eggs/
 lib/
 lib64/
-!vibe-jira/apps/web/lib/
-!vibe-jira/apps/web/lib/**
-!vibe-confluence/apps/web/lib/
-!vibe-confluence/apps/web/lib/**
+!OpenJira/apps/web/lib/
+!OpenJira/apps/web/lib/**
+!OpenConfluence/apps/web/lib/
+!OpenConfluence/apps/web/lib/**
+!OpenRM/infra/lib/
+!OpenRM/infra/lib/**
 parts/
 sdist/
 var/
@@ -43,6 +45,8 @@ instance/
 
 # IDE
 .vscode/
+!OpenRM/.vscode/
+!OpenRM/.vscode/tasks.json
 .idea/
 *.swp
 *.swo

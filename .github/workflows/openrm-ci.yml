@@ -1,0 +1,906 @@
+name: OpenRM CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "OpenRM/**"
+      - ".github/workflows/openrm-ci.yml"
+  pull_request:
+    paths:
+      - "OpenRM/**"
+      - ".github/workflows/openrm-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openrm-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: OpenRM
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            OpenRM/package-lock.json
+            OpenRM/infra/package-lock.json
+      - run: npm ci
+      - name: Install infrastructure dependencies
+        run: npm ci --prefix infra
+      - run: npm run generate:api
+      - name: Verify generated API types
+        run: git diff --exit-code -- src/api/generated.ts
+      - run: npm run check:self-project
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run test:e2e
+      - run: npm audit --audit-level=high
+
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "OpenRM -> target"
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --workspace --all-targets
+      - name: Audit Rust dependencies
+        run: |
+          cargo install cargo-audit --locked
+          # SQLx includes its disabled SQLite driver in Cargo.lock. OpenRM enables
+          # only PostgreSQL, so the libsqlite3-sys advisory is not reachable.
+          cargo audit --ignore RUSTSEC-2026-0459
+
+  database-path:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: openrm
+          POSTGRES_USER: openrm
+          POSTGRES_PASSWORD: openrm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U openrm -d openrm"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      APP_ENV: test
+      AUTH_MODE: dev
+      API_BIND_ADDRESS: 127.0.0.1:8080
+      DATABASE_URL: postgres://openrm:openrm@127.0.0.1:5432/openrm
+      RUN_MIGRATIONS: "false"
+      EVIDENCE_SIGNING_KEY: ci-phase-5-evidence-signing-key
+      EVIDENCE_SIGNING_KEY_ID: ci-phase-5
+      JIRA_API_TOKEN: ci-jira-placeholder-token
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "OpenRM -> target"
+      - run: cargo run -p openrm-api --bin migrate
+      - name: Exercise controlled requirements through pilot operations
+        run: |
+          set -euo pipefail
+          cargo run -p openrm-api > /tmp/openrm-api.log 2>&1 &
+          api_pid=$!
+          trap 'kill ${api_pid}' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8080/ready > /tmp/ready.json; then
+              break
+            fi
+            if [[ "${attempt}" -eq 30 ]]; then
+              cat /tmp/openrm-api.log
+              exit 1
+            fi
+            sleep 1
+          done
+          organization_id='00000000-0000-4000-8000-000000000001'
+          base_url='http://127.0.0.1:8080/api/v1'
+          request() {
+            local method="$1"
+            local token="$2"
+            local url="$3"
+            local data="${4:-}"
+            local idempotency_key="${5:-}"
+            local args=(--fail-with-body --show-error --silent -X "${method}"
+              -H "Authorization: Bearer ${token}"
+              -H "X-OpenRM-Organization: ${organization_id}")
+            if [[ -n "${data}" ]]; then
+              args+=(-H 'Content-Type: application/json' --data "${data}")
+            fi
+            if [[ -n "${idempotency_key}" ]]; then
+              args+=(-H "X-Idempotency-Key: ${idempotency_key}")
+            fi
+            curl "${args[@]}" "${url}"
+          }
+
+          request GET 'dev:ci-admin' "${base_url}/session" > /tmp/session.json
+          grep -q '"database":"available"' /tmp/session.json
+
+          request POST 'dev:ci-admin' "${base_url}/projects" \
+            '{"key":"CISLICE","name":"CI requirements slice","requirement_prefix":"CIR","description":"Phase 2 runtime validation"}' \
+            'ci-project-create-001' > /tmp/project.json
+          project_id="$(jq -r '.id' /tmp/project.json)"
+          request POST 'dev:ci-admin' "${base_url}/projects" \
+            '{"key":"CIISO","name":"CI isolated project","requirement_prefix":"ISO","description":"Project role boundary"}' \
+            'ci-project-create-002' > /tmp/isolated-project.json
+          isolated_project_id="$(jq -r '.id' /tmp/isolated-project.json)"
+
+          request POST 'dev:ci-admin' "${base_url}/projects/${project_id}/members" \
+            '{"subject":"ci-author","role":"author"}' > /tmp/author.json
+          request POST 'dev:ci-admin' "${base_url}/projects/${project_id}/members" \
+            '{"subject":"ci-viewer","role":"viewer"}' > /tmp/viewer.json
+          request POST 'dev:ci-admin' "${base_url}/projects/${project_id}/members" \
+            '{"subject":"ci-reviewer","role":"reviewer"}' > /tmp/reviewer.json
+          request POST 'dev:ci-admin' "${base_url}/projects/${project_id}/members" \
+            '{"subject":"ci-approver","role":"reviewer"}' > /tmp/approver.json
+          request GET 'dev:ci-admin' "${base_url}/projects/${project_id}/members" > /tmp/members.json
+          test "$(jq -r '.items | length' /tmp/members.json)" -eq 5
+
+          request POST 'dev:ci-admin' "${base_url}/projects/${project_id}/workspace/folders" \
+            '{"name":"System requirements"}' > /tmp/folder.json
+          folder_id="$(jq -r '.id' /tmp/folder.json)"
+          request POST 'dev:ci-admin' "${base_url}/projects/${project_id}/workspace/tags" \
+            '{"name":"Safety","color":"#2563eb"}' > /tmp/tag.json
+          tag_id="$(jq -r '.id' /tmp/tag.json)"
+          request POST 'dev:ci-admin' "${base_url}/projects/${project_id}/workspace/attribute-definitions" \
+            '{"key":"mass","label":"Mass","value_type":"number","required":false}' > /tmp/attribute.json
+          request POST 'dev:ci-author:author' "${base_url}/projects/${project_id}/workspace/saved-views" \
+            '{"name":"Safety requirements","filters":{"tag_id":"'"${tag_id}"'"}}' > /tmp/saved-view.json
+
+          api_url="${base_url}/projects/${project_id}/requirements"
+          requirement_body='{"key":"CI-REQ-1","title":"CI requirement","statement":"The CI path shall persist controlled requirements.","attributes":{"priority":"high","mass":12.5},"folder_id":"'"${folder_id}"'","tag_ids":["'"${tag_id}"'"]}'
+          request POST 'dev:ci-author:author' "${api_url}" "${requirement_body}" \
+            'ci-requirement-create-001' > /tmp/requirement.json
+          requirement_id="$(jq -r '.id' /tmp/requirement.json)"
+          test "$(jq -r '.revision' /tmp/requirement.json)" -eq 1
+          request POST 'dev:ci-author:author' "${api_url}" "${requirement_body}" \
+            'ci-requirement-create-001' > /tmp/requirement-replay.json
+          test "$(jq -r '.id' /tmp/requirement-replay.json)" = "${requirement_id}"
+
+          revision_body='{"expected_revision":1,"title":"CI requirement revised","statement":"The CI path shall persist immutable requirement revisions.","attributes":{"priority":"critical","mass":12.7},"folder_id":"'"${folder_id}"'","tag_ids":["'"${tag_id}"'"]}'
+          request PUT 'dev:ci-author:author' "${api_url}/${requirement_id}" "${revision_body}" \
+            'ci-requirement-revise-001' > /tmp/requirement-revised.json
+          test "$(jq -r '.revision' /tmp/requirement-revised.json)" -eq 2
+          request PUT 'dev:ci-author:author' "${api_url}/${requirement_id}" "${revision_body}" \
+            'ci-requirement-revise-001' > /tmp/requirement-revised-replay.json
+          test "$(jq -r '.revision' /tmp/requirement-revised-replay.json)" -eq 2
+
+          request GET 'dev:ci-author:author' \
+            "${api_url}?search=immutable&folder_id=${folder_id}&tag_id=${tag_id}" > /tmp/requirements.json
+          test "$(jq -r '.total' /tmp/requirements.json)" -eq 1
+          request GET 'dev:ci-author:author' "${api_url}/${requirement_id}/revisions" > /tmp/revisions.json
+          test "$(jq -r '.items | length' /tmp/revisions.json)" -eq 2
+          request GET 'dev:ci-author:author' \
+            "${api_url}/${requirement_id}/compare?from_revision=1&to_revision=2" > /tmp/comparison.json
+          test "$(jq -r '.changed_fields | index("title") != null' /tmp/comparison.json)" = 'true'
+          request GET 'dev:ci-author:author' "${api_url}/export" > /tmp/export.json
+          test "$(jq -r '.total' /tmp/export.json)" -eq 1
+          request POST 'dev:ci-author:author' "${api_url}/import" \
+            '{"items":[{"key":"CI-IMP-1","title":"Imported requirement","statement":"The workspace shall import controlled requirements.","attributes":{"priority":"medium","mass":1},"folder_id":"'"${folder_id}"'","tag_ids":["'"${tag_id}"'"]}]}' \
+            'ci-requirement-import-001' > /tmp/import.json
+          test "$(jq -r '.imported' /tmp/import.json)" -eq 1
+          imported_requirement_id="$(jq -r '.items[0].id' /tmp/import.json)"
+
+          target_body='{"key":"CI-REQ-2","title":"Trace target","statement":"The target requirement shall retain exact trace revision evidence.","attributes":{"priority":"high","mass":2},"folder_id":"'"${folder_id}"'","tag_ids":["'"${tag_id}"'"]}'
+          request POST 'dev:ci-author:author' "${api_url}" "${target_body}" \
+            'ci-requirement-create-002' > /tmp/trace-target.json
+          target_requirement_id="$(jq -r '.id' /tmp/trace-target.json)"
+          relationships_url="${base_url}/projects/${project_id}/relationships"
+          request GET 'dev:ci-author:author' \
+            "${base_url}/projects/${project_id}/relationship-types" > /tmp/relationship-types.json
+          decomposition_type_id="$(jq -r '.items[] | select(.key == "DECOMPOSES_TO") | .id' /tmp/relationship-types.json)"
+          test -n "${decomposition_type_id}"
+          relationship_body='{"relationship_type_id":"'"${decomposition_type_id}"'","source_artifact_id":"'"${requirement_id}"'","target_artifact_id":"'"${target_requirement_id}"'"}'
+          request POST 'dev:ci-author:author' "${relationships_url}" "${relationship_body}" \
+            'ci-relationship-create-001' > /tmp/relationship.json
+          relationship_id="$(jq -r '.id' /tmp/relationship.json)"
+          test "$(jq -r '.source_revision' /tmp/relationship.json)" -eq 2
+          test "$(jq -r '.target_revision' /tmp/relationship.json)" -eq 1
+          request POST 'dev:ci-author:author' "${relationships_url}" "${relationship_body}" \
+            'ci-relationship-create-001' > /tmp/relationship-replay.json
+          test "$(jq -r '.id' /tmp/relationship-replay.json)" = "${relationship_id}"
+          request GET 'dev:ci-author:author' \
+            "${relationships_url}?artifact_id=${requirement_id}&direction=source" > /tmp/outgoing-relationships.json
+          test "$(jq -r '.items | length' /tmp/outgoing-relationships.json)" -eq 1
+          test "$(jq -r '.items[0].relationship_type_key' /tmp/outgoing-relationships.json)" = 'DECOMPOSES_TO'
+
+          cardinality_status="$(curl --silent --output /tmp/cardinality.json --write-out '%{http_code}' \
+            -X POST -H 'Authorization: Bearer dev:ci-author:author' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            -H 'X-Idempotency-Key: ci-relationship-cardinality' -H 'Content-Type: application/json' \
+            --data '{"relationship_type_id":"'"${decomposition_type_id}"'","source_artifact_id":"'"${imported_requirement_id}"'","target_artifact_id":"'"${target_requirement_id}"'"}' \
+            "${relationships_url}")"
+          test "${cardinality_status}" = '409'
+
+          impact_revision_body='{"expected_revision":2,"title":"CI requirement impact change","statement":"The CI path shall propagate suspect relationship impact asynchronously.","attributes":{"priority":"critical","mass":12.8},"folder_id":"'"${folder_id}"'","tag_ids":["'"${tag_id}"'"]}'
+          request PUT 'dev:ci-author:author' "${api_url}/${requirement_id}" "${impact_revision_body}" \
+            'ci-requirement-impact-001' > /tmp/requirement-impact.json
+          for attempt in {1..30}; do
+            request GET 'dev:ci-author:author' \
+              "${relationships_url}?artifact_id=${requirement_id}&direction=source" > /tmp/suspect-relationships.json
+            if [[ "$(jq -r '.items[0].suspect' /tmp/suspect-relationships.json)" = 'true' ]]; then
+              break
+            fi
+            if [[ "${attempt}" -eq 30 ]]; then
+              echo 'Relationship did not become suspect' >&2
+              exit 1
+            fi
+            sleep 1
+          done
+          test "$(jq -r '.items[0].version' /tmp/suspect-relationships.json)" -eq 2
+          test "$(jq -r '.items[0].source_revision' /tmp/suspect-relationships.json)" -eq 3
+          request POST 'dev:ci-reviewer:reviewer' \
+            "${relationships_url}/${relationship_id}/resolve" \
+            '{"expected_version":2,"disposition":"Downstream intent remains valid after impact review."}' \
+            'ci-relationship-resolve-001' > /tmp/resolved-relationship.json
+          test "$(jq -r '.suspect' /tmp/resolved-relationship.json)" = 'false'
+          test "$(jq -r '.version' /tmp/resolved-relationship.json)" -eq 3
+          test "$(jq -r '.disposition' /tmp/resolved-relationship.json)" = \
+            'Downstream intent remains valid after impact review.'
+          request POST 'dev:ci-reviewer:reviewer' \
+            "${relationships_url}/${relationship_id}/resolve" \
+            '{"expected_version":2,"disposition":"Downstream intent remains valid after impact review."}' \
+            'ci-relationship-resolve-001' > /tmp/resolved-relationship-replay.json
+          test "$(jq -r '.version' /tmp/resolved-relationship-replay.json)" -eq 3
+          request GET 'dev:ci-reviewer:reviewer' \
+            "${relationships_url}/${relationship_id}/revisions" > /tmp/relationship-revisions.json
+          test "$(jq -r '.items | length' /tmp/relationship-revisions.json)" -eq 3
+          test "$(jq -r '.items[0].created_by' /tmp/relationship-revisions.json)" = 'ci-reviewer'
+          test "$(jq -r '.items[1].created_by' /tmp/relationship-revisions.json)" = \
+            'system:relationship-impact'
+
+          trace_url="${base_url}/projects/${project_id}/trace"
+          request GET 'dev:ci-viewer:viewer' "${trace_url}/summary" > /tmp/trace-summary.json
+          test "$(jq -r '.total_artifacts' /tmp/trace-summary.json)" -eq 3
+          test "$(jq -r '.covered_artifacts' /tmp/trace-summary.json)" -eq 2
+          test "$(jq -r '.orphan_artifacts' /tmp/trace-summary.json)" -eq 1
+          test "$(jq -r '.relationships' /tmp/trace-summary.json)" -eq 1
+          test "$(jq -r '.suspect_relationships' /tmp/trace-summary.json)" -eq 0
+          test "$(jq -r '.coverage_percent' /tmp/trace-summary.json)" = '66.67'
+          request GET 'dev:ci-viewer:viewer' "${trace_url}/matrix" > /tmp/trace-matrix.json
+          test "$(jq -r '.items[] | select(.key == "CI-IMP-1") | .gap' /tmp/trace-matrix.json)" = 'true'
+          test "$(jq -r '.items[] | select(.key == "CI-REQ-1") | .downstream_count' /tmp/trace-matrix.json)" -eq 1
+          request GET 'dev:ci-viewer:viewer' "${trace_url}/graph" > /tmp/trace-graph.json
+          test "$(jq -r '.nodes | length' /tmp/trace-graph.json)" -eq 3
+          test "$(jq -r '.edges | length' /tmp/trace-graph.json)" -eq 1
+
+          changesets_url="${base_url}/projects/${project_id}/changesets"
+          request POST 'dev:ci-author:author' "${changesets_url}" \
+            '{"message":"Capture resolved trace state"}' \
+            'ci-changeset-create-001' > /tmp/changeset-1.json
+          changeset_1_id="$(jq -r '.id' /tmp/changeset-1.json)"
+          test "$(jq -r '.sequence' /tmp/changeset-1.json)" -eq 1
+          test "$(jq -r '.added' /tmp/changeset-1.json)" -eq 3
+          test "$(jq -r '.modified' /tmp/changeset-1.json)" -eq 0
+          request POST 'dev:ci-author:author' "${changesets_url}" \
+            '{"message":"Capture resolved trace state"}' \
+            'ci-changeset-create-001' > /tmp/changeset-1-replay.json
+          test "$(jq -r '.id' /tmp/changeset-1-replay.json)" = "${changeset_1_id}"
+
+          baselines_url="${base_url}/projects/${project_id}/baselines"
+          author_baseline_status="$(curl --silent --output /tmp/author-baseline.json --write-out '%{http_code}' \
+            -X POST -H 'Authorization: Bearer dev:ci-author:author' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            -H 'X-Idempotency-Key: ci-author-baseline-denied' -H 'Content-Type: application/json' \
+            --data '{"name":"Author denied","changeset_id":"'"${changeset_1_id}"'","supersedes_baseline_id":null}' \
+            "${baselines_url}")"
+          test "${author_baseline_status}" = '403'
+          request POST 'dev:ci-reviewer:reviewer' "${baselines_url}" \
+            '{"name":"Trace state 1","changeset_id":"'"${changeset_1_id}"'","supersedes_baseline_id":null}' \
+            'ci-baseline-create-001' > /tmp/baseline-1.json
+          baseline_1_id="$(jq -r '.id' /tmp/baseline-1.json)"
+          test "$(jq -r '.artifact_count' /tmp/baseline-1.json)" -eq 3
+          test "$(jq -r '.relationship_count' /tmp/baseline-1.json)" -eq 1
+          test "$(jq -r '.manifest_hash | length' /tmp/baseline-1.json)" -eq 64
+          test "$(jq -r '.signature | length' /tmp/baseline-1.json)" -eq 64
+
+          target_revision_body='{"expected_revision":1,"title":"Trace target revised","statement":"The target requirement shall retain updated exact trace evidence.","attributes":{"priority":"high","mass":2.1},"folder_id":"'"${folder_id}"'","tag_ids":["'"${tag_id}"'"]}'
+          request PUT 'dev:ci-author:author' "${api_url}/${target_requirement_id}" "${target_revision_body}" \
+            'ci-target-revise-001' > /tmp/target-revised.json
+          second_impact_body='{"expected_revision":3,"title":"CI requirement second impact","statement":"The CI path shall refresh exact endpoint revisions for the signed baseline.","attributes":{"priority":"critical","mass":12.9},"folder_id":"'"${folder_id}"'","tag_ids":["'"${tag_id}"'"]}'
+          request PUT 'dev:ci-author:author' "${api_url}/${requirement_id}" "${second_impact_body}" \
+            'ci-requirement-impact-002' > /tmp/requirement-impact-2.json
+          for attempt in {1..30}; do
+            request GET 'dev:ci-author:author' \
+              "${relationships_url}?artifact_id=${requirement_id}&direction=source" > /tmp/suspect-relationships-2.json
+            if [[ "$(jq -r '.items[0].suspect' /tmp/suspect-relationships-2.json)" = 'true' ]]; then
+              break
+            fi
+            if [[ "${attempt}" -eq 30 ]]; then
+              echo 'Relationship did not become suspect after the second impact' >&2
+              exit 1
+            fi
+            sleep 1
+          done
+          test "$(jq -r '.items[0].source_revision' /tmp/suspect-relationships-2.json)" -eq 4
+          test "$(jq -r '.items[0].target_revision' /tmp/suspect-relationships-2.json)" -eq 2
+          second_relationship_version="$(jq -r '.items[0].version' /tmp/suspect-relationships-2.json)"
+          request POST 'dev:ci-reviewer:reviewer' \
+            "${relationships_url}/${relationship_id}/resolve" \
+            '{"expected_version":'"${second_relationship_version}"',"disposition":"Both exact endpoint revisions reviewed for the superseding baseline."}' \
+            'ci-relationship-resolve-002' > /tmp/resolved-relationship-2.json
+          test "$(jq -r '.suspect' /tmp/resolved-relationship-2.json)" = 'false'
+
+          request POST 'dev:ci-author:author' "${changesets_url}" \
+            '{"message":"Refresh both traced endpoint revisions"}' \
+            'ci-changeset-create-002' > /tmp/changeset-2.json
+          changeset_2_id="$(jq -r '.id' /tmp/changeset-2.json)"
+          test "$(jq -r '.sequence' /tmp/changeset-2.json)" -eq 2
+          test "$(jq -r '.parent_changeset_id' /tmp/changeset-2.json)" = "${changeset_1_id}"
+          test "$(jq -r '.modified' /tmp/changeset-2.json)" -eq 2
+          test "$(jq -r '.unchanged' /tmp/changeset-2.json)" -eq 1
+          request GET 'dev:ci-viewer:viewer' "${changesets_url}/${changeset_2_id}" > /tmp/changeset-2-read.json
+          test "$(jq -r '.entries | map(select(.change_type == "modified")) | length' /tmp/changeset-2-read.json)" -eq 2
+
+          request POST 'dev:ci-reviewer:reviewer' "${baselines_url}" \
+            '{"name":"Trace state 2","changeset_id":"'"${changeset_2_id}"'","supersedes_baseline_id":"'"${baseline_1_id}"'"}' \
+            'ci-baseline-create-002' > /tmp/baseline-2.json
+          baseline_2_id="$(jq -r '.id' /tmp/baseline-2.json)"
+          test "$(jq -r '.sequence' /tmp/baseline-2.json)" -eq 2
+          test "$(jq -r '.supersedes_baseline_id' /tmp/baseline-2.json)" = "${baseline_1_id}"
+          request GET 'dev:ci-viewer:viewer' \
+            "${baselines_url}/compare?from_baseline_id=${baseline_1_id}&to_baseline_id=${baseline_2_id}" \
+            > /tmp/baseline-comparison.json
+          test "$(jq -r '.artifacts_modified | sort | join(",")' /tmp/baseline-comparison.json)" = 'CI-REQ-1,CI-REQ-2'
+          test "$(jq -r '.relationships_changed' /tmp/baseline-comparison.json)" -eq 1
+
+          evidence_url="${baselines_url}/${baseline_2_id}/evidence"
+          request GET 'dev:ci-viewer:viewer' "${evidence_url}" > /tmp/evidence-1.json
+          request GET 'dev:ci-viewer:viewer' "${evidence_url}" > /tmp/evidence-2.json
+          cmp /tmp/evidence-1.json /tmp/evidence-2.json
+          test "$(jq -r '.signature_valid' /tmp/evidence-1.json)" = 'true'
+          test "$(jq -r '.schema_version' /tmp/evidence-1.json)" = 'openrm-evidence-v1'
+          test "$(jq -r '.signing_algorithm' /tmp/evidence-1.json)" = 'HMAC-SHA256'
+          test "$(jq -r '.signing_key_id' /tmp/evidence-1.json)" = 'ci-phase-5'
+          test "$(jq -r '.manifest.artifacts | length' /tmp/evidence-1.json)" -eq 3
+          test "$(jq -r '.manifest.relationships | length' /tmp/evidence-1.json)" -eq 1
+
+          reviews_url="${base_url}/projects/${project_id}/reviews"
+          review_body='{"baseline_id":"'"${baseline_2_id}"'","title":"CI baseline review","description":"Protected Phase 4 decision evidence","required_approvals":1}'
+          request POST 'dev:ci-author:author' "${reviews_url}" "${review_body}" \
+            'ci-review-create-001' > /tmp/review.json
+          review_id="$(jq -r '.review_id' /tmp/review.json)"
+          test "$(jq -r '.status' /tmp/review.json)" = 'draft'
+          request POST 'dev:ci-author:author' "${reviews_url}" "${review_body}" \
+            'ci-review-create-001' > /tmp/review-replay.json
+          test "$(jq -r '.review_id' /tmp/review-replay.json)" = "${review_id}"
+
+          participants_url="${reviews_url}/${review_id}/participants"
+          request POST 'dev:ci-author:author' "${participants_url}" \
+            '{"subject":"ci-reviewer","role_label":"Baseline creator","required":false}' \
+            'ci-review-participant-001' > /tmp/review-baseline-creator.json
+          request POST 'dev:ci-author:author' "${participants_url}" \
+            '{"subject":"ci-approver","role_label":"Independent approver","required":true}' \
+            'ci-review-participant-002' > /tmp/review-approver.json
+          invalid_participant_status="$(curl --silent --output /tmp/review-invalid-participant.json --write-out '%{http_code}' \
+            -X POST -H 'Authorization: Bearer dev:ci-author:author' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            -H 'X-Idempotency-Key: ci-review-participant-invalid' -H 'Content-Type: application/json' \
+            --data '{"subject":"ci-viewer","role_label":"Invalid reviewer","required":true}' \
+            "${participants_url}")"
+          test "${invalid_participant_status}" = '400'
+
+          request POST 'dev:ci-author:author' "${reviews_url}/${review_id}/start" \
+            '{"rationale":"Independent reviewer and immutable scope are ready."}' \
+            'ci-review-start-001' > /tmp/review-start.json
+          test "$(jq -r '.status' /tmp/review-start.json)" = 'in_review'
+          test "$(jq -r '.current_round' /tmp/review-start.json)" -eq 1
+          request POST 'dev:ci-author:author' "${reviews_url}/${review_id}/start" \
+            '{"rationale":"Independent reviewer and immutable scope are ready."}' \
+            'ci-review-start-001' > /tmp/review-start-replay.json
+          test "$(jq -r '.current_round' /tmp/review-start-replay.json)" -eq 1
+
+          sod_status="$(curl --silent --output /tmp/review-sod-denied.json --write-out '%{http_code}' \
+            -X POST -H 'Authorization: Bearer dev:ci-reviewer:reviewer' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            -H 'X-Idempotency-Key: ci-review-sod-denied' -H 'Content-Type: application/json' \
+            --data '{"decision":"approved","comment":"Baseline creators cannot approve their own evidence."}' \
+            "${reviews_url}/${review_id}/decisions")"
+          test "${sod_status}" = '403'
+
+          request POST 'dev:ci-approver:reviewer' "${reviews_url}/${review_id}/comments" \
+            '{"target_artifact_id":"'"${requirement_id}"'","body":"Attach the independent safety analysis.","blocking":true}' \
+            'ci-review-comment-001' > /tmp/review-comment.json
+          review_comment_id="$(jq -r '.id' /tmp/review-comment.json)"
+          expected_review_revision="$(jq -r --arg artifact_id "${requirement_id}" '.manifest.artifacts[] | select(.artifact_id == $artifact_id) | .revision_id' /tmp/evidence-1.json)"
+          test "$(jq -r '.target_revision_id' /tmp/review-comment.json)" = "${expected_review_revision}"
+          test "$(jq -r '.target_key' /tmp/review-comment.json)" = 'CI-REQ-1'
+
+          request POST 'dev:ci-approver:reviewer' "${reviews_url}/${review_id}/decisions" \
+            '{"decision":"approved","comment":"Approved against the exact baseline; blocker must still be resolved."}' \
+            'ci-review-decision-001' > /tmp/review-decision.json
+          review_decision_id="$(jq -r '.id' /tmp/review-decision.json)"
+          test "$(jq -r '.package_status' /tmp/review-decision.json)" = 'in_review'
+          test "$(jq -r '.signature_valid' /tmp/review-decision.json)" = 'true'
+          test "$(jq -r '.evidence_hash | length' /tmp/review-decision.json)" -eq 64
+          test "$(jq -r '.signature | length' /tmp/review-decision.json)" -eq 64
+          request POST 'dev:ci-approver:reviewer' "${reviews_url}/${review_id}/decisions" \
+            '{"decision":"approved","comment":"Approved against the exact baseline; blocker must still be resolved."}' \
+            'ci-review-decision-001' > /tmp/review-decision-replay.json
+          test "$(jq -r '.id' /tmp/review-decision-replay.json)" = "${review_decision_id}"
+
+          request POST 'dev:ci-author:author' \
+            "${reviews_url}/${review_id}/comments/${review_comment_id}/resolve" \
+            '{"resolution":"Independent safety analysis attached and accepted."}' \
+            'ci-review-resolution-001' > /tmp/review-resolution.json
+          review_resolution_id="$(jq -r '.id' /tmp/review-resolution.json)"
+          test "$(jq -r '.package_status' /tmp/review-resolution.json)" = 'approved'
+          request GET 'dev:ci-viewer:viewer' "${reviews_url}/${review_id}" > /tmp/review-complete.json
+          test "$(jq -r '.status' /tmp/review-complete.json)" = 'approved'
+          test "$(jq -r '.approval_count' /tmp/review-complete.json)" -eq 1
+          test "$(jq -r '.blocking_comment_count' /tmp/review-complete.json)" -eq 0
+          test "$(jq -r '.comments[0].resolved' /tmp/review-complete.json)" = 'true'
+          test "$(jq -r '.decisions[0].signature_valid' /tmp/review-complete.json)" = 'true'
+
+          verification_url="${base_url}/projects/${project_id}/verification"
+          verification_case_body='{"review_id":"'"${review_id}"'","key":"VER-CI-1","title":"Verify approved baseline","method":"test","procedure":"Execute the controlled qualification procedure.","acceptance_criteria":"All exact baseline revisions pass.","owner_subject":"ci-approver","due_at":"2000-01-01T00:00:00Z","target_artifact_ids":["'"${requirement_id}"'","'"${target_requirement_id}"'","'"${imported_requirement_id}"'"]}'
+          request POST 'dev:ci-author:author' "${verification_url}/cases" \
+            "${verification_case_body}" 'ci-verification-case-001' > /tmp/verification-case.json
+          verification_case_id="$(jq -r '.id' /tmp/verification-case.json)"
+          verification_target_id="$(jq -r '.targets[0].id' /tmp/verification-case.json)"
+          test "$(jq -r '.targets | length' /tmp/verification-case.json)" -eq 3
+          test "$(jq -r '.status' /tmp/verification-case.json)" = 'planned'
+          request POST 'dev:ci-author:author' "${verification_url}/cases" \
+            "${verification_case_body}" 'ci-verification-case-001' > /tmp/verification-case-replay.json
+          test "$(jq -r '.id' /tmp/verification-case-replay.json)" = "${verification_case_id}"
+          invalid_owner_status="$(curl --silent --output /tmp/verification-invalid-owner.json --write-out '%{http_code}' \
+            -X POST -H 'Authorization: Bearer dev:ci-author:author' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            -H 'X-Idempotency-Key: ci-verification-invalid-owner' -H 'Content-Type: application/json' \
+            --data '{"review_id":"'"${review_id}"'","key":"VER-INVALID","title":"Invalid owner","method":"test","procedure":"Rejected procedure.","acceptance_criteria":"Rejected.","owner_subject":"ci-author","target_artifact_ids":["'"${requirement_id}"'"]}' \
+            "${verification_url}/cases")"
+          test "${invalid_owner_status}" = '400'
+
+          request POST 'dev:ci-author:author' "${verification_url}/due-events" \
+            '{"review_id":"'"${review_id}"'"}' > /tmp/verification-due-events.json
+          verification_due_event_id="$(jq -r '.items[0].id' /tmp/verification-due-events.json)"
+          test "$(jq -r '.items[0].event_type' /tmp/verification-due-events.json)" = 'overdue'
+
+          request POST 'dev:ci-approver:reviewer' \
+            "${verification_url}/cases/${verification_case_id}/runs" \
+            '{"execution_note":"Execute the exact approved scope."}' \
+            'ci-verification-run-001' > /tmp/verification-run.json
+          verification_run_id="$(jq -r '.id' /tmp/verification-run.json)"
+          test "$(jq -r '.status' /tmp/verification-run.json)" = 'in_progress'
+          request POST 'dev:ci-approver:reviewer' \
+            "${verification_url}/cases/${verification_case_id}/runs" \
+            '{"execution_note":"Execute the exact approved scope."}' \
+            'ci-verification-run-001' > /tmp/verification-run-replay.json
+          test "$(jq -r '.id' /tmp/verification-run-replay.json)" = "${verification_run_id}"
+          wrong_executor_status="$(curl --silent --output /tmp/verification-wrong-executor.json --write-out '%{http_code}' \
+            -X POST -H 'Authorization: Bearer dev:ci-reviewer:reviewer' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            -H 'X-Idempotency-Key: ci-verification-wrong-executor' -H 'Content-Type: application/json' \
+            --data '{"outcome":"passed","notes":"Not the attributable executor."}' \
+            "${verification_url}/runs/${verification_run_id}/results")"
+          test "${wrong_executor_status}" = '403'
+
+          verification_result_body='{"outcome":"passed","notes":"All acceptance criteria satisfied.","measured_values":{"latency_ms":147},"attachments":[{"object_key":"verification/ci/result.json","file_name":"result.json","media_type":"application/json","size_bytes":128,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}'
+          request POST 'dev:ci-approver:reviewer' \
+            "${verification_url}/runs/${verification_run_id}/results" \
+            "${verification_result_body}" 'ci-verification-result-001' > /tmp/verification-result.json
+          verification_result_id="$(jq -r '.id' /tmp/verification-result.json)"
+          verification_attachment_id="$(jq -r '.attachments[0].id' /tmp/verification-result.json)"
+          test "$(jq -r '.signature_valid' /tmp/verification-result.json)" = 'true'
+          test "$(jq -r '.evidence_hash | length' /tmp/verification-result.json)" -eq 64
+          test "$(jq -r '.attachments | length' /tmp/verification-result.json)" -eq 1
+          request POST 'dev:ci-approver:reviewer' \
+            "${verification_url}/runs/${verification_run_id}/results" \
+            "${verification_result_body}" 'ci-verification-result-001' > /tmp/verification-result-replay.json
+          test "$(jq -r '.id' /tmp/verification-result-replay.json)" = "${verification_result_id}"
+          request POST 'dev:ci-author:author' "${verification_url}/due-events" \
+            '{"review_id":"'"${review_id}"'"}' > /tmp/verification-completion-events.json
+          test "$(jq -r '.items | length' /tmp/verification-completion-events.json)" -eq 0
+          request GET 'dev:ci-viewer:viewer' \
+            "${verification_url}/due-events?review_id=${review_id}" > /tmp/verification-all-due-events.json
+          test "$(jq -r '.items | map(.event_type) | sort == ["completed", "overdue"]' /tmp/verification-all-due-events.json)" = 'true'
+
+          request GET 'dev:ci-viewer:viewer' \
+            "${verification_url}/coverage?review_id=${review_id}" > /tmp/verification-coverage.json
+          jq -e '.coverage_percent == 100 and .passed_artifacts == 3' /tmp/verification-coverage.json > /dev/null
+          test "$(jq -r '.items | map(select(.status == "passed")) | length' /tmp/verification-coverage.json)" -eq 3
+          request GET 'dev:ci-viewer:viewer' \
+            "${verification_url}/readiness?review_id=${review_id}" > /tmp/verification-readiness.json
+          test "$(jq -r '.ready' /tmp/verification-readiness.json)" = 'true'
+          test "$(jq -r '.blockers | length' /tmp/verification-readiness.json)" -eq 0
+          request GET 'dev:ci-viewer:viewer' \
+            "${reviews_url}/${review_id}/evidence" > /tmp/gate-evidence-1.json
+          request GET 'dev:ci-viewer:viewer' \
+            "${reviews_url}/${review_id}/evidence" > /tmp/gate-evidence-2.json
+          cmp /tmp/gate-evidence-1.json /tmp/gate-evidence-2.json
+          test "$(jq -r '.schema_version' /tmp/gate-evidence-1.json)" = 'openrm-gate-evidence-v1'
+          test "$(jq -r '.signature_valid' /tmp/gate-evidence-1.json)" = 'true'
+          test "$(jq -r '.manifest.readiness.ready' /tmp/gate-evidence-1.json)" = 'true'
+          test "$(jq -r '.manifest.review.participants | length' /tmp/gate-evidence-1.json)" -eq 2
+          test "$(jq -r '.manifest.review.comments | length' /tmp/gate-evidence-1.json)" -eq 1
+          test "$(jq -r '.manifest.review.comments[0].resolution != null' /tmp/gate-evidence-1.json)" = 'true'
+          test "$(jq -r '.manifest.review.events | length' /tmp/gate-evidence-1.json)" -eq 3
+          test "$(jq -r '.manifest.decisions | length' /tmp/gate-evidence-1.json)" -eq 1
+          test "$(jq -r '.manifest.verification_cases[0].runs[0].result.attachments | length' /tmp/gate-evidence-1.json)" -eq 1
+          verification_isolation_status="$(curl --silent --output /tmp/verification-isolation.json --write-out '%{http_code}' \
+            -H 'Authorization: Bearer dev:ci-author:author' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            "${base_url}/projects/${isolated_project_id}/verification/cases?review_id=${review_id}")"
+          test "${verification_isolation_status}" = '403'
+
+          connector_url="${base_url}/projects/${project_id}/connectors/jira"
+          request PUT 'dev:ci-admin' "${connector_url}" \
+            '{"expected_version":0,"mode":"active","base_url":"https://127.0.0.1:9","remote_project_key":"CISLICE","secret_ref":"env:JIRA_API_TOKEN","field_mapping":{"requirement_key":"customfield_10001"},"max_attempts":1}' \
+            > /tmp/jira-config-active.json
+          connector_id="$(jq -r '.id' /tmp/jira-config-active.json)"
+          test "$(jq -r '.version' /tmp/jira-config-active.json)" -eq 1
+          test "$(jq -r '.mode' /tmp/jira-config-active.json)" = 'active'
+
+          delivery_body='{"event_key":"ci-requirement-revision-3","operation":"comment_revision","external_issue_key":"CISLICE-42","payload":{"body":"CI-REQ-1 revision 3 is ready for governed review."}}'
+          request POST 'dev:ci-author:author' "${connector_url}/deliveries" \
+            "${delivery_body}" > /tmp/jira-delivery.json
+          connector_delivery_id="$(jq -r '.id' /tmp/jira-delivery.json)"
+          test "$(jq -r '.payload_hash | length' /tmp/jira-delivery.json)" -eq 64
+          request POST 'dev:ci-author:author' "${connector_url}/deliveries" \
+            "${delivery_body}" > /tmp/jira-delivery-replay.json
+          test "$(jq -r '.id' /tmp/jira-delivery-replay.json)" = "${connector_delivery_id}"
+          for attempt in {1..30}; do
+            request GET 'dev:ci-viewer:viewer' \
+              "${connector_url}/deliveries?status=dead_letter" > /tmp/jira-dead-letter.json
+            if [[ "$(jq -r --arg id "${connector_delivery_id}" '.items[] | select(.id == $id) | .status' /tmp/jira-dead-letter.json)" = 'dead_letter' ]]; then
+              break
+            fi
+            if [[ "${attempt}" -eq 30 ]]; then
+              echo 'Jira delivery did not enter the dead-letter queue' >&2
+              cat /tmp/openrm-api.log
+              exit 1
+            fi
+            sleep 1
+          done
+          test "$(jq -r '.items[0].attempts' /tmp/jira-dead-letter.json)" -eq 1
+          test "$(jq -r '.items[0].attempt_history[0].outcome' /tmp/jira-dead-letter.json)" = 'dead_letter'
+
+          request PUT 'dev:ci-admin' "${connector_url}" \
+            '{"expected_version":1,"mode":"dry_run","base_url":"https://jira.example.invalid","remote_project_key":"CISLICE","secret_ref":"env:JIRA_API_TOKEN","field_mapping":{"requirement_key":"customfield_10001"},"max_attempts":5}' \
+            > /tmp/jira-config-dry-run.json
+          test "$(jq -r '.version' /tmp/jira-config-dry-run.json)" -eq 2
+          test "$(jq -r '.mode' /tmp/jira-config-dry-run.json)" = 'dry_run'
+          request POST 'dev:ci-admin' \
+            "${connector_url}/deliveries/${connector_delivery_id}/replay" > /tmp/jira-replay.json
+          for attempt in {1..30}; do
+            request GET 'dev:ci-viewer:viewer' \
+              "${connector_url}/deliveries" > /tmp/jira-deliveries.json
+            if [[ "$(jq -r --arg id "${connector_delivery_id}" '.items[] | select(.id == $id) | .status' /tmp/jira-deliveries.json)" = 'delivered' ]]; then
+              break
+            fi
+            if [[ "${attempt}" -eq 30 ]]; then
+              echo 'Replayed Jira delivery did not complete' >&2
+              cat /tmp/openrm-api.log
+              exit 1
+            fi
+            sleep 1
+          done
+          jq -e --arg id "${connector_delivery_id}" \
+            '.items[] | select(.id == $id) | .attempts == 2 and (.attempt_history | map(.outcome) == ["dead_letter", "delivered"])' \
+            /tmp/jira-deliveries.json > /dev/null
+          request GET 'dev:ci-viewer:viewer' "${connector_url}" > /tmp/jira-status.json
+          jq -e '.configuration.version == 2 and .delivered == 1 and .dead_letters == 0 and (.configuration_history | length) == 2' \
+            /tmp/jira-status.json > /dev/null
+
+          connector_isolation_status="$(curl --silent --output /tmp/connector-isolation.json --write-out '%{http_code}' \
+            -H 'Authorization: Bearer dev:ci-author:author' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            "${base_url}/projects/${isolated_project_id}/connectors/jira")"
+          test "${connector_isolation_status}" = '403'
+          request GET 'dev:ci-admin' "${base_url}/operations/status" > /tmp/operations-status.json
+          jq -e '.status == "healthy" and .database == "available" and .telemetry.structured_logs and .telemetry.prometheus_metrics and .queues.connector_dead_letters == 0' \
+            /tmp/operations-status.json > /dev/null
+          curl --fail --silent http://127.0.0.1:8080/metrics > /tmp/openrm-metrics.txt
+          grep -q '^openrm_http_requests_total ' /tmp/openrm-metrics.txt
+          grep -q '^openrm_http_request_duration_seconds_bucket' /tmp/openrm-metrics.txt
+          grep -q '^openrm_connector_deliveries{status="delivered"} 1$' /tmp/openrm-metrics.txt
+
+          curl --fail --silent --dump-header /tmp/security-headers.txt \
+            --output /dev/null http://127.0.0.1:8080/health
+          grep -qi '^x-content-type-options: nosniff' /tmp/security-headers.txt
+          grep -qi "^content-security-policy: default-src 'none'; frame-ancestors 'none'" /tmp/security-headers.txt
+          malformed_auth_status="$(curl --silent --output /tmp/malformed-auth.json --write-out '%{http_code}' \
+            -H 'Authorization: Bearer malformed' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            "${base_url}/session")"
+          test "${malformed_auth_status}" = '401'
+          head -c 1100000 /dev/zero | tr '\0' 'a' > /tmp/oversized-request.json
+          oversized_status="$(curl --silent --output /tmp/oversized-response.json --write-out '%{http_code}' \
+            -X POST -H 'Authorization: Bearer dev:ci-admin' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            -H 'Content-Type: application/json' --data-binary @/tmp/oversized-request.json \
+            "${base_url}/projects")"
+          test "${oversized_status}" = '413'
+          curl --silent --dump-header /tmp/cors-headers.txt --output /dev/null \
+            -X OPTIONS -H 'Origin: https://untrusted.example' \
+            -H 'Access-Control-Request-Method: GET' "${base_url}/session"
+          ! grep -qi '^access-control-allow-origin:' /tmp/cors-headers.txt
+          node scripts/load-test.mjs --base-url http://127.0.0.1:8080 \
+            --requests 300 --concurrency 20 --p95 500 --error-rate 0
+          node scripts/load-test.mjs --base-url http://127.0.0.1:8080 \
+            --requests 1000000 --duration 10 --concurrency 10 --p95 500 --error-rate 0
+
+          finalized_comment_status="$(curl --silent --output /tmp/review-finalized-comment.json --write-out '%{http_code}' \
+            -X POST -H 'Authorization: Bearer dev:ci-approver:reviewer' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            -H 'X-Idempotency-Key: ci-review-finalized-comment' -H 'Content-Type: application/json' \
+            --data '{"body":"Finalized reviews reject new comments.","blocking":false}' \
+            "${reviews_url}/${review_id}/comments")"
+          test "${finalized_comment_status}" = '409'
+          review_isolation_status="$(curl --silent --output /tmp/review-isolation.json --write-out '%{http_code}' \
+            -H 'Authorization: Bearer dev:ci-author:author' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            "${base_url}/projects/${isolated_project_id}/reviews")"
+          test "${review_isolation_status}" = '403'
+
+          stale_revision_body='{"expected_revision":1,"title":"Imported requirement advanced","statement":"The workspace shall reject a baseline tied to a stale changeset.","attributes":{"priority":"medium","mass":1.1},"folder_id":"'"${folder_id}"'","tag_ids":["'"${tag_id}"'"]}'
+          request PUT 'dev:ci-author:author' "${api_url}/${imported_requirement_id}" "${stale_revision_body}" \
+            'ci-imported-revise-001' > /tmp/imported-revised.json
+          stale_baseline_status="$(curl --silent --output /tmp/stale-baseline.json --write-out '%{http_code}' \
+            -X POST -H 'Authorization: Bearer dev:ci-reviewer:reviewer' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            -H 'X-Idempotency-Key: ci-stale-baseline-denied' -H 'Content-Type: application/json' \
+            --data '{"name":"Stale changeset denied","changeset_id":"'"${changeset_2_id}"'","supersedes_baseline_id":"'"${baseline_2_id}"'"}' \
+            "${baselines_url}")"
+          test "${stale_baseline_status}" = '409'
+
+          request GET 'dev:ci-viewer:viewer' "${api_url}" > /tmp/viewer-list.json
+          viewer_status="$(curl --silent --output /tmp/viewer-write.json --write-out '%{http_code}' \
+            -X POST -H 'Authorization: Bearer dev:ci-viewer:viewer' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            -H 'X-Idempotency-Key: ci-viewer-denied' -H 'Content-Type: application/json' \
+            --data '{"key":"DENIED-1","title":"Denied","statement":"Viewer writes shall be denied.","attributes":{"priority":"low"},"folder_id":null,"tag_ids":[]}' \
+            "${api_url}")"
+          test "${viewer_status}" = '403'
+          relationship_viewer_status="$(curl --silent --output /tmp/relationship-viewer-write.json --write-out '%{http_code}' \
+            -X POST -H 'Authorization: Bearer dev:ci-viewer:viewer' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            -H 'X-Idempotency-Key: ci-relationship-viewer-denied' -H 'Content-Type: application/json' \
+            --data "${relationship_body}" "${relationships_url}")"
+          test "${relationship_viewer_status}" = '403'
+          author_resolution_status="$(curl --silent --output /tmp/relationship-author-resolution.json --write-out '%{http_code}' \
+            -X POST -H 'Authorization: Bearer dev:ci-author:author' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            -H 'X-Idempotency-Key: ci-relationship-author-resolution' -H 'Content-Type: application/json' \
+            --data '{"expected_version":3,"disposition":"Authors cannot resolve impact."}' \
+            "${relationships_url}/${relationship_id}/resolve")"
+          test "${author_resolution_status}" = '403'
+          isolation_status="$(curl --silent --output /tmp/project-isolation.json --write-out '%{http_code}' \
+            -H 'Authorization: Bearer dev:ci-author:author' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            "${base_url}/projects/${isolated_project_id}/requirements")"
+          test "${isolation_status}" = '403'
+          request GET 'dev:ci-author:author' "${base_url}/projects" > /tmp/author-projects.json
+          test "$(jq -r '.items | length' /tmp/author-projects.json)" -eq 1
+
+          request GET 'dev:ci-author:author' "${api_url}/${requirement_id}/revisions" \
+            > /tmp/agent-run-revisions.json
+          agent_output_revision_id="$(jq -r '.items[0].id' /tmp/agent-run-revisions.json)"
+          agent_runs_url="${base_url}/projects/${project_id}/agent-runs"
+          agent_run_body='{"external_run_id":"ci:agent-run:001","model":"ci-model","prompt":"Implement the controlled requirement and retain attributable evidence.","context":{"requirement_key":"CI-REQ-1"},"tool_calls":[{"tool":"openrm.requirements.get","status":"succeeded"}],"output":{"summary":"Controlled requirement implementation completed."},"outcome":"succeeded","started_at":"2026-11-14T12:00:00Z","completed_at":"2026-11-14T12:01:00Z","outputs":[{"relation":"updated","artifact_id":"'"${requirement_id}"'","artifact_revision_id":"'"${agent_output_revision_id}"'"},{"relation":"generated","external_system":"git","external_reference":"ci/agent-run-provenance","external_uri":"https://example.invalid/commits/ci-agent-run","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}'
+          request POST 'dev:ci-author:author' "${agent_runs_url}" "${agent_run_body}" \
+            'ci-agent-run-create-001' > /tmp/agent-run.json
+          agent_run_id="$(jq -r '.id' /tmp/agent-run.json)"
+          agent_run_output_id="$(jq -r '.outputs[0].id' /tmp/agent-run.json)"
+          test "$(jq -r '.signature_valid' /tmp/agent-run.json)" = 'true'
+          test "$(jq -r '.outputs | length' /tmp/agent-run.json)" -eq 2
+          test "$(jq -r '.outputs[] | select(.artifact_id != null) | .artifact_key' /tmp/agent-run.json)" = 'CI-REQ-1'
+          request POST 'dev:ci-author:author' "${agent_runs_url}" "${agent_run_body}" \
+            'ci-agent-run-create-001' > /tmp/agent-run-replay.json
+          test "$(jq -r '.id' /tmp/agent-run-replay.json)" = "${agent_run_id}"
+          request GET 'dev:ci-viewer:viewer' "${agent_runs_url}/${agent_run_id}" \
+            > /tmp/agent-run-read.json
+          test "$(jq -r '.signature_valid' /tmp/agent-run-read.json)" = 'true'
+          request GET 'dev:ci-viewer:viewer' "${agent_runs_url}?limit=10&offset=0" \
+            > /tmp/agent-run-list.json
+          test "$(jq -r '.total' /tmp/agent-run-list.json)" -eq 1
+          agent_secret_status="$(curl --silent --output /tmp/agent-run-secret.json --write-out '%{http_code}' \
+            -X POST -H 'Authorization: Bearer dev:ci-author:author' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            -H 'X-Idempotency-Key: ci-agent-run-secret-denied' -H 'Content-Type: application/json' \
+            --data '{"external_run_id":"ci:agent-run:secret","model":"ci-model","prompt":"Reject secrets.","context":{"access_token":"do-not-store"},"tool_calls":[],"output":{"summary":"denied"},"outcome":"failed","started_at":"2026-11-14T12:00:00Z","completed_at":"2026-11-14T12:01:00Z","outputs":[]}' \
+            "${agent_runs_url}")"
+          test "${agent_secret_status}" = '400'
+          agent_viewer_status="$(curl --silent --output /tmp/agent-run-viewer.json --write-out '%{http_code}' \
+            -X POST -H 'Authorization: Bearer dev:ci-viewer:viewer' \
+            -H "X-OpenRM-Organization: ${organization_id}" \
+            -H 'X-Idempotency-Key: ci-agent-run-viewer-denied' -H 'Content-Type: application/json' \
+            --data "${agent_run_body}" "${agent_runs_url}")"
+          test "${agent_viewer_status}" = '403'
+
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE audit_events SET event_type = 'tampered' WHERE aggregate_id = '${requirement_id}'"; then
+            echo 'Audit history accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE artifact_revisions SET title = 'tampered' WHERE artifact_id = '${requirement_id}'"; then
+            echo 'Revision history accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE relationship_revisions SET suspect = true WHERE relationship_id = '${relationship_id}'"; then
+            echo 'Relationship history accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE changesets SET message = 'tampered' WHERE id = '${changeset_1_id}'"; then
+            echo 'Changeset history accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE baselines SET name = 'tampered' WHERE id = '${baseline_1_id}'"; then
+            echo 'Baseline evidence accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE review_package_events SET rationale = 'tampered' WHERE review_id = '${review_id}'"; then
+            echo 'Review lifecycle evidence accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE review_participants SET role_label = 'tampered' WHERE review_id = '${review_id}'"; then
+            echo 'Review participant evidence accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE review_comments SET body = 'tampered' WHERE id = '${review_comment_id}'"; then
+            echo 'Review comment evidence accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE review_comment_resolutions SET resolution = 'tampered' WHERE id = '${review_resolution_id}'"; then
+            echo 'Review resolution evidence accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE review_decisions SET comment = 'tampered' WHERE id = '${review_decision_id}'"; then
+            echo 'Review decision evidence accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE verification_cases SET title = 'tampered' WHERE id = '${verification_case_id}'"; then
+            echo 'Verification case evidence accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE verification_case_targets SET artifact_key = 'tampered' WHERE id = '${verification_target_id}'"; then
+            echo 'Verification target evidence accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE verification_run_events SET note = 'tampered' WHERE run_id = '${verification_run_id}'"; then
+            echo 'Verification run history accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE verification_results SET notes = 'tampered' WHERE id = '${verification_result_id}'"; then
+            echo 'Verification result evidence accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE verification_attachments SET file_name = 'tampered' WHERE id = '${verification_attachment_id}'"; then
+            echo 'Verification attachment evidence accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE verification_due_events SET event_type = 'due_soon' WHERE id = '${verification_due_event_id}'"; then
+            echo 'Verification due-event evidence accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE agent_runs SET model = 'tampered' WHERE id = '${agent_run_id}'"; then
+            echo 'Agent run evidence accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE agent_run_outputs SET relation = 'referenced' WHERE id = '${agent_run_output_id}'"; then
+            echo 'Agent run output evidence accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE connector_configuration_events SET mode = 'disabled' WHERE connector_id = '${connector_id}'"; then
+            echo 'Connector configuration history accepted an update' >&2
+            exit 1
+          fi
+          if psql "${DATABASE_URL}" -c \
+            "UPDATE connector_delivery_attempts SET outcome = 'retry' WHERE delivery_id = '${connector_delivery_id}'"; then
+            echo 'Connector attempt history accepted an update' >&2
+            exit 1
+          fi
+          test "$(psql "${DATABASE_URL}" -tAc "SELECT count(*) FROM audit_events WHERE project_id = '${project_id}'")" -ge 10
+          node scripts/bootstrap-openrm-self-project.mjs --json
+
+  recovery-rehearsal:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: openrm
+          POSTGRES_USER: openrm
+          POSTGRES_PASSWORD: openrm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U openrm -d openrm"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      APP_ENV: test
+      AUTH_MODE: dev
+      DATABASE_URL: postgres://openrm:openrm@127.0.0.1:5432/openrm
+      RECOVERY_DATABASE_URL: postgres://openrm:openrm@127.0.0.1:5432/openrm_recovery
+      UPGRADE_DATABASE_URL: postgres://openrm:openrm@127.0.0.1:5432/openrm_recovery
+      POSTGRES_HOST_PORT: "5432"
+      EVIDENCE_SIGNING_KEY: ci-phase-5-recovery-signing-key
+      EVIDENCE_SIGNING_KEY_ID: ci-phase-5-recovery
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "OpenRM -> target"
+      - name: Prepare source and isolated recovery databases
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          cargo run -p openrm-api --bin migrate
+          docker exec "${POSTGRES_CONTAINER}" psql -U openrm -d postgres \
+            -v ON_ERROR_STOP=1 -c 'CREATE DATABASE openrm_recovery'
+      - name: Rehearse backup and restore
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: bash scripts/rehearse-recovery.sh
+      - name: Rehearse forward-only upgrade
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: bash scripts/rehearse-upgrade.sh
+
+  production-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Validate production topology
+        env:
+          OPENRM_DATABASE_URL: postgres://openrm:password@postgres:5432/openrm
+          OPENRM_OIDC_ISSUER: https://identity.example.invalid
+          OPENRM_OIDC_AUDIENCE: openrm
+          OPENRM_EVIDENCE_SIGNING_KEY: ci-artifact-validation-key-32-bytes-minimum
+          OPENRM_EVIDENCE_SIGNING_KEY_ID: ci-artifact
+          OPENRM_GRAFANA_ADMIN_PASSWORD: ci-grafana-placeholder
+          OPENRM_POSTGRES_PASSWORD_FILE: /tmp/openrm-postgres-password
+        run: |
+          printf '%s' 'ci-postgres-placeholder' > /tmp/openrm-postgres-password
+          docker compose -f deploy/compose.production.yaml config --quiet
+      - name: Build and smoke portable container stack
+        run: npm run check:containers

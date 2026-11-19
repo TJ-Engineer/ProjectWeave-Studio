@@ -1,276 +1,113 @@
-# Issue Tracker
+# ProjectWeave Studio
 
-A lightweight, web-based issue tracking system built with Flask and SQLite. Perfect for managing bugs, features, and tasks across multiple projects.
+ProjectWeave Studio is a self-hostable software-factory suite maintained in one
+Git repository. It contains three independently deployable applications:
 
-## 🚀 Features
+| Application    | Path                                   | Responsibility                                                                    |
+| -------------- | -------------------------------------- | --------------------------------------------------------------------------------- |
+| OpenConfluence | [`OpenConfluence/`](./OpenConfluence/) | Team knowledge, spaces, pages, drafts, publication, and content governance        |
+| OpenJira       | [`OpenJira/`](./OpenJira/)             | Project, issue, workflow, board, and delivery management                          |
+| OpenRM         | [`OpenRM/`](./OpenRM/)                 | Requirements, traceability, controlled change, reviews, and verification evidence |
 
-- ✅ Full CRUD operations for issues
-- 🔍 Advanced filtering (status, priority, project, assignee)
-- 📊 Statistics and dashboard data
-- 🏷️ Tag support for categorization
-- 📁 Multi-project support
-- 🔄 RESTful API
-- 🐳 Docker deployment
+Each application owns its implementation, documentation, runtime configuration,
+database schema, and forward-only migrations. Applications integrate through
+authenticated REST APIs and durable events; they do not query one another's
+databases.
 
-## 🏗️ Architecture
+## Repository layout
 
-**Backend Stack:**
-- Flask (Python web framework)
-- SQLAlchemy (ORM)
-- SQLite (Database)
-- Flask-CORS (Cross-origin support)
-
-**Deployment:**
-- Docker + Docker Compose
-
-## 📋 Database Schema
-
-```sql
-CREATE TABLE issues (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    description TEXT,
-    priority TEXT NOT NULL,        -- CRITICAL, HIGH, MEDIUM, LOW
-    status TEXT NOT NULL,           -- OPEN, IN_PROGRESS, RESOLVED, CLOSED
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    assigned_to TEXT,
-    tags TEXT,                      -- JSON array
-    project TEXT DEFAULT 'VectorIQ'
-);
+```text
+ProjectWeave-Studio/
+├── OpenConfluence/       # Knowledge workspace
+├── OpenJira/             # Delivery and issue management
+├── OpenRM/               # Requirements and verification management
+├── docs/                 # Suite-level architecture and workflows
+├── .github/workflows/    # Monorepo CI entry points
+├── .agents/              # Shared agent skills
+├── AGENTS.md             # Repository-wide agent guidance
+└── GLOSSARY.md           # Shared domain language
 ```
 
-## 🔌 API Endpoints
+Application-specific documentation remains with the application:
 
-### Issues
+- [OpenConfluence documentation](./OpenConfluence/docs/)
+- [OpenJira documentation](./OpenJira/docs/)
+- [OpenRM documentation](./OpenRM/docs/)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/issues` | List all issues (with filtering) |
-| GET | `/api/issues/:id` | Get single issue |
-| POST | `/api/issues` | Create new issue |
-| PUT | `/api/issues/:id` | Update issue |
-| DELETE | `/api/issues/:id` | Delete issue |
-| PATCH | `/api/issues/:id/status` | Update status only |
+## Development
 
-### Statistics & Info
+Enter the application directory before installing dependencies or running its
+commands. Do not install application dependencies at the repository root.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/issues/stats` | Get issue statistics |
-| GET | `/api/projects` | List all projects |
-| GET | `/api/health` | Health check |
+### OpenConfluence
 
-### Query Parameters
-
-**Filtering:**
-- `status` - Filter by status (OPEN, IN_PROGRESS, RESOLVED, CLOSED)
-- `priority` - Filter by priority (CRITICAL, HIGH, MEDIUM, LOW)
-- `project` - Filter by project name
-- `assigned_to` - Filter by assignee
-
-**Sorting:**
-- `sort_by` - Field to sort by (default: created_at)
-- `sort_order` - Sort order: asc or desc (default: desc)
-
-**Pagination:**
-- `page` - Page number (default: 1)
-- `per_page` - Items per page (default: 100)
-
-## 🚀 Quick Start
-
-### Using Docker (Recommended)
-
-```bash
-# Build and start
-docker-compose up -d
-
-# View logs
-docker-compose logs -f backend
-
-# Stop
-docker-compose down
+```sh
+cd OpenConfluence
+npm install
+npm run check
 ```
 
-The API will be available at `http://localhost:3002`
+See the [OpenConfluence README](./OpenConfluence/README.md) for database,
+container, and integration-test setup.
 
-### Manual Setup
+### OpenJira
 
-```bash
-# Navigate to backend
-cd backend
-
-# Create virtual environment
-python -m venv venv
-venv\Scripts\activate  # Windows
-source venv/bin/activate  # Linux/Mac
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the app
-python app.py
+```sh
+cd OpenJira
+npm install
+npm run check
 ```
 
-The API will be available at `http://localhost:5001`
+See the [OpenJira README](./OpenJira/README.md) for database, object-storage,
+container, browser-test, and software-factory agent setup.
 
-## 📝 Usage Examples
+### OpenRM
 
-### Create an Issue
-
-```bash
-curl -X POST http://localhost:3001/api/issues \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Fix login bug",
-    "description": "Users cannot log in with special characters",
-    "priority": "HIGH",
-    "status": "OPEN",
-    "project": "WebApp",
-    "assigned_to": "John",
-    "tags": ["bug", "security"]
-  }'
+```sh
+cd OpenRM
+npm install
+npm run check
+cargo test --workspace --all-targets
 ```
 
-### Get All Issues
+See the [OpenRM README](./OpenRM/README.md) for Rust, PostgreSQL, container,
+recovery, and deployment setup.
 
-```bash
-curl http://localhost:3001/api/issues
+## Software-factory integration
+
+OpenJira provides the bounded REST client used by development agents to call
+OpenJira and OpenRM. Configure credentials in the agent runtime's secret
+manager or the Git-ignored `OpenJira/.env.local`, then run commands from
+`OpenJira/`:
+
+```sh
+npm run factory:api -- jira GET /api/v1/projects
+npm run factory:api -- openrm GET /api/v1/projects
 ```
 
-### Filter Issues
+See the [OpenJira agent REST guide](./OpenJira/docs/agent-rest-api.md) and the
+[OpenRM agent REST guide](./OpenRM/docs/operations/AGENT_REST_API.md) for the
+trust model, token lifecycle, and controlled workflow.
 
-```bash
-# Get all open high-priority issues
-curl "http://localhost:3001/api/issues?status=OPEN&priority=HIGH"
+## Data ownership
 
-# Get all issues for VectorIQ project
-curl "http://localhost:3001/api/issues?project=VectorIQ"
-```
+- OpenConfluence owns its knowledge database and migrations.
+- OpenJira owns its issue-management database and migrations.
+- OpenRM owns its requirements database and migrations.
+- Test databases must be isolated from development and production data.
+- Shared database documentation may describe conventions, but shared tables or
+  cross-application database access are not permitted.
 
-### Update Issue Status
+## Repository rules
 
-```bash
-curl -X PATCH http://localhost:3001/api/issues/1/status \
-  -H "Content-Type: application/json" \
-  -d '{"status": "IN_PROGRESS"}'
-```
+- Keep secrets, `.env` files, dependency directories, test output, and generated
+  runtime data out of Git.
+- Put product-specific code and documentation inside its application directory.
+- Put only suite-wide guidance, CI, orchestration, and proven shared assets at
+  the repository root.
+- Preserve application boundaries when introducing shared libraries; do not
+  centralize domain logic or database ownership merely to remove duplication.
 
-### Get Statistics
-
-```bash
-curl http://localhost:3001/api/issues/stats
-```
-
-## 🗄️ Database Seeding
-
-To populate the database with sample issues:
-
-```bash
-# Inside the backend container
-docker-compose exec backend python seed_data.py
-
-# Or manually
-cd backend
-python seed_data.py
-```
-
-## 📂 Project Structure
-
-```
-IssueTracker/
-├── backend/
-│   ├── app.py              # Flask application
-│   ├── models.py           # SQLAlchemy models
-│   ├── seed_data.py        # Database seeding
-│   ├── requirements.txt    # Python dependencies
-│   └── Dockerfile          # Docker configuration
-├── docker-compose.yml      # Docker Compose config
-├── .gitignore
-└── README.md
-```
-
-## 🔧 Configuration
-
-The application uses the following default configuration:
-
-- **Port**: 3001 (mapped from container port 5000) for frontend (dev value), backend mapped to 5001
-- **Database**: SQLite (stored in Docker volume `issue-data`)
-- **CORS**: Enabled for all origins (development mode)
-
-## 🛠️ Development
-
-### Rebuilding the Container
-
-```bash
-docker-compose build backend
-docker-compose up -d
-```
-
-### Accessing the Database
-
-The SQLite database is persisted in a Docker volume. To access it:
-
-```bash
-docker-compose exec backend sh
-cd instance
-sqlite3 issues.db
-```
-
-## 📊 Response Formats
-
-### Issue Object
-
-```json
-{
-  "id": 1,
-  "title": "Fix deinterleaver",
-  "description": "Separate SA-10 and Marine signals",
-  "priority": "CRITICAL",
-  "status": "IN_PROGRESS",
-  "created_at": "2025-11-28T15:00:00",
-  "updated_at": "2025-11-28T15:30:00",
-  "assigned_to": "Claude",
-  "tags": ["deinterleaver", "TIC"],
-  "project": "VectorIQ"
-}
-```
-
-### Statistics Response
-
-```json
-{
-  "total": 10,
-  "by_status": {
-    "OPEN": 5,
-    "IN_PROGRESS": 3,
-    "RESOLVED": 1,
-    "CLOSED": 1
-  },
-  "by_priority": {
-    "CRITICAL": 2,
-    "HIGH": 3,
-    "MEDIUM": 4,
-    "LOW": 1
-  },
-  "projects": ["VectorIQ", "IssueTracker"]
-}
-```
-
-## 🎯 Roadmap
-
-- [ ] React frontend (Day 2)
-- [ ] Advanced search
-- [ ] Comments/discussion threads
-- [ ] File attachments
-- [ ] Email notifications
-- [ ] User authentication
-- [ ] Activity timeline
-
-## 📄 License
-
-MIT
-
-## 👤 Author
-
-Created for VectorIQ project management
+See [`AGENTS.md`](./AGENTS.md) for repository-wide development and validation
+rules and [`docs/workflows/grill-with-docs.md`](./docs/workflows/grill-with-docs.md)
+for the documented requirements-to-delivery workflow.

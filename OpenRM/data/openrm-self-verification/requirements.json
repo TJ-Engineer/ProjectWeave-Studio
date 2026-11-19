@@ -194,7 +194,7 @@
         "src/main.tsx",
         "src/integrations/IntegrationWorkspace.tsx",
         "src/styles.css",
-        "dist/index.html",
+        "index.html",
         "docs/operations/ADMINISTRATION_GUIDE.md",
         "docs/operations/OPERATOR_RUNBOOK.md",
         "docs/operations/PILOT_ONBOARDING.md",

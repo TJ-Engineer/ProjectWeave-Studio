@@ -1,0 +1,63 @@
+{
+  "name": "openrm-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "overrides": {
+    "minimatch": "^11.0.1"
+  },
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:chromium": "playwright test --project=chromium",
+    "test:e2e:container": "playwright test --config playwright.container.config.ts",
+    "test:load": "node scripts/load-test.mjs --requests 500 --concurrency 20 --p95 250 --error-rate 0.01",
+    "test:soak": "node scripts/load-test.mjs --requests 1000000 --duration 30 --concurrency 10 --p95 250 --error-rate 0.01",
+    "check:containers": "bash scripts/check-container-stack.sh",
+    "check:local": "bash scripts/check-local-stack.sh",
+    "local:up": "docker compose up --build --detach",
+    "local:down": "docker compose down",
+    "regress:local": "npm run local:up && npm run check:local && npm run test:e2e:container && npm run test:e2e:chromium",
+    "check:self-project": "node scripts/bootstrap-openrm-self-project.mjs --validate-only",
+    "bootstrap:self-project": "node scripts/bootstrap-openrm-self-project.mjs",
+    "generate:api": "openapi-typescript contracts/openapi.yaml -o src/api/generated.ts",
+    "check:generated": "npm run generate:api && git diff --exit-code -- src/api/generated.ts",
+    "check": "npm run generate:api && npm run check:self-project && npm run lint && npm run typecheck && npm run test && npm run build",
+    "preview": "vite preview --host 0.0.0.0",
+    "bootstrap": "bash scripts/dev-bootstrap.sh",
+    "check:foundation": "bash scripts/check-foundation.sh",
+    "provision:aws": "bash scripts/provision-aws.sh",
+    "deploy:aws": "bash scripts/deploy-aws.sh"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "openapi-fetch": "^0.17.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^5.1.0",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.14.0",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1",
+    "vite": "^6.0.5",
+    "vitest": "^5.1.0"
+  }
+}

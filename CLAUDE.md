@@ -1,88 +1,90 @@
-# ProjectWeave — instructions for agents
+# ProjectWeave Studio — instructions for agents
 
-ProjectWeave is a self-hostable project and issue management application with a Kanban-first workflow.
+ProjectWeave Studio is a self-hostable software-factory suite maintained in a
+single Git repository. The active applications are:
+
+- `OpenConfluence/` — knowledge spaces, pages, publication, and governance;
+- `OpenJira/` — projects, issues, workflows, boards, and delivery tracking;
+- `OpenRM/` — requirements, traceability, controlled change, reviews, and
+  verification evidence.
+
+Follow [`AGENTS.md`](./AGENTS.md) for the repository-wide rules. When an
+application contains a more specific `AGENTS.md`, follow it for work in that
+application.
 
 ## Start every session here
 
-1. Read `vibe-jira/DEVELOPMENT_STORYBOARD.md` for current status, upcoming work, release gates, and known risks.
-2. Read the relevant section of `vibe-jira/IMPLEMENTATION_PLAN.md` before changing product behavior or architecture.
-3. Use `vibe-jira/README.md` and the documentation under `vibe-jira/docs/` for setup, operations, security, accessibility, and API details.
-4. Inspect the existing implementation and tests before making changes. Preserve established patterns unless the task requires changing them.
+1. Identify the application or suite-level boundary affected by the task.
+2. Read the target application's `README.md`, development storyboard or
+   dashboard, implementation plan, and relevant documentation.
+3. Inspect the existing implementation and tests before changing behavior or
+   architecture.
+4. Preserve unrelated working-tree changes and do not create commits unless the
+   user requests one.
 
-## Source of truth
+## Application boundaries
 
-- `vibe-jira/` is the active application.
-- The repository-level `backend/` and `frontend/` directories are disposable prototypes and are not dependencies of the active application.
-- Keep implementation status and planning documents accurate when work changes their claims.
-- Do not claim that a release gate is complete without corresponding automated or documented manual evidence.
-
-## Architecture and implementation
-
-- Use TypeScript in strict mode for application code.
-- Keep shared contracts and domain rules in the appropriate workspace package instead of duplicating them in UI and route handlers.
-- Validate all untrusted input at runtime; TypeScript types are not runtime validation.
-- Enforce authorization, tenant scope, workflow rules, and data integrity on the server. Hiding a UI control is not authorization.
-- Keep database changes explicit and forward-only through numbered SQL migrations.
-- Preserve optimistic-concurrency, idempotency, audit, history, and outbox behavior on mutation paths that already support them.
-- Keep attachments outside the database and permission-check access before issuing download URLs.
-- Avoid adding a new service or dependency when the existing architecture can solve the problem cleanly.
-
-## Reliability and security
-
-- Handle expected failures explicitly and return stable, useful errors.
-- Never expose credentials, session secrets, invitation tokens, signed URLs, or sensitive user data in logs or committed files.
-- Do not trust client-supplied roles, organization IDs, project IDs, ranks, workflow state, or ownership claims.
-- Keep multi-step writes atomic when partial completion would corrupt state or lose audit evidence.
-- Preserve last-administrator, active-assignment, hierarchy, and cross-project safeguards.
-- Add a regression test for every bug fix when practical.
-
-## User experience
-
-- Maintain keyboard, pointer, and touch support for primary workflows.
-- Preserve accessible names, focus behavior, semantic structure, and non-drag alternatives for board movement.
-- Keep large collections paginated or bounded; do not render unbounded issue sets in the browser.
-- Sanitize user-authored content before rendering it.
-- Follow the existing design system and interaction patterns.
-
-## Assets and third-party material
-
-- Add only original assets or assets whose licenses permit use and redistribution in this repository.
-- Do not copy another product's proprietary icons, artwork, themes, templates, screenshots, or distinctive interface styling.
-- Record required attribution and license information when adding third-party material.
+- Each application owns its source, domain model, API, runtime configuration,
+  database schema, migrations, and product documentation.
+- Applications integrate through authenticated REST APIs or durable events.
+  They must not read or write another application's database directly.
+- Shared identity claims or root packages must remain provider-neutral and must
+  not collapse application authorization boundaries.
+- Root-level content is reserved for suite-wide documentation, agent guidance,
+  CI, orchestration, and proven shared assets.
 
 ## Validation
 
-Run the checks relevant to the change from `vibe-jira/`. The full application gate is:
+Run commands from the application being changed.
+
+### OpenConfluence
 
 ```sh
+cd OpenConfluence
 npm run check
+TEST_DATABASE_URL=postgres://knowledge:knowledge@localhost:5433/knowledge_test npm run test:integration
 ```
 
-Additional checks include:
+### OpenJira
 
 ```sh
-npm run test:integration
-npm run test:e2e
-npm run test:load
+cd OpenJira
+npm run check
 docker compose --profile test run --rm test
-infra/operations/recovery-drill.sh
+npm run test:e2e
 ```
 
-- Use the smallest relevant check while iterating, then run the broader gate appropriate to the risk of the change.
-- Integration tests must run only against a database whose name ends in `_test`.
-- For UI changes, inspect the rendered result at desktop and responsive widths and exercise keyboard interaction.
-- Do not weaken or remove tests merely to make a change pass.
+### OpenRM
+
+```sh
+cd OpenRM
+npm run check
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets
+```
+
+Use an isolated database whose name ends in `_test` for integration tests.
+Never weaken or remove a quality gate merely to make a change pass.
+
+## Security and reliability
+
+- Never commit credentials, local environment files, dependency directories,
+  generated runtime data, or private evidence.
+- Validate untrusted input at runtime and enforce authorization, tenant scope,
+  workflow rules, and data integrity on the server.
+- Preserve optimistic concurrency, idempotency, audit, history, and outbox
+  behavior where already supported.
+- Carry correlation IDs through cross-application agent operations so audit
+  evidence can be reconciled.
 
 ## Documentation
 
-- Update API documentation and regenerate `docs/openapi.json` when endpoint contracts change.
-- Update operator or user documentation when setup, configuration, permissions, workflows, or recovery behavior changes.
-- Record consequential architectural decisions under `vibe-jira/docs/decisions/`.
-- Keep `vibe-jira/DEVELOPMENT_STORYBOARD.md` aligned with the implementation and verified evidence.
-
-## Working practices
-
-- Keep changes focused on the requested task and preserve unrelated user work.
-- Never commit secrets, local environment files, generated runtime data, or dependency directories.
-- Prefer non-destructive commands and inspect targets before deleting or overwriting files.
-- Do not create commits unless the user asks for one.
+- Keep suite-level links and commands aligned with the canonical
+  `OpenConfluence/`, `OpenJira/`, and `OpenRM/` paths.
+- Keep application-specific implementation and operational documentation with
+  its owning application.
+- Update API contracts, generated references, storyboards, and evidence claims
+  when a change affects them.
+- Record consequential architectural decisions in the owning application's ADR
+  or decision directory.

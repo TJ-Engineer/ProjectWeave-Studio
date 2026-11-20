@@ -1,0 +1,50 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request rate",
+      "type": "timeseries",
+      "targets": [{ "expr": "rate(openrm_http_requests_total[5m])", "legendFormat": "requests/s" }],
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "Server error ratio",
+      "type": "timeseries",
+      "targets": [{ "expr": "rate(openrm_http_server_errors_total[5m]) / clamp_min(rate(openrm_http_requests_total[5m]), 0.001)", "legendFormat": "5xx ratio" }],
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 }
+    },
+    {
+      "id": 3,
+      "title": "p95 request latency",
+      "type": "timeseries",
+      "targets": [{ "expr": "histogram_quantile(0.95, rate(openrm_http_request_duration_seconds_bucket[5m]))", "legendFormat": "p95" }],
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 }
+    },
+    {
+      "id": 4,
+      "title": "Connector queue",
+      "type": "timeseries",
+      "targets": [{ "expr": "openrm_connector_deliveries", "legendFormat": "{{status}}" }],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "id": 5,
+      "title": "Transactional outbox pending",
+      "type": "stat",
+      "targets": [{ "expr": "openrm_outbox_pending", "legendFormat": "pending" }],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 41,
+  "tags": ["openrm", "pilot"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "browser",
+  "title": "OpenRM pilot operations",
+  "uid": "openrm-operations",
+  "version": 1
+}

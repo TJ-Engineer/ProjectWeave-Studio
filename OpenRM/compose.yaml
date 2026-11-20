@@ -1,0 +1,155 @@
+name: openrm
+
+x-api-environment: &api-environment
+  APP_ENV: development
+  AUTH_MODE: dev
+  API_BIND_ADDRESS: 0.0.0.0:8080
+  DATABASE_URL: postgres://${OPENRM_POSTGRES_USER:-openrm}:${OPENRM_POSTGRES_PASSWORD:-openrm}@postgres:5432/${OPENRM_POSTGRES_DB:-openrm}
+  RUN_MIGRATIONS: "false"
+  EVIDENCE_SIGNING_KEY: ${OPENRM_EVIDENCE_SIGNING_KEY:-openrm-portable-development-evidence-key}
+  EVIDENCE_SIGNING_KEY_ID: ${OPENRM_EVIDENCE_SIGNING_KEY_ID:-portable-development}
+  EVIDENCE_VERIFICATION_KEYS: ${OPENRM_EVIDENCE_VERIFICATION_KEYS:-}
+  JIRA_API_TOKEN: ${OPENRM_JIRA_API_TOKEN:-}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OPENRM_OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  OBJECT_STORAGE_BUCKET: ${OPENRM_OBJECT_STORAGE_BUCKET:-openrm-controlled-objects}
+  OBJECT_STORAGE_REGION: ${OPENRM_OBJECT_STORAGE_REGION:-us-east-2}
+  OBJECT_STORAGE_ENDPOINT: http://object-storage:4566
+  OBJECT_STORAGE_FORCE_PATH_STYLE: "true"
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+  AWS_EC2_METADATA_DISABLED: "true"
+  RUST_LOG: ${OPENRM_RUST_LOG:-openrm_api=info,tower_http=info}
+
+services:
+  object-storage:
+    image: localstack/localstack:4.12.0
+    restart: unless-stopped
+    environment:
+      SERVICES: s3
+      PERSISTENCE: "1"
+      AWS_DEFAULT_REGION: ${OPENRM_OBJECT_STORAGE_REGION:-us-east-2}
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      OBJECT_STORAGE_BUCKET: ${OPENRM_OBJECT_STORAGE_BUCKET:-openrm-controlled-objects}
+    ports:
+      - "${OPENRM_OBJECT_STORAGE_BIND_ADDRESS:-127.0.0.1}:${OPENRM_OBJECT_STORAGE_PORT:-4566}:4566"
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal s3api head-bucket --bucket \"$${OBJECT_STORAGE_BUCKET}\" >/dev/null 2>&1"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - openrm-objects:/var/lib/localstack
+      - ./deploy/localstack/init-s3.sh:/etc/localstack/init/ready.d/init-s3.sh:ro
+    security_opt: ["no-new-privileges:true"]
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${OPENRM_POSTGRES_DB:-openrm}
+      POSTGRES_USER: ${OPENRM_POSTGRES_USER:-openrm}
+      POSTGRES_PASSWORD: ${OPENRM_POSTGRES_PASSWORD:-openrm}
+    ports:
+      - "${OPENRM_POSTGRES_BIND_ADDRESS:-127.0.0.1}:${OPENRM_POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - openrm-postgres:/var/lib/postgresql/data
+    security_opt: ["no-new-privileges:true"]
+
+  migrate:
+    build:
+      context: .
+      dockerfile: deploy/openrm-api.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: *api-environment
+    entrypoint: ["/usr/local/bin/openrm-migrate"]
+    restart: "no"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/openrm-api.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      object-storage:
+        condition: service_healthy
+    environment: *api-environment
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  bootstrap:
+    build:
+      context: .
+      dockerfile: deploy/openrm-tools.Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      OPENRM_API_BASE_URL: http://api:8080
+      OPENRM_REPOSITORY_URL: ${OPENRM_REPOSITORY_URL:-https://github.com/TJ-Engineer/ProjectWeave-Studio}
+      OPENRM_EVIDENCE_REF: ${OPENRM_EVIDENCE_REF:-main}
+      OPENRM_SELF_EVIDENCE_RUN_URL: ${OPENRM_SELF_EVIDENCE_RUN_URL:-containerized-portable-stack}
+    restart: "no"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/openrm-web.Dockerfile
+      args:
+        VITE_API_BASE_URL: /
+    restart: unless-stopped
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    environment:
+      OPENRM_AUTH_MODE: development
+      OPENRM_API_BASE_URL: /
+      OPENRM_ORGANIZATION_ID: 00000000-0000-4000-8000-000000000002
+      OPENRM_PROJECT_ID: 00000000-0000-4000-8000-000000000102
+      OPENRM_PROJECT_KEY: OPENRM
+      OPENRM_PROJECT_NAME: OpenRM
+    ports:
+      - "${OPENRM_BIND_ADDRESS:-127.0.0.1}:${OPENRM_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/container-health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  openrm-objects:
+  openrm-postgres:
+

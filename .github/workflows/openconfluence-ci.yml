@@ -1,0 +1,69 @@
+name: OpenConfluence CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "OpenConfluence/**"
+      - ".github/workflows/openconfluence-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "OpenConfluence/**"
+      - ".github/workflows/openconfluence-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openconfluence-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: OpenConfluence
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: OpenConfluence/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm audit --audit-level=high
+
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: knowledge_test
+          POSTGRES_USER: knowledge
+          POSTGRES_PASSWORD: knowledge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U knowledge -d knowledge_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://knowledge:knowledge@127.0.0.1:5432/knowledge_test
+      TEST_DATABASE_URL: postgres://knowledge:knowledge@127.0.0.1:5432/knowledge_test
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: OpenConfluence/package-lock.json
+      - run: npm ci
+      - run: npm run db:migrate
+      - run: npm run test:integration
+      - run: npm run test:load

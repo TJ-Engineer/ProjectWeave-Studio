@@ -85,6 +85,7 @@ Required capabilities:
 
 ### Release 2 — Team planning
 
+- Story Completion Actions (COAs): an ordered checklist on each Story, one generated Task per COA, and a server-enforced requirement that all COAs be complete before the Story enters a Done-category status
 - Sprints and Scrum board mode
 - Versions/releases and milestones
 - Components and ownership rules
@@ -177,6 +178,27 @@ Board acceptance criteria:
 - Soft delete with administrative restoration; permanent deletion is restricted.
 - Immutable event log for creation, field changes, transitions, comments, and attachment actions.
 - Attachments stored outside the database using signed access URLs.
+
+Story Completion Actions (COAs) are the first Release 2 issue-planning slice:
+
+- A COA is an ordered, Story-owned checklist item with a Task-compatible summary of at most 200 characters. Only Story issues can own COAs, each Story is limited to 50 active COAs, and a Story with no COAs can complete normally.
+- Creating a COA atomically creates exactly one normal, board-visible Task in the same project and records a dedicated one-to-one COA link. The link does not use `parent_id`, so the existing Epic → Story/Task/Bug → Subtask hierarchy remains unchanged. When the Story belongs to an Epic, the generated Task belongs to that same Epic.
+- The Story create/edit form presents COAs as a labeled group of checkbox tasks with controls to add, rename, reorder, and remove entries. Every operation has a keyboard-accessible path and remains usable at narrow viewport widths.
+- A COA is checked exactly when its generated Task is in a Done-category status. Checking or unchecking uses an allowed workflow transition for the Task and never bypasses workflow, authorization, or optimistic-concurrency rules. If no direct transition exists, the server returns a stable error and the Task can be advanced through the board; board changes update the Story checklist through the canonical read model and realtime invalidation.
+- Every path that would move a Story into any Done-category status, including ordinary transitions and administrative status migration, must reject the write when an active COA Task is not Done. Symmetrically, no transition, status migration, or workflow-category edit may make an active COA Task incomplete while its owning Story remains Done. The stable error identifies the affected Story and Task keys without performing a partial write.
+- A Story with active COAs cannot change to another issue type. An active generated COA Task cannot be type-changed, reparented, or independently deleted; COA rename, removal, and Story Epic changes update the linked Task atomically through the COA service. Adding, removing, or unchecking a COA on a Done Story requires reopening the Story first. Story soft delete and restore handle the COAs and generated Tasks as one versioned lifecycle operation.
+- COA creation, edits, checkbox transitions, and removal are tenant- and project-scoped, versioned, and recorded in issue history, audit, and outbox evidence. Removing a COA preserves its history and soft-deletes its generated Task atomically rather than erasing either record.
+
+COA acceptance criteria:
+
+- Creating a Story with three COAs produces three distinct linked Tasks exactly once; refresh and idempotent replay do not duplicate them.
+- The Story form and each generated Task show consistent completion state after checkbox changes, board transitions, refresh, and concurrent edits.
+- A Story with at least one incomplete COA cannot enter a Done-category status through the API, board, keyboard controls, or workflow migration; no rank, version, history, audit, or outbox write partially commits.
+- A generated Task cannot leave a Done-category status through a transition, workflow migration, or category edit while its Story remains Done; reopening the Story first makes an otherwise valid Task transition available.
+- Type changes, Epic changes, COA removal, and Story delete/restore preserve the one-to-one link and cannot orphan or silently detach a generated Task.
+- Once every active COA Task is Done, an otherwise valid Story completion transition succeeds and remains complete after refresh.
+- Members and administrators with the corresponding existing issue create/edit/delete/transition capabilities can perform COA actions; viewers cannot mutate COAs or generated Tasks.
+- PostgreSQL integration and browser tests cover tenant isolation, idempotency, stale versions, configured workflows, keyboard operation, responsive layout, and serious/critical accessibility findings.
 
 ### 5.3 Workflows
 
@@ -362,6 +384,7 @@ Every tenant-owned table should carry `organization_id`, even if Release 1 runs 
 | ProjectMember | project_id, user_id/team_id, role |
 | IssueType | id, project/template scope, name, hierarchy_level |
 | Issue | id, project_id, number, type_id, status_id, summary, description, priority, reporter_id, assignee_id, parent_id, rank, version, timestamps |
+| CompletionAction | id, organization_id, project_id, story_issue_id, task_issue_id, summary, position, version, removed_at, timestamps; one-to-one link between a Story checklist item and its generated Task |
 | Workflow | id, project/template scope, name, version, active |
 | Status | id, workflow_id, name, category, position |
 | Transition | id, workflow_id, from_status_id, to_status_id, name |
@@ -386,6 +409,9 @@ Important constraints:
 - Self-parenting and cyclic parent relationships are forbidden.
 - Status must belong to the project's active workflow.
 - Rank updates and status transitions occur in one transaction.
+- Each active Completion Action belongs to one Story and one same-project Task; a Task can back at most one COA.
+- A Story may enter a Done-category status only when every active linked COA Task is already in a Done-category status.
+- An active COA Task may leave a Done-category status only when its owning Story is not in a Done-category status.
 - User deactivation never removes historical attribution.
 
 ## 9. API surface
@@ -398,6 +424,8 @@ Representative endpoints:
 - `GET /api/v1/projects/{projectKey}`
 - `GET|POST /api/v1/projects/{projectKey}/issues`
 - `GET|PATCH /api/v1/issues/{issueKey}`
+- `GET|POST /api/v1/issues/{issueKey}/completion-actions`
+- `PATCH|DELETE /api/v1/issues/{issueKey}/completion-actions/{completionActionId}`
 - `POST /api/v1/issues/{issueKey}/transitions`
 - `GET|POST /api/v1/issues/{issueKey}/comments`
 - `POST /api/v1/issues/{issueKey}/attachments`
@@ -446,6 +474,7 @@ Key UI components:
 - Issue card with compact, configurable metadata
 - Issue create dialog optimized for keyboard entry
 - Issue detail drawer that keeps the underlying board state and URL synchronized
+- Story COA checklist/editor with generated-Task links, progress summary, and keyboard-operable checkbox controls
 - Activity timeline and comment composer
 - Workflow editor with safeguards around active data
 - Filter builder with a readable query summary
@@ -604,7 +633,18 @@ Estimates assume a small team using AI-assisted development with active human re
 - Bug burn-down and release candidate validation
 - Deliver: Release 1
 
-Likely total: 10–11 weeks for a small experienced team. A solo AI-assisted builder should plan by feature gates rather than calendar time and expect integration/polish to take at least as much effort as initial code generation.
+### Phase 6 — Story completion actions (accepted 2026-11-20; planned effort 1–2 weeks)
+
+Status: complete. Migration `0024`, the shared contracts/domain and repository/API/UI paths, documentation, 67 unit tests, 26 isolated PostgreSQL integration tests, and the focused production-build Chrome/Axe/320px journey satisfy this phase's acceptance criteria. The published Release 1 `v0.1.0` artifact remains unchanged.
+
+- Add the Story-owned COA model and one-to-one generated Task relationship through a forward-only migration
+- Extend shared contracts, issue reads, create/edit flows, and activity evidence without weakening the existing issue hierarchy
+- Add the accessible checkbox group and generated-Task links to Story create/detail/edit forms
+- Enforce the bidirectional Story/COA completion invariant across transitions, workflow migrations, and status-category edits
+- Prove idempotency, concurrency, authorization, tenant scope, workflow compatibility, realtime refresh, responsive behavior, and accessibility
+- Deliver: a Story can be planned as actionable Tasks and cannot be completed while any COA remains open
+
+Release 1 likely total: 10–11 weeks for a small experienced team; the Phase 6 estimate is additional. A solo AI-assisted builder should plan by feature gates rather than calendar time and expect integration/polish to take at least as much effort as initial code generation.
 
 ## 15. Epic backlog for Release 1
 
@@ -620,6 +660,12 @@ Likely total: 10–11 weeks for a small experienced team. A solo AI-assisted bui
 | E8 Administration | Admins can operate the installation | Users/projects/audit/import/export function under RBAC |
 | E9 Reporting | Leads can inspect delivery flow | Metrics reproduce known fixture calculations |
 | E10 Production readiness | System can be safely launched | Security, load, accessibility, backup, and recovery gates pass |
+
+### Release 2 accepted slice
+
+| Epic | Status | Outcome | Exit evidence |
+|---|---|---|---|
+| E3 Projects and issues — `ISS-08` | `DONE` | Stories expose actionable COA checklists backed by generated Tasks | Migration `0024`; 67 unit and 26 PostgreSQL integration tests; focused production-build Chrome/Axe/320px journey |
 
 ## 16. Vibe-coding execution protocol
 
@@ -680,6 +726,7 @@ Human review is mandatory for:
 | Realtime creates duplicate or stale UI | Idempotent events, canonical API response, version comparison, refetch fallback |
 | Permissions leak data through search/reports | Apply tenant/project scope before filters and aggregation; adversarial tests |
 | Custom fields destabilize the schema | Defer to Release 2; design a typed field-value model before implementation |
+| COA checkboxes and generated Tasks drift apart or permit completion bypass | Keep Task Done-category status authoritative, store a unique one-to-one link, and enforce the Story completion invariant in shared server mutation paths with concurrency and migration tests |
 | Reporting definitions are disputed | Publish metric definitions and test with dated transition fixtures |
 | AI-generated code increases inconsistency | Architecture boundaries, small stories, quality gates, diff review, ADRs |
 | Imports corrupt or partially duplicate data | Dry run, validation report, idempotency keys, transaction boundaries, rollback plan |

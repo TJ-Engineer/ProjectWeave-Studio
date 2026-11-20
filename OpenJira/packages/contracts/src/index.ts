@@ -75,6 +75,12 @@ export const dueDateSchema = z
 
 export const estimatePointsSchema = z.number().int().min(0).max(1_000_000);
 
+export const completionActionSummarySchema = z.string().trim().min(1).max(200);
+
+export const completionActionListSchema = z
+  .array(completionActionSummarySchema)
+  .max(50);
+
 export const labelListSchema = z
   .array(labelSchema)
   .max(20)
@@ -102,17 +108,74 @@ export const createProjectSchema = z.object({
   template: projectTemplateSchema.optional().default("FIVE_STATUS"),
 });
 
-export const createIssueSchema = z.object({
-  summary: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(20_000).optional().default(""),
-  priority: prioritySchema.optional().default("MEDIUM"),
-  issueType: issueTypeSchema.optional().default("TASK"),
-  assigneeId: z.uuid().nullable().optional().default(null),
-  labels: labelListSchema.optional().default([]),
-  parentIssueKey: issueKeySchema.nullable().optional().default(null),
-  estimatePoints: estimatePointsSchema.nullable().optional().default(null),
-  dueDate: dueDateSchema.nullable().optional().default(null),
-});
+export const createIssueSchema = z
+  .object({
+    summary: z.string().trim().min(1).max(200),
+    description: z.string().trim().max(20_000).optional().default(""),
+    priority: prioritySchema.optional().default("MEDIUM"),
+    issueType: issueTypeSchema.optional().default("TASK"),
+    assigneeId: z.uuid().nullable().optional().default(null),
+    labels: labelListSchema.optional().default([]),
+    parentIssueKey: issueKeySchema.nullable().optional().default(null),
+    estimatePoints: estimatePointsSchema.nullable().optional().default(null),
+    dueDate: dueDateSchema.nullable().optional().default(null),
+    completionActions: completionActionListSchema.optional().default([]),
+  })
+  .superRefine((input, context) => {
+    if (input.issueType !== "STORY" && input.completionActions.length > 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Only Story issues can have completion actions",
+        path: ["completionActions"],
+      });
+    }
+  });
+
+export const createCompletionActionSchema = z
+  .object({
+    summary: completionActionSummarySchema,
+    storyVersion: z.number().int().positive(),
+  })
+  .strict();
+
+export const updateCompletionActionSchema = z
+  .object({
+    summary: completionActionSummarySchema.optional(),
+    position: z.number().int().min(0).max(49).optional(),
+    completed: z.boolean().optional(),
+    version: z.number().int().positive(),
+    storyVersion: z.number().int().positive(),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    const changes = [input.summary, input.position, input.completed].filter(
+      (value) => value !== undefined,
+    );
+    if (changes.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Provide a completion action change",
+        path: ["request"],
+      });
+    }
+    if (
+      input.completed !== undefined &&
+      (input.summary !== undefined || input.position !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Completion changes must be submitted separately",
+        path: ["completed"],
+      });
+    }
+  });
+
+export const deleteCompletionActionSchema = z
+  .object({
+    version: z.number().int().positive(),
+    storyVersion: z.number().int().positive(),
+  })
+  .strict();
 
 export const transitionIssueSchema = z
   .object({
@@ -1033,6 +1096,21 @@ export interface IssueEventView {
   createdAt: string;
 }
 
+export interface CompletionActionView {
+  id: string;
+  summary: string;
+  position: number;
+  version: number;
+  completed: boolean;
+  task: {
+    id: string;
+    key: string;
+    statusId: string;
+    version: number;
+  };
+}
+
 export interface IssueDetailView extends IssueView {
   events: IssueEventView[];
+  completionActions: CompletionActionView[];
 }

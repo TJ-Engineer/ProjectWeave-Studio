@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type {
   BoardChangeEvent,
+  IssueView,
   IssueSearchQuery,
   UpdateWorkflowConfigurationInput,
 } from "@vibe/contracts";
@@ -22,7 +23,7 @@ describe.skipIf(!testDatabaseUrl)("atomic issue writes", () => {
       );
     }
     await getPool().query(`
-      TRUNCATE agent_api_tokens, worker_heartbeats, outbox_deliveries, idempotency_records, outbox_events, audit_events, issue_events, issue_labels, labels, issues, column_statuses,
+      TRUNCATE agent_api_tokens, worker_heartbeats, outbox_deliveries, idempotency_records, outbox_events, audit_events, issue_events, issue_labels, labels, completion_actions, issues, column_statuses,
         board_columns, boards, transitions, statuses, workflows, issue_types,
         project_members, projects, memberships, users, organizations CASCADE
     `);
@@ -4157,6 +4158,337 @@ describe.skipIf(!testDatabaseUrl)("atomic issue writes", () => {
         (issue) => issue.summary === "Publish the v0.1.0 release candidate",
       ),
     ).toMatchObject({ issueType: "TASK" });
+  });
+
+  it("enforces Story completion actions across checklist, workflow, and lifecycle writes", async () => {
+    const {
+      createCompletionAction,
+      createIssue,
+      createProject,
+      deleteCompletionAction,
+      deleteIssue,
+      getBoard,
+      getBoardAccess,
+      getIssueDetail,
+      getPool,
+      getWorkflowSettings,
+      restoreIssue,
+      transitionIssue,
+      updateCompletionAction,
+      updateWorkflowConfiguration,
+    } = await import("@vibe/database");
+    const organizationId = randomUUID();
+    const administratorId = randomUUID();
+    const administratorEmail = `${administratorId}@example.test`;
+    await getPool().query(
+      `INSERT INTO organizations (id, name, slug)
+       VALUES ($1, 'Completion Action Test', $2)`,
+      [organizationId, `completion-action-${organizationId}`],
+    );
+    await getPool().query(
+      `INSERT INTO users
+        (id, organization_id, email, display_name, password_hash)
+       VALUES ($1, $2, $3, 'Completion Action Admin', 'unused')`,
+      [administratorId, organizationId, administratorEmail],
+    );
+    await getPool().query(
+      `INSERT INTO memberships (organization_id, user_id, organization_role)
+       VALUES ($1, $2, 'ADMIN')`,
+      [organizationId, administratorId],
+    );
+    const administrator = {
+      id: administratorId,
+      organizationId,
+      email: administratorEmail,
+      displayName: "Completion Action Admin",
+      organizationRole: "ADMIN" as const,
+    };
+    const project = await createProject(administrator, {
+      key: "COA",
+      name: "Completion Actions",
+    });
+    const otherProject = await createProject(administrator, {
+      key: "COX",
+      name: "Other Completion Actions",
+    });
+    const access = await getBoardAccess(administratorId, project.boardId);
+    const otherAccess = await getBoardAccess(
+      administratorId,
+      otherProject.boardId,
+    );
+    expect(access).not.toBeNull();
+    expect(otherAccess).not.toBeNull();
+    const board = await getBoard(project.boardId, access!);
+    expect(board).not.toBeNull();
+
+    async function moveTo(issue: IssueView, statusName: string) {
+      const currentBoard = (await getBoard(project.boardId, access!))!;
+      const status = currentBoard.statuses.find(
+        (item) => item.name === statusName,
+      )!;
+      const column = currentBoard.columns.find((item) =>
+        item.statusIds.includes(status.id),
+      )!;
+      const destinationIssues = currentBoard.issues
+        .filter(
+          (item) =>
+            item.id !== issue.id && column.statusIds.includes(item.statusId),
+        )
+        .sort((left, right) => Number(left.rank) - Number(right.rank));
+      const transition = issue.allowedTransitions.find(
+        (item) => item.toStatusId === status.id,
+      )!;
+      return transitionIssue(administrator, access!, issue.key, {
+        transitionId: transition.id,
+        destinationColumnId: column.id,
+        destinationStatusId: status.id,
+        beforeIssueId: destinationIssues.at(-1)?.id ?? null,
+        afterIssueId: null,
+        version: issue.version,
+      });
+    }
+
+    const storyInput = {
+      summary: "Ship the release",
+      description: "",
+      priority: "HIGH" as const,
+      issueType: "STORY" as const,
+      completionActions: ["Implement release", "Verify release"],
+    };
+    const storyIdempotency = {
+      key: `completion-story-${randomUUID()}`,
+      requestHash: "same-completion-story-request",
+    };
+    const [createdStory, replayedStory] = await Promise.all([
+      createIssue(
+        administrator,
+        access!,
+        storyInput,
+        randomUUID(),
+        storyIdempotency,
+      ),
+      createIssue(
+        administrator,
+        access!,
+        storyInput,
+        randomUUID(),
+        storyIdempotency,
+      ),
+    ]);
+    expect(replayedStory).toEqual(createdStory);
+    let story = (await getIssueDetail(createdStory.key, access!))!;
+    expect(story.completionActions).toMatchObject([
+      { summary: "Implement release", position: 0, completed: false },
+      { summary: "Verify release", position: 1, completed: false },
+    ]);
+    await expect(
+      createCompletionAction(administrator, otherAccess!, story.key, {
+        summary: "Cross-project action",
+        storyVersion: story.version,
+      }),
+    ).rejects.toMatchObject<Partial<DomainError>>({
+      code: "ISSUE_NOT_FOUND",
+      status: 404,
+    });
+    const generatedTaskIds = story.completionActions.map(
+      (action) => action.task.id,
+    );
+    const generatedTasks = await getPool().query<{
+      id: string;
+      issue_type: string;
+      parent_id: string | null;
+    }>(
+      `SELECT task.id, upper(task_type.name) AS issue_type, task.parent_id
+         FROM completion_actions ca
+         JOIN issues task ON task.id = ca.task_issue_id
+         JOIN issue_types task_type ON task_type.id = task.issue_type_id
+        WHERE ca.story_issue_id = $1 AND ca.removed_at IS NULL
+        ORDER BY ca.position`,
+      [story.id],
+    );
+    expect(generatedTasks.rows).toEqual([
+      { id: generatedTaskIds[0], issue_type: "TASK", parent_id: null },
+      { id: generatedTaskIds[1], issue_type: "TASK", parent_id: null },
+    ]);
+
+    const staleStoryVersion = story.version;
+    story = await createCompletionAction(administrator, access!, story.key, {
+      summary: "Publish notes",
+      storyVersion: story.version,
+    });
+    await expect(
+      createCompletionAction(administrator, access!, story.key, {
+        summary: "Stale addition",
+        storyVersion: staleStoryVersion,
+      }),
+    ).rejects.toMatchObject<Partial<DomainError>>({
+      code: "VERSION_CONFLICT",
+      status: 409,
+    });
+    const added = story.completionActions.find(
+      (action) => action.summary === "Publish notes",
+    )!;
+    story = await updateCompletionAction(
+      administrator,
+      access!,
+      story.key,
+      added.id,
+      {
+        summary: "Publish release notes",
+        position: 0,
+        version: added.version,
+        storyVersion: story.version,
+      },
+    );
+    const renamed = story.completionActions[0]!;
+    expect(renamed).toMatchObject({
+      id: added.id,
+      summary: "Publish release notes",
+      position: 0,
+    });
+    story = await deleteCompletionAction(
+      administrator,
+      access!,
+      story.key,
+      renamed.id,
+      { version: renamed.version, storyVersion: story.version },
+    );
+    expect(story.completionActions.map((action) => action.summary)).toEqual([
+      "Implement release",
+      "Verify release",
+    ]);
+    const removedTask = await getPool().query<{ deleted: boolean }>(
+      `SELECT deleted_at IS NOT NULL AS deleted FROM issues WHERE id = $1`,
+      [added.task.id],
+    );
+    expect(removedTask.rows[0]).toEqual({ deleted: true });
+
+    let storyWorkflow: IssueView = await moveTo(story, "In Progress");
+    storyWorkflow = await moveTo(storyWorkflow, "Review");
+    const workflow = await getWorkflowSettings(access!);
+    const review = workflow.statuses.find(
+      (status) => status.name === "Review",
+    )!;
+    const invalidWorkflow = {
+      version: workflow.workflow.version,
+      statuses: workflow.statuses.map((status) => ({
+        id: status.id,
+        name: status.name,
+        category: status.id === review.id ? ("DONE" as const) : status.category,
+        color: status.color,
+        columnId: status.columnId,
+      })),
+      transitions: workflow.transitions.map((transition) => ({
+        fromStatusId: transition.fromStatusId,
+        toStatusId: transition.toStatusId,
+      })),
+      removedStatusMigrations: [],
+    } satisfies UpdateWorkflowConfigurationInput;
+    await expect(
+      updateWorkflowConfiguration(administrator, access!, invalidWorkflow),
+    ).rejects.toMatchObject<Partial<DomainError>>({
+      code: "STORY_COAS_INCOMPLETE",
+      status: 409,
+    });
+    await expect(moveTo(storyWorkflow, "Done")).rejects.toMatchObject<
+      Partial<DomainError>
+    >({
+      code: "STORY_COAS_INCOMPLETE",
+      status: 409,
+    });
+
+    let checklistStory = (await getIssueDetail(story.key, access!))!;
+    for (const initialAction of [...checklistStory.completionActions]) {
+      let task: IssueView = (await getIssueDetail(
+        initialAction.task.key,
+        access!,
+      ))!;
+      task = await moveTo(task, "In Progress");
+      task = await moveTo(task, "Review");
+      const action = checklistStory.completionActions.find(
+        (item) => item.id === initialAction.id,
+      )!;
+      checklistStory = await updateCompletionAction(
+        administrator,
+        access!,
+        checklistStory.key,
+        action.id,
+        {
+          completed: true,
+          version: action.version,
+          storyVersion: checklistStory.version,
+        },
+      );
+    }
+    expect(
+      checklistStory.completionActions.every((action) => action.completed),
+    ).toBe(true);
+    const completedStory = await moveTo(checklistStory, "Done");
+    const completedDetail = (await getIssueDetail(
+      completedStory.key,
+      access!,
+    ))!;
+    const completedAction = completedDetail.completionActions[0]!;
+    await expect(
+      updateCompletionAction(
+        administrator,
+        access!,
+        completedDetail.key,
+        completedAction.id,
+        {
+          completed: false,
+          version: completedAction.version,
+          storyVersion: completedDetail.version,
+        },
+      ),
+    ).rejects.toMatchObject<Partial<DomainError>>({
+      code: "COA_TASK_REOPEN_REQUIRES_STORY",
+      status: 409,
+    });
+    const generatedTask = (await getIssueDetail(
+      completedAction.task.key,
+      access!,
+    ))!;
+    await expect(
+      deleteIssue(
+        administrator,
+        access!,
+        generatedTask.key,
+        generatedTask.version,
+      ),
+    ).rejects.toMatchObject<Partial<DomainError>>({
+      code: "COA_TASK_MANAGED_LIFECYCLE",
+      status: 409,
+    });
+
+    await deleteIssue(
+      administrator,
+      access!,
+      completedDetail.key,
+      completedDetail.version,
+    );
+    const deletedTasks = await getPool().query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM issues
+        WHERE id = ANY($1::uuid[]) AND deleted_at IS NOT NULL`,
+      [generatedTaskIds],
+    );
+    expect(deletedTasks.rows[0]?.count).toBe("2");
+    const restored = await restoreIssue(
+      administrator,
+      access!,
+      completedDetail.key,
+      completedDetail.version + 1,
+    );
+    expect(restored.completionActions).toHaveLength(2);
+    expect(restored.completionActions.every((action) => action.completed)).toBe(
+      true,
+    );
+    const activeTasks = await getPool().query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM issues
+        WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+      [generatedTaskIds],
+    );
+    expect(activeTasks.rows[0]?.count).toBe("2");
   });
 
   it("authenticates, audits, expires, and revokes agent API tokens", async () => {

@@ -66,7 +66,9 @@ import {
   can,
   assertCapability,
   assertChildrenCompatible,
+  assertCompletionActionTaskCanLeaveDone,
   assertIssueParent,
+  assertStoryCompletionActionsDone,
   assertTransition,
   assertVersion,
   DomainError,
@@ -2326,6 +2328,165 @@ async function replaceIssueLabels(
   }
 }
 
+async function nextIssueNumber(
+  client: PoolClient,
+  access: ProjectAccess,
+): Promise<number> {
+  const project = await client.query<{ sequence_counter: number }>(
+    `UPDATE projects SET sequence_counter = sequence_counter + 1
+      WHERE id = $1 AND organization_id = $2
+      RETURNING sequence_counter`,
+    [access.projectId, access.organizationId],
+  );
+  const number = project.rows[0]?.sequence_counter;
+  if (!number) {
+    throw new DomainError("PROJECT_NOT_FOUND", "Project not found", 404);
+  }
+  return number;
+}
+
+async function createGeneratedCompletionTask(
+  client: PoolClient,
+  identity: UserIdentity,
+  access: ProjectAccess,
+  input: {
+    storyId: string;
+    storyNumber: number;
+    summary: string;
+    position: number;
+    statusId: string;
+    initialStatusCategory: StatusCategory;
+    priority: Priority;
+    assigneeId: string | null;
+    epicId: string | null;
+    epicKey: string | null;
+  },
+  requestCorrelationId: string,
+): Promise<{ completionActionId: string; taskId: string; taskNumber: number }> {
+  const taskType = await resolveIssueType(client, access, "TASK");
+  const taskId = randomUUID();
+  const completionActionId = randomUUID();
+  const taskNumber = await nextIssueNumber(client, access);
+  const destinationColumnId = await projectBoardColumnForStatus(
+    client,
+    access,
+    input.statusId,
+  );
+  const columnIssues = await lockColumnIssues(
+    client,
+    access,
+    destinationColumnId,
+  );
+  const rank = await allocateColumnRank(
+    client,
+    access,
+    destinationColumnId,
+    taskId,
+    columnIssues.at(-1)?.id ?? null,
+    null,
+    columnIssues,
+  );
+  await client.query(
+    `INSERT INTO issues
+      (id, organization_id, project_id, number, issue_type_id, status_id,
+       summary, description, priority, reporter_id, assignee_id, parent_id, rank)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+    [
+      taskId,
+      access.organizationId,
+      access.projectId,
+      taskNumber,
+      taskType.id,
+      input.statusId,
+      input.summary,
+      `Generated from a completion action on ${access.projectKey}-${input.storyNumber}.`,
+      input.priority,
+      identity.id,
+      input.assigneeId,
+      input.epicId,
+      rank,
+    ],
+  );
+  await client.query(
+    `INSERT INTO completion_actions
+      (id, organization_id, project_id, story_issue_id, task_issue_id,
+       summary, position)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      completionActionId,
+      access.organizationId,
+      access.projectId,
+      input.storyId,
+      taskId,
+      input.summary,
+      input.position,
+    ],
+  );
+  const taskPayload = {
+    summary: input.summary,
+    statusId: input.statusId,
+    initialStatusCategory: input.initialStatusCategory,
+    issueType: "TASK",
+    assigneeId: input.assigneeId,
+    parentIssueKey: input.epicKey,
+    labels: [],
+    estimatePoints: null,
+    dueDate: null,
+    generatedFromCompletionActionId: completionActionId,
+    storyIssueId: input.storyId,
+  };
+  await client.query(
+    `INSERT INTO issue_events
+      (id, organization_id, issue_id, actor_id, event_type, payload_json, correlation_id)
+     VALUES ($1, $2, $3, $4, 'CREATED', $5, $6)`,
+    [
+      randomUUID(),
+      access.organizationId,
+      taskId,
+      identity.id,
+      JSON.stringify(taskPayload),
+      requestCorrelationId,
+    ],
+  );
+  const evidence = {
+    completionActionId,
+    storyIssueId: input.storyId,
+    taskIssueId: taskId,
+    position: input.position,
+  };
+  await client.query(
+    `INSERT INTO audit_events
+      (id, organization_id, actor_id, action, target_type, target_id,
+       metadata, correlation_id)
+     VALUES ($1, $2, $3, 'completion_action.created', 'completion_action',
+             $4, $5, $6)`,
+    [
+      randomUUID(),
+      access.organizationId,
+      identity.id,
+      completionActionId,
+      JSON.stringify(evidence),
+      requestCorrelationId,
+    ],
+  );
+  await client.query(
+    `INSERT INTO outbox_events
+      (id, organization_id, topic, aggregate_id, payload)
+     VALUES ($1, $2, 'completion_action.created', $3, $4)`,
+    [
+      randomUUID(),
+      access.organizationId,
+      input.storyId,
+      JSON.stringify({
+        ...evidence,
+        projectId: access.projectId,
+        correlationId: requestCorrelationId,
+      }),
+    ],
+  );
+  return { completionActionId, taskId, taskNumber };
+}
+
 export async function createIssue(
   identity: UserIdentity,
   access: ProjectAccess,
@@ -2339,6 +2500,7 @@ export async function createIssue(
     parentIssueKey?: string | null;
     estimatePoints?: number | null;
     dueDate?: string | null;
+    completionActions?: string[];
   },
   requestCorrelationId: string = randomUUID(),
   idempotency?: IdempotencyRequest,
@@ -2358,17 +2520,26 @@ export async function createIssue(
     await lockProjectOrdering(client, access.projectId);
 
     const issueId = randomUUID();
-    const project = await client.query<{ sequence_counter: number }>(
-      `UPDATE projects SET sequence_counter = sequence_counter + 1
-        WHERE id = $1 AND organization_id = $2
-        RETURNING sequence_counter`,
-      [access.projectId, access.organizationId],
-    );
-    const number = project.rows[0]?.sequence_counter;
-    if (!number)
-      throw new DomainError("PROJECT_NOT_FOUND", "Project not found", 404);
+    const number = await nextIssueNumber(client, access);
 
     const issueType = await resolveIssueType(client, access, input.issueType);
+    if (
+      (input.completionActions?.length ?? 0) > 0 &&
+      input.issueType !== "STORY"
+    ) {
+      throw new DomainError(
+        "COAS_REQUIRE_STORY",
+        "Only Story issues can have completion actions",
+        422,
+      );
+    }
+    if ((input.completionActions?.length ?? 0) > 50) {
+      throw new DomainError(
+        "TOO_MANY_COMPLETION_ACTIONS",
+        "A Story can have at most 50 completion actions",
+        422,
+      );
+    }
     const assigneeId = input.assigneeId ?? null;
     await assertAssignableUser(client, access, assigneeId);
     const parent = await resolveParentIssue(
@@ -2468,10 +2639,33 @@ export async function createIssue(
           labels: labels.map((label) => label.displayName),
           estimatePoints: input.estimatePoints ?? null,
           dueDate: input.dueDate ?? null,
+          completionActionCount: input.completionActions?.length ?? 0,
         }),
         requestCorrelationId,
       ],
     );
+    for (const [position, summary] of (
+      input.completionActions ?? []
+    ).entries()) {
+      await createGeneratedCompletionTask(
+        client,
+        identity,
+        access,
+        {
+          storyId: issueId,
+          storyNumber: number,
+          summary,
+          position,
+          statusId,
+          initialStatusCategory: initialStatusCategory!,
+          priority: input.priority,
+          assigneeId,
+          epicId: parent?.id ?? null,
+          epicKey: parent?.key ?? null,
+        },
+        requestCorrelationId,
+      );
+    }
     await client.query(
       `INSERT INTO outbox_events
         (id, organization_id, topic, aggregate_id, payload)
@@ -3446,6 +3640,46 @@ export async function updateWorkflowConfiguration(
       }
     }
 
+    const completionActionStatuses = await client.query<{
+      story_status_id: string;
+      story_number: number;
+      task_status_id: string;
+      task_number: number;
+    }>(
+      `SELECT story.status_id AS story_status_id,
+              story.number AS story_number,
+              task.status_id AS task_status_id,
+              task.number AS task_number
+         FROM completion_actions ca
+         JOIN issues story ON story.id = ca.story_issue_id
+         JOIN issues task ON task.id = ca.task_issue_id
+        WHERE ca.organization_id = $1 AND ca.project_id = $2
+          AND ca.removed_at IS NULL
+          AND story.deleted_at IS NULL AND task.deleted_at IS NULL
+        ORDER BY story.number, ca.position, ca.id
+        FOR SHARE OF story, task`,
+      [access.organizationId, access.projectId],
+    );
+    const desiredCategories = new Map(
+      input.statuses.map((status) => [status.id, status.category]),
+    );
+    const finalCategory = (statusId: string) =>
+      desiredCategories.get(migrationTargets.get(statusId) ?? statusId);
+    const incompleteByStory = new Map<number, string[]>();
+    for (const link of completionActionStatuses.rows) {
+      if (
+        finalCategory(link.story_status_id) === "DONE" &&
+        finalCategory(link.task_status_id) !== "DONE"
+      ) {
+        const incomplete = incompleteByStory.get(link.story_number) ?? [];
+        incomplete.push(`${access.projectKey}-${link.task_number}`);
+        incompleteByStory.set(link.story_number, incomplete);
+      }
+    }
+    for (const incompleteTaskKeys of incompleteByStory.values()) {
+      assertStoryCompletionActionsDone("STORY", "DONE", incompleteTaskKeys);
+    }
+
     await client.query(
       `DELETE FROM transitions
         WHERE organization_id = $1 AND workflow_id = $2`,
@@ -3775,6 +4009,36 @@ export async function getIssueDetail(
       WHERE e.issue_id = $1 ORDER BY e.created_at, e.id`,
     [row.id],
   );
+  const completionActions = await getPool().query<{
+    id: string;
+    summary: string;
+    position: number;
+    version: number;
+    task_id: string;
+    task_key: string;
+    task_status_id: string;
+    task_version: number;
+    task_status_category: StatusCategory;
+  }>(
+    `SELECT ca.id, ca.summary, ca.position, ca.version,
+            task.id AS task_id,
+            p.project_key || '-' || task.number AS task_key,
+            task.status_id AS task_status_id,
+            task.version AS task_version,
+            task_status.category AS task_status_category
+       FROM completion_actions ca
+       JOIN issues task
+         ON task.id = ca.task_issue_id
+        AND task.organization_id = ca.organization_id
+        AND task.project_id = ca.project_id
+       JOIN statuses task_status ON task_status.id = task.status_id
+       JOIN projects p ON p.id = ca.project_id
+      WHERE ca.organization_id = $1 AND ca.project_id = $2
+        AND ca.story_issue_id = $3 AND ca.removed_at IS NULL
+        AND task.deleted_at IS NULL
+      ORDER BY ca.position, ca.id`,
+    [access.organizationId, access.projectId, row.id],
+  );
   return {
     ...toIssue(row, transitions),
     events: eventResult.rows.map((event) => ({
@@ -3784,7 +4048,666 @@ export async function getIssueDetail(
       payload: event.payload_json,
       createdAt: event.created_at.toISOString(),
     })),
+    completionActions: completionActions.rows.map((action) => ({
+      id: action.id,
+      summary: action.summary,
+      position: action.position,
+      version: action.version,
+      completed: action.task_status_category === "DONE",
+      task: {
+        id: action.task_id,
+        key: action.task_key,
+        statusId: action.task_status_id,
+        version: action.task_version,
+      },
+    })),
   };
+}
+
+interface CompletionStoryRow extends QueryResultRow {
+  id: string;
+  number: number;
+  version: number;
+  issue_type: IssueType;
+  status_category: StatusCategory;
+  priority: Priority;
+  assignee_id: string | null;
+  parent_id: string | null;
+}
+
+async function lockCompletionStory(
+  client: PoolClient,
+  access: ProjectAccess,
+  issueKey: string,
+): Promise<CompletionStoryRow> {
+  const [projectKey, number] = splitIssueKey(issueKey);
+  if (!projectKey || !number) {
+    throw new DomainError("ISSUE_NOT_FOUND", "Issue not found", 404);
+  }
+  const result = await client.query<CompletionStoryRow>(
+    `SELECT i.id, i.number, i.version, upper(it.name)::text AS issue_type,
+            s.category AS status_category, i.priority, i.assignee_id, i.parent_id
+       FROM issues i
+       JOIN projects p ON p.id = i.project_id
+       JOIN issue_types it ON it.id = i.issue_type_id
+       JOIN statuses s ON s.id = i.status_id
+      WHERE i.organization_id = $1 AND i.project_id = $2
+        AND p.project_key = $3 AND i.number = $4 AND i.deleted_at IS NULL
+      FOR UPDATE OF i`,
+    [access.organizationId, access.projectId, projectKey, number],
+  );
+  const story = result.rows[0];
+  if (!story) {
+    throw new DomainError("ISSUE_NOT_FOUND", "Issue not found", 404);
+  }
+  if (story.issue_type !== "STORY") {
+    throw new DomainError(
+      "COAS_REQUIRE_STORY",
+      "Only Story issues can have completion actions",
+      422,
+    );
+  }
+  return story;
+}
+
+async function bumpStoryCompletionActions(
+  client: PoolClient,
+  identity: UserIdentity,
+  access: ProjectAccess,
+  story: CompletionStoryRow,
+  action: string,
+  metadata: Record<string, unknown>,
+  requestCorrelationId: string,
+  recordAudit = true,
+): Promise<void> {
+  const updated = await client.query(
+    `UPDATE issues SET version = version + 1, updated_at = now()
+      WHERE id = $1 AND organization_id = $2 AND version = $3`,
+    [story.id, access.organizationId, story.version],
+  );
+  if (updated.rowCount !== 1) {
+    throw new DomainError(
+      "VERSION_CONFLICT",
+      "This Story changed since it was loaded. Refresh and try again.",
+      409,
+    );
+  }
+  const payload = {
+    fields: ["completionActions"],
+    fromVersion: story.version,
+    toVersion: story.version + 1,
+    ...metadata,
+  };
+  await client.query(
+    `INSERT INTO issue_events
+      (id, organization_id, issue_id, actor_id, event_type, payload_json, correlation_id)
+     VALUES ($1, $2, $3, $4, 'UPDATED', $5, $6)`,
+    [
+      randomUUID(),
+      access.organizationId,
+      story.id,
+      identity.id,
+      JSON.stringify(payload),
+      requestCorrelationId,
+    ],
+  );
+  if (recordAudit) {
+    await client.query(
+      `INSERT INTO audit_events
+        (id, organization_id, actor_id, action, target_type, target_id,
+         metadata, correlation_id)
+       VALUES ($1, $2, $3, $4, 'completion_action', $5, $6, $7)`,
+      [
+        randomUUID(),
+        access.organizationId,
+        identity.id,
+        action,
+        String(metadata.completionActionId),
+        JSON.stringify(payload),
+        requestCorrelationId,
+      ],
+    );
+    await client.query(
+      `INSERT INTO outbox_events
+        (id, organization_id, topic, aggregate_id, payload)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        randomUUID(),
+        access.organizationId,
+        action,
+        story.id,
+        JSON.stringify({
+          storyIssueId: story.id,
+          projectId: access.projectId,
+          ...payload,
+          correlationId: requestCorrelationId,
+        }),
+      ],
+    );
+  }
+}
+
+async function currentProjectInitialStatus(
+  client: PoolClient,
+  access: ProjectAccess,
+): Promise<{ id: string; category: StatusCategory }> {
+  const status = await client.query<{
+    id: string;
+    category: StatusCategory;
+  }>(
+    `SELECT s.id, s.category
+       FROM statuses s
+       JOIN workflows w ON w.id = s.workflow_id
+       JOIN column_statuses cs ON cs.status_id = s.id
+       JOIN board_columns bc ON bc.id = cs.board_column_id
+       JOIN boards b ON b.id = bc.board_id AND b.project_id = w.project_id
+      WHERE w.project_id = $1 AND w.organization_id = $2 AND w.active
+      ORDER BY bc.position, s.position, s.id
+      LIMIT 1`,
+    [access.projectId, access.organizationId],
+  );
+  const initial = status.rows[0];
+  if (!initial) {
+    throw new DomainError(
+      "PROJECT_CONFIGURATION",
+      "Project workflow is incomplete",
+      500,
+    );
+  }
+  return initial;
+}
+
+export async function createCompletionAction(
+  identity: UserIdentity,
+  access: ProjectAccess,
+  issueKey: string,
+  input: { summary: string; storyVersion: number },
+  requestCorrelationId: string = randomUUID(),
+  idempotency?: IdempotencyRequest,
+): Promise<IssueDetailView> {
+  await inTransaction(async (client) => {
+    const operation = `completion_action.create:${access.projectId}:${issueKey.toUpperCase()}`;
+    if (idempotency) {
+      const replay = await claimIdempotency<{ completed: true }>(
+        client,
+        identity,
+        operation,
+        idempotency,
+      );
+      if (replay) return;
+    }
+    await lockProjectOrdering(client, access.projectId);
+    const story = await lockCompletionStory(client, access, issueKey);
+    assertVersion(input.storyVersion, story.version);
+    if (story.status_category === "DONE") {
+      throw new DomainError(
+        "COA_STORY_REOPEN_REQUIRED",
+        "Reopen this Story before adding a completion action",
+        409,
+      );
+    }
+    const existing = await client.query<{ id: string }>(
+      `SELECT id FROM completion_actions
+        WHERE organization_id = $1 AND project_id = $2
+          AND story_issue_id = $3 AND removed_at IS NULL
+        ORDER BY position, id
+        FOR UPDATE`,
+      [access.organizationId, access.projectId, story.id],
+    );
+    const position = existing.rows.length;
+    if (position >= 50) {
+      throw new DomainError(
+        "TOO_MANY_COMPLETION_ACTIONS",
+        "A Story can have at most 50 completion actions",
+        409,
+      );
+    }
+    const initial = await currentProjectInitialStatus(client, access);
+    const created = await createGeneratedCompletionTask(
+      client,
+      identity,
+      access,
+      {
+        storyId: story.id,
+        storyNumber: story.number,
+        summary: input.summary,
+        position,
+        statusId: initial.id,
+        initialStatusCategory: initial.category,
+        priority: story.priority,
+        assigneeId: story.assignee_id,
+        epicId: story.parent_id,
+        epicKey: null,
+      },
+      requestCorrelationId,
+    );
+    await bumpStoryCompletionActions(
+      client,
+      identity,
+      access,
+      story,
+      "completion_action.created",
+      {
+        completionActionId: created.completionActionId,
+        taskIssueId: created.taskId,
+        position,
+      },
+      requestCorrelationId,
+      false,
+    );
+    if (idempotency) {
+      await completeIdempotency(client, identity, operation, idempotency, {
+        completed: true,
+      });
+    }
+  });
+  const story = await getIssueDetail(issueKey, access);
+  if (!story) {
+    throw new DomainError(
+      "ISSUE_NOT_FOUND",
+      "Story not found after adding the completion action",
+      500,
+    );
+  }
+  return story;
+}
+
+interface LockedCompletionAction extends QueryResultRow {
+  id: string;
+  summary: string;
+  position: number;
+  version: number;
+  task_id: string;
+  task_number: number;
+  task_summary: string;
+  task_status_id: string;
+  task_status_category: StatusCategory;
+  task_version: number;
+}
+
+async function lockCompletionAction(
+  client: PoolClient,
+  access: ProjectAccess,
+  storyId: string,
+  completionActionId: string,
+): Promise<LockedCompletionAction> {
+  const result = await client.query<LockedCompletionAction>(
+    `SELECT ca.id, ca.summary, ca.position, ca.version,
+            task.id AS task_id, task.number AS task_number,
+            task.summary AS task_summary, task.status_id AS task_status_id,
+            task_status.category AS task_status_category,
+            task.version AS task_version
+       FROM completion_actions ca
+       JOIN issues task ON task.id = ca.task_issue_id
+       JOIN statuses task_status ON task_status.id = task.status_id
+      WHERE ca.id = $1 AND ca.organization_id = $2 AND ca.project_id = $3
+        AND ca.story_issue_id = $4 AND ca.removed_at IS NULL
+        AND task.deleted_at IS NULL
+      FOR UPDATE OF ca, task`,
+    [completionActionId, access.organizationId, access.projectId, storyId],
+  );
+  const action = result.rows[0];
+  if (!action) {
+    throw new DomainError(
+      "COMPLETION_ACTION_NOT_FOUND",
+      "Completion action not found",
+      404,
+    );
+  }
+  return action;
+}
+
+async function writeGeneratedTaskUpdate(
+  client: PoolClient,
+  identity: UserIdentity,
+  access: ProjectAccess,
+  taskId: string,
+  eventType: "UPDATED" | "TRANSITIONED" | "DELETED" | "RESTORED",
+  payload: Record<string, unknown>,
+  requestCorrelationId: string,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO issue_events
+      (id, organization_id, issue_id, actor_id, event_type, payload_json, correlation_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      randomUUID(),
+      access.organizationId,
+      taskId,
+      identity.id,
+      eventType,
+      JSON.stringify(payload),
+      requestCorrelationId,
+    ],
+  );
+}
+
+export async function updateCompletionAction(
+  identity: UserIdentity,
+  access: ProjectAccess,
+  issueKey: string,
+  completionActionId: string,
+  input: {
+    summary?: string | undefined;
+    position?: number | undefined;
+    completed?: boolean | undefined;
+    version: number;
+    storyVersion: number;
+  },
+  requestCorrelationId: string = randomUUID(),
+): Promise<IssueDetailView> {
+  await inTransaction(async (client) => {
+    await lockProjectOrdering(client, access.projectId);
+    const story = await lockCompletionStory(client, access, issueKey);
+    assertVersion(input.storyVersion, story.version);
+    const action = await lockCompletionAction(
+      client,
+      access,
+      story.id,
+      completionActionId,
+    );
+    assertVersion(input.version, action.version);
+
+    if (input.completed !== undefined) {
+      const currentlyCompleted = action.task_status_category === "DONE";
+      if (input.completed === currentlyCompleted) return;
+      assertCompletionActionTaskCanLeaveDone(
+        input.completed ? "DONE" : "IN_PROGRESS",
+        story.status_category,
+        issueKey.toUpperCase(),
+      );
+      const eligible = await client.query<{
+        transition_id: string;
+        destination_status_id: string;
+        destination_category: StatusCategory;
+      }>(
+        `SELECT t.id AS transition_id,
+                destination.id AS destination_status_id,
+                destination.category AS destination_category
+           FROM transitions t
+           JOIN statuses destination ON destination.id = t.to_status_id
+          WHERE t.from_status_id = $1
+            AND destination.category ${input.completed ? "=" : "<>"} 'DONE'
+          ORDER BY destination.position, destination.id`,
+        [action.task_status_id],
+      );
+      if (eligible.rows.length !== 1) {
+        throw new DomainError(
+          "COA_TRANSITION_UNAVAILABLE",
+          input.completed
+            ? "Move this Task through its workflow until one Done transition is available"
+            : "This Task does not have one unambiguous transition out of Done",
+          409,
+        );
+      }
+      const destination = eligible.rows[0]!;
+      const destinationColumnId = await projectBoardColumnForStatus(
+        client,
+        access,
+        destination.destination_status_id,
+      );
+      const columnIssues = await lockColumnIssues(
+        client,
+        access,
+        destinationColumnId,
+      );
+      const rank = await allocateColumnRank(
+        client,
+        access,
+        destinationColumnId,
+        action.task_id,
+        columnIssues.at(-1)?.id ?? null,
+        null,
+        columnIssues,
+      );
+      await client.query(
+        `UPDATE issues
+            SET status_id = $1, rank = $2::numeric(30, 10),
+                version = version + 1, updated_at = now()
+          WHERE id = $3 AND organization_id = $4 AND version = $5`,
+        [
+          destination.destination_status_id,
+          rank,
+          action.task_id,
+          access.organizationId,
+          action.task_version,
+        ],
+      );
+      await client.query(
+        `UPDATE completion_actions
+            SET version = version + 1, updated_at = now()
+          WHERE id = $1 AND version = $2`,
+        [action.id, action.version],
+      );
+      await writeGeneratedTaskUpdate(
+        client,
+        identity,
+        access,
+        action.task_id,
+        "TRANSITIONED",
+        {
+          fromStatusId: action.task_status_id,
+          toStatusId: destination.destination_status_id,
+          fromStatusCategory: action.task_status_category,
+          toStatusCategory: destination.destination_category,
+          destinationColumnId,
+          rank,
+          fromVersion: action.task_version,
+          toVersion: action.task_version + 1,
+          completionActionId: action.id,
+        },
+        requestCorrelationId,
+      );
+      await bumpStoryCompletionActions(
+        client,
+        identity,
+        access,
+        story,
+        "completion_action.completed_changed",
+        {
+          completionActionId: action.id,
+          taskIssueId: action.task_id,
+          completed: input.completed,
+        },
+        requestCorrelationId,
+      );
+      return;
+    }
+
+    const summaryChanged =
+      input.summary !== undefined && input.summary !== action.summary;
+    const positionChanged =
+      input.position !== undefined && input.position !== action.position;
+    if (!summaryChanged && !positionChanged) return;
+    if (positionChanged) {
+      const actions = await client.query<{ id: string }>(
+        `SELECT id FROM completion_actions
+          WHERE organization_id = $1 AND project_id = $2
+            AND story_issue_id = $3 AND removed_at IS NULL
+          ORDER BY position, id
+          FOR UPDATE`,
+        [access.organizationId, access.projectId, story.id],
+      );
+      const ordered = actions.rows.map((row) => row.id);
+      const currentIndex = ordered.indexOf(action.id);
+      const target = input.position!;
+      if (target < 0 || target >= ordered.length) {
+        throw new DomainError(
+          "INVALID_COMPLETION_ACTION_POSITION",
+          "Completion action position is outside this Story's checklist",
+          422,
+        );
+      }
+      ordered.splice(currentIndex, 1);
+      ordered.splice(target, 0, action.id);
+      for (const [position, id] of ordered.entries()) {
+        await client.query(
+          `UPDATE completion_actions SET position = $1, updated_at = now()
+            WHERE id = $2`,
+          [position, id],
+        );
+      }
+    }
+    if (summaryChanged) {
+      await client.query(
+        `UPDATE issues SET summary = $1, version = version + 1, updated_at = now()
+          WHERE id = $2 AND organization_id = $3 AND version = $4`,
+        [
+          input.summary,
+          action.task_id,
+          access.organizationId,
+          action.task_version,
+        ],
+      );
+      await writeGeneratedTaskUpdate(
+        client,
+        identity,
+        access,
+        action.task_id,
+        "UPDATED",
+        {
+          fields: ["summary"],
+          fromVersion: action.task_version,
+          toVersion: action.task_version + 1,
+          completionActionId: action.id,
+        },
+        requestCorrelationId,
+      );
+    }
+    await client.query(
+      `UPDATE completion_actions
+          SET summary = COALESCE($1, summary), version = version + 1,
+              updated_at = now()
+        WHERE id = $2 AND version = $3`,
+      [input.summary ?? null, action.id, action.version],
+    );
+    await bumpStoryCompletionActions(
+      client,
+      identity,
+      access,
+      story,
+      "completion_action.updated",
+      {
+        completionActionId: action.id,
+        taskIssueId: action.task_id,
+        fields: [
+          ...(summaryChanged ? ["summary"] : []),
+          ...(positionChanged ? ["position"] : []),
+        ],
+      },
+      requestCorrelationId,
+    );
+  });
+  const story = await getIssueDetail(issueKey, access);
+  if (!story) {
+    throw new DomainError(
+      "ISSUE_NOT_FOUND",
+      "Story not found after updating the completion action",
+      500,
+    );
+  }
+  return story;
+}
+
+export async function deleteCompletionAction(
+  identity: UserIdentity,
+  access: ProjectAccess,
+  issueKey: string,
+  completionActionId: string,
+  input: { version: number; storyVersion: number },
+  requestCorrelationId: string = randomUUID(),
+): Promise<IssueDetailView> {
+  await inTransaction(async (client) => {
+    await lockProjectOrdering(client, access.projectId);
+    const story = await lockCompletionStory(client, access, issueKey);
+    assertVersion(input.storyVersion, story.version);
+    if (story.status_category === "DONE") {
+      throw new DomainError(
+        "COA_STORY_REOPEN_REQUIRED",
+        "Reopen this Story before removing a completion action",
+        409,
+      );
+    }
+    const action = await lockCompletionAction(
+      client,
+      access,
+      story.id,
+      completionActionId,
+    );
+    assertVersion(input.version, action.version);
+    const child = await client.query<{ id: string }>(
+      `SELECT id FROM issues
+        WHERE organization_id = $1 AND project_id = $2
+          AND parent_id = $3 AND deleted_at IS NULL
+        LIMIT 1 FOR SHARE`,
+      [access.organizationId, access.projectId, action.task_id],
+    );
+    if (child.rows[0]) {
+      throw new DomainError(
+        "COA_TASK_HAS_ACTIVE_CHILDREN",
+        "Move or delete this generated Task's subtasks before removing the COA",
+        409,
+      );
+    }
+    await client.query(
+      `UPDATE completion_actions
+          SET removed_at = now(), version = version + 1, updated_at = now()
+        WHERE id = $1 AND version = $2`,
+      [action.id, action.version],
+    );
+    await client.query(
+      `UPDATE issues
+          SET deleted_at = now(), deleted_by = $1,
+              version = version + 1, updated_at = now()
+        WHERE id = $2 AND organization_id = $3 AND version = $4`,
+      [identity.id, action.task_id, access.organizationId, action.task_version],
+    );
+    await writeGeneratedTaskUpdate(
+      client,
+      identity,
+      access,
+      action.task_id,
+      "DELETED",
+      {
+        fromVersion: action.task_version,
+        toVersion: action.task_version + 1,
+        completionActionId: action.id,
+      },
+      requestCorrelationId,
+    );
+    await bumpStoryCompletionActions(
+      client,
+      identity,
+      access,
+      story,
+      "completion_action.removed",
+      {
+        completionActionId: action.id,
+        taskIssueId: action.task_id,
+      },
+      requestCorrelationId,
+    );
+    await client.query(
+      `WITH ordered AS (
+         SELECT id, row_number() OVER (ORDER BY position, id) - 1 AS new_position
+           FROM completion_actions
+          WHERE organization_id = $1 AND project_id = $2
+            AND story_issue_id = $3 AND removed_at IS NULL
+       )
+       UPDATE completion_actions ca SET position = ordered.new_position
+         FROM ordered WHERE ca.id = ordered.id`,
+      [access.organizationId, access.projectId, story.id],
+    );
+  });
+  const story = await getIssueDetail(issueKey, access);
+  if (!story) {
+    throw new DomainError(
+      "ISSUE_NOT_FOUND",
+      "Story not found after removing the completion action",
+      500,
+    );
+  }
+  return story;
 }
 
 async function collaborationIssueId(
@@ -6924,14 +7847,16 @@ export async function transitionIssue(
       id: string;
       status_id: string;
       status_category: StatusCategory;
+      issue_type: IssueType;
       version: number;
       workflow_id: string;
     }>(
       `SELECT i.id, i.status_id, current_status.category AS status_category,
-              i.version, w.id AS workflow_id
+              upper(it.name)::text AS issue_type, i.version, w.id AS workflow_id
          FROM issues i JOIN projects p ON p.id = i.project_id
          JOIN workflows w ON w.project_id = p.id AND w.active
          JOIN statuses current_status ON current_status.id = i.status_id
+         JOIN issue_types it ON it.id = i.issue_type_id
         WHERE i.organization_id = $1 AND i.project_id = $2
           AND p.project_key = $3 AND i.number = $4
           AND i.deleted_at IS NULL
@@ -6998,6 +7923,45 @@ export async function transitionIssue(
         input.destinationStatusId,
       );
     }
+
+    const incompleteActions = await client.query<{ task_key: string }>(
+      `SELECT p.project_key || '-' || task.number AS task_key
+         FROM completion_actions ca
+         JOIN issues task ON task.id = ca.task_issue_id
+         JOIN statuses task_status ON task_status.id = task.status_id
+         JOIN projects p ON p.id = ca.project_id
+        WHERE ca.organization_id = $1 AND ca.project_id = $2
+          AND ca.story_issue_id = $3 AND ca.removed_at IS NULL
+          AND task.deleted_at IS NULL AND task_status.category <> 'DONE'
+        ORDER BY ca.position, ca.id`,
+      [access.organizationId, access.projectId, issue.id],
+    );
+    assertStoryCompletionActionsDone(
+      issue.issue_type,
+      destinationStatus.category,
+      incompleteActions.rows.map((action) => action.task_key),
+    );
+
+    const ownerStory = await client.query<{
+      story_key: string;
+      story_status_category: StatusCategory;
+    }>(
+      `SELECT p.project_key || '-' || story.number AS story_key,
+              story_status.category AS story_status_category
+         FROM completion_actions ca
+         JOIN issues story ON story.id = ca.story_issue_id
+         JOIN statuses story_status ON story_status.id = story.status_id
+         JOIN projects p ON p.id = ca.project_id
+        WHERE ca.organization_id = $1 AND ca.project_id = $2
+          AND ca.task_issue_id = $3 AND ca.removed_at IS NULL
+          AND story.deleted_at IS NULL`,
+      [access.organizationId, access.projectId, issue.id],
+    );
+    assertCompletionActionTaskCanLeaveDone(
+      destinationStatus.category,
+      ownerStory.rows[0]?.story_status_category ?? null,
+      ownerStory.rows[0]?.story_key ?? null,
+    );
 
     const nextRank = await allocateColumnRank(
       client,
@@ -7115,6 +8079,7 @@ export async function updateIssue(
       description: string | null;
       priority: Priority;
       issue_type_id: string;
+      issue_type: IssueType;
       assignee_id: string | null;
       parent_id: string | null;
       estimate_points: number | null;
@@ -7122,10 +8087,12 @@ export async function updateIssue(
       version: number;
     }>(
       `SELECT i.id, i.summary, i.description, i.priority, i.issue_type_id,
+              upper(it.name)::text AS issue_type,
               i.assignee_id, i.parent_id, i.estimate_points,
               i.due_date::text, i.version
          FROM issues i
          JOIN projects p ON p.id = i.project_id
+         JOIN issue_types it ON it.id = i.issue_type_id
         WHERE i.organization_id = $1 AND i.project_id = $2
           AND p.project_key = $3 AND i.number = $4 AND i.deleted_at IS NULL
         FOR UPDATE OF i`,
@@ -7181,6 +8148,50 @@ export async function updateIssue(
     if (issue.due_date !== dueDate) changedFields.push("dueDate");
     if (changedFields.length === 0) return;
 
+    const generatedTaskLink = await client.query<{ id: string }>(
+      `SELECT id FROM completion_actions
+        WHERE organization_id = $1 AND project_id = $2
+          AND task_issue_id = $3 AND removed_at IS NULL
+        FOR UPDATE`,
+      [access.organizationId, access.projectId, issue.id],
+    );
+    if (
+      generatedTaskLink.rows[0] &&
+      (changedFields.includes("summary") ||
+        changedFields.includes("issueType") ||
+        changedFields.includes("parent"))
+    ) {
+      throw new DomainError(
+        "COA_TASK_MANAGED_FIELDS",
+        "Rename, reparent, or remove this generated Task from its Story COA checklist",
+        409,
+      );
+    }
+    const ownedCompletionTasks = await client.query<{
+      id: string;
+      version: number;
+    }>(
+      `SELECT task.id, task.version
+         FROM completion_actions ca
+         JOIN issues task ON task.id = ca.task_issue_id
+        WHERE ca.organization_id = $1 AND ca.project_id = $2
+          AND ca.story_issue_id = $3 AND ca.removed_at IS NULL
+          AND task.deleted_at IS NULL
+        ORDER BY ca.position, ca.id
+        FOR UPDATE OF ca, task`,
+      [access.organizationId, access.projectId, issue.id],
+    );
+    if (
+      ownedCompletionTasks.rows.length > 0 &&
+      changedFields.includes("issueType")
+    ) {
+      throw new DomainError(
+        "STORY_HAS_COMPLETION_ACTIONS",
+        "Remove this Story's completion actions before changing its issue type",
+        409,
+      );
+    }
+
     const updated = await client.query(
       `UPDATE issues
           SET summary = $1, description = $2, priority = $3, issue_type_id = $4,
@@ -7211,6 +8222,32 @@ export async function updateIssue(
     }
     if (labelsChanged) {
       await replaceIssueLabels(client, access.organizationId, issue.id, labels);
+    }
+    if (
+      changedFields.includes("parent") &&
+      ownedCompletionTasks.rows.length > 0
+    ) {
+      for (const task of ownedCompletionTasks.rows) {
+        await client.query(
+          `UPDATE issues
+              SET parent_id = $1, version = version + 1, updated_at = now()
+            WHERE id = $2 AND organization_id = $3 AND version = $4`,
+          [parent?.id ?? null, task.id, access.organizationId, task.version],
+        );
+        await writeGeneratedTaskUpdate(
+          client,
+          identity,
+          access,
+          task.id,
+          "UPDATED",
+          {
+            fields: ["parent"],
+            fromVersion: task.version,
+            toVersion: task.version + 1,
+          },
+          requestCorrelationId,
+        );
+      }
     }
 
     const payload = {
@@ -7370,6 +8407,69 @@ export async function deleteIssue(
         409,
       );
     }
+    const generatedTaskLink = await client.query<{ id: string }>(
+      `SELECT id FROM completion_actions
+        WHERE organization_id = $1 AND project_id = $2
+          AND task_issue_id = $3 AND removed_at IS NULL
+        FOR UPDATE`,
+      [access.organizationId, access.projectId, issue.id],
+    );
+    if (generatedTaskLink.rows[0]) {
+      throw new DomainError(
+        "COA_TASK_MANAGED_LIFECYCLE",
+        "Remove this generated Task from its Story COA checklist",
+        409,
+      );
+    }
+    const completionTasks = await client.query<{
+      id: string;
+      version: number;
+    }>(
+      `SELECT task.id, task.version
+         FROM completion_actions ca
+         JOIN issues task ON task.id = ca.task_issue_id
+        WHERE ca.organization_id = $1 AND ca.project_id = $2
+          AND ca.story_issue_id = $3 AND ca.removed_at IS NULL
+          AND task.deleted_at IS NULL
+        ORDER BY ca.position, ca.id
+        FOR UPDATE OF ca, task`,
+      [access.organizationId, access.projectId, issue.id],
+    );
+    for (const task of completionTasks.rows) {
+      const taskChild = await client.query<{ id: string }>(
+        `SELECT id FROM issues
+          WHERE organization_id = $1 AND project_id = $2
+            AND parent_id = $3 AND deleted_at IS NULL
+          LIMIT 1 FOR SHARE`,
+        [access.organizationId, access.projectId, task.id],
+      );
+      if (taskChild.rows[0]) {
+        throw new DomainError(
+          "COA_TASK_HAS_ACTIVE_CHILDREN",
+          "Move or delete generated COA Task subtasks before deleting the Story",
+          409,
+        );
+      }
+    }
+    for (const task of completionTasks.rows) {
+      await client.query(
+        `UPDATE issues
+            SET deleted_at = now(), deleted_by = $1,
+                version = version + 1, updated_at = now()
+          WHERE id = $2 AND organization_id = $3
+            AND version = $4 AND deleted_at IS NULL`,
+        [identity.id, task.id, access.organizationId, task.version],
+      );
+      await writeIssueLifecycleChange(
+        client,
+        identity,
+        access,
+        task.id,
+        "DELETED",
+        task.version,
+        requestCorrelationId,
+      );
+    }
     const updated = await client.query(
       `UPDATE issues
           SET deleted_at = now(), deleted_by = $1,
@@ -7436,6 +8536,36 @@ export async function restoreIssue(
       );
     }
     assertVersion(expectedVersion, issue.version);
+    const generatedTaskLink = await client.query<{ id: string }>(
+      `SELECT id FROM completion_actions
+        WHERE organization_id = $1 AND project_id = $2
+          AND task_issue_id = $3 AND removed_at IS NULL
+        FOR UPDATE`,
+      [access.organizationId, access.projectId, issue.id],
+    );
+    if (generatedTaskLink.rows[0]) {
+      throw new DomainError(
+        "COA_TASK_MANAGED_LIFECYCLE",
+        "Restore the owning Story to restore this generated COA Task",
+        409,
+      );
+    }
+    const completionTasks = await client.query<{
+      id: string;
+      status_id: string;
+      version: number;
+      assignee_id: string | null;
+    }>(
+      `SELECT task.id, task.status_id, task.version, task.assignee_id
+         FROM completion_actions ca
+         JOIN issues task ON task.id = ca.task_issue_id
+        WHERE ca.organization_id = $1 AND ca.project_id = $2
+          AND ca.story_issue_id = $3 AND ca.removed_at IS NULL
+          AND task.deleted_at IS NOT NULL
+        ORDER BY ca.position, ca.id
+        FOR UPDATE OF ca, task`,
+      [access.organizationId, access.projectId, issue.id],
+    );
     if (issue.parent_id) {
       const activeParent = await client.query<{
         id: string;
@@ -7492,6 +8622,46 @@ export async function restoreIssue(
         "VERSION_CONFLICT",
         "This issue changed since it was loaded. Refresh and try again.",
         409,
+      );
+    }
+    for (const task of completionTasks.rows) {
+      await assertAssignableUser(client, access, task.assignee_id);
+      const taskColumnId = await projectBoardColumnForStatus(
+        client,
+        access,
+        task.status_id,
+      );
+      const taskColumnIssues = await lockColumnIssues(
+        client,
+        access,
+        taskColumnId,
+      );
+      const taskRank = await allocateColumnRank(
+        client,
+        access,
+        taskColumnId,
+        task.id,
+        taskColumnIssues.at(-1)?.id ?? null,
+        null,
+        taskColumnIssues,
+      );
+      await client.query(
+        `UPDATE issues
+            SET deleted_at = NULL, deleted_by = NULL,
+                rank = $1::numeric(30, 10), version = version + 1,
+                updated_at = now()
+          WHERE id = $2 AND organization_id = $3
+            AND version = $4 AND deleted_at IS NOT NULL`,
+        [taskRank, task.id, access.organizationId, task.version],
+      );
+      await writeIssueLifecycleChange(
+        client,
+        identity,
+        access,
+        task.id,
+        "RESTORED",
+        task.version,
+        requestCorrelationId,
       );
     }
     await writeIssueLifecycleChange(

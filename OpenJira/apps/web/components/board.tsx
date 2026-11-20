@@ -21,6 +21,7 @@ import type {
   BoardColumnView,
   BoardIssuePage,
   BoardView,
+  CompletionActionView,
   IssueCollaborationView,
   IssueDetailView,
   IssueType,
@@ -77,6 +78,14 @@ function parseLabels(value: string): string[] {
     if (label) labels.set(label.toLocaleLowerCase(), label);
   }
   return [...labels.values()];
+}
+
+function moveListItem(items: string[], from: number, to: number): string[] {
+  const next = [...items];
+  const [item] = next.splice(from, 1);
+  if (item === undefined) return items;
+  next.splice(to, 0, item);
+  return next;
 }
 
 function apiMessage(body: unknown, fallback: string): string {
@@ -592,6 +601,7 @@ export function Board({
       parentIssueKey: string | null;
       estimatePoints: number | null;
       dueDate: string | null;
+      completionActions: string[];
     },
     idempotencyKey: string,
   ) {
@@ -1079,12 +1089,18 @@ export function Board({
           board={board}
           canEdit={canEditIssues}
           canDelete={canDeleteIssues}
+          canCreate={canCreateIssues}
+          canTransition={canTransitionIssues}
           canComment={canComment}
           canWatch={canWatch}
           canAttach={canAttach}
           onDelete={() => removeIssue(selected)}
+          onOpenIssue={openIssue}
           onSave={(input) => saveIssue(selected, input)}
-          onReload={() => refreshDetail(selected.key)}
+          onReload={async () => {
+            await refreshBoard();
+            await refreshDetail(selected.key);
+          }}
           onClose={() => {
             selectedKey.current = null;
             setSelected(null);
@@ -1386,6 +1402,7 @@ function CreateIssueDialog({
       parentIssueKey: string | null;
       estimatePoints: number | null;
       dueDate: string | null;
+      completionActions: string[];
     },
     idempotencyKey: string,
   ) => Promise<void>;
@@ -1397,6 +1414,8 @@ function CreateIssueDialog({
   const [issueType, setIssueType] = useState<IssueType>("TASK");
   const [parentIssueKey, setParentIssueKey] = useState("");
   const [description, setDescription] = useState("");
+  const [completionActions, setCompletionActions] = useState<string[]>([]);
+  const [completionActionDraft, setCompletionActionDraft] = useState("");
   const parents = parentCandidates(board.issues, issueType);
   useEffect(() => {
     dialog.current?.showModal();
@@ -1421,6 +1440,16 @@ function CreateIssueDialog({
             ? Number(form.get("estimatePoints"))
             : null,
           dueDate: String(form.get("dueDate") ?? "") || null,
+          completionActions:
+            issueType === "STORY"
+              ? [
+                  ...completionActions,
+                  ...(completionActions.length < 50 &&
+                  completionActionDraft.trim()
+                    ? [completionActionDraft.trim()]
+                    : []),
+                ]
+              : [],
         },
         idempotencyKey.current,
       );
@@ -1474,6 +1503,10 @@ function CreateIssueDialog({
             onChange={(event) => {
               setIssueType(event.target.value as IssueType);
               setParentIssueKey("");
+              if (event.target.value !== "STORY") {
+                setCompletionActions([]);
+                setCompletionActionDraft("");
+              }
             }}
           >
             {issueTypes.map((type) => (
@@ -1481,6 +1514,111 @@ function CreateIssueDialog({
             ))}
           </select>
         </label>
+        {issueType === "STORY" && (
+          <fieldset className="completion-action-editor">
+            <legend>Completion actions (COAs)</legend>
+            <small>
+              Each action creates a Task. This Story cannot be completed until
+              every action is checked off.
+            </small>
+            {completionActions.length > 0 && (
+              <ol className="completion-action-draft-list">
+                {completionActions.map((action, index) => (
+                  <li key={`${index}:${action}`}>
+                    <input
+                      type="checkbox"
+                      checked={false}
+                      disabled
+                      aria-label={`Completion action ${index + 1} is incomplete`}
+                      readOnly
+                    />
+                    <input
+                      aria-label={`Completion action ${index + 1}`}
+                      maxLength={200}
+                      value={action}
+                      onChange={(event) =>
+                        setCompletionActions((current) =>
+                          current.map((item, itemIndex) =>
+                            itemIndex === index ? event.target.value : item,
+                          ),
+                        )
+                      }
+                    />
+                    <div className="completion-action-controls">
+                      <button
+                        type="button"
+                        disabled={index === 0}
+                        aria-label={`Move completion action ${index + 1} up`}
+                        onClick={() =>
+                          setCompletionActions((current) =>
+                            moveListItem(current, index, index - 1),
+                          )
+                        }
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        disabled={index === completionActions.length - 1}
+                        aria-label={`Move completion action ${index + 1} down`}
+                        onClick={() =>
+                          setCompletionActions((current) =>
+                            moveListItem(current, index, index + 1),
+                          )
+                        }
+                      >
+                        ↓
+                      </button>
+                      <button
+                        className="text-button"
+                        type="button"
+                        onClick={() =>
+                          setCompletionActions((current) =>
+                            current.filter(
+                              (_, itemIndex) => itemIndex !== index,
+                            ),
+                          )
+                        }
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+            <div className="completion-action-add-row">
+              <input
+                aria-label="New completion action"
+                disabled={completionActions.length >= 50}
+                maxLength={200}
+                placeholder="Describe a required task"
+                value={completionActionDraft}
+                onChange={(event) =>
+                  setCompletionActionDraft(event.target.value)
+                }
+              />
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={
+                  completionActions.length >= 50 ||
+                  completionActionDraft.trim().length === 0
+                }
+                onClick={() => {
+                  setCompletionActions((current) => [
+                    ...current,
+                    completionActionDraft.trim(),
+                  ]);
+                  setCompletionActionDraft("");
+                }}
+              >
+                Add action
+              </button>
+            </div>
+            <small>{completionActions.length} of 50 actions added.</small>
+          </fieldset>
+        )}
         <label>
           Priority
           <select name="priority" defaultValue="MEDIUM">
@@ -1566,11 +1704,14 @@ function IssueDrawer({
   board,
   canEdit,
   canDelete,
+  canCreate,
+  canTransition,
   canComment,
   canWatch,
   canAttach,
   onSave,
   onDelete,
+  onOpenIssue,
   onReload,
   onClose,
 }: {
@@ -1578,6 +1719,8 @@ function IssueDrawer({
   board: BoardView;
   canEdit: boolean;
   canDelete: boolean;
+  canCreate: boolean;
+  canTransition: boolean;
   canComment: boolean;
   canWatch: boolean;
   canAttach: boolean;
@@ -1593,6 +1736,7 @@ function IssueDrawer({
     dueDate: string | null;
   }) => Promise<void>;
   onDelete: () => Promise<void>;
+  onOpenIssue: (issueKey: string) => void;
   onReload: () => Promise<void>;
   onClose: () => void;
 }) {
@@ -2004,6 +2148,18 @@ function IssueDrawer({
           </dl>
         </>
       )}
+      {!editing && issue.issueType === "STORY" && (
+        <CompletionActionsSection
+          key={`${issue.id}:${issue.version}`}
+          issue={issue}
+          canCreate={canCreate && canEdit}
+          canEdit={canEdit}
+          canDelete={canDelete && canEdit}
+          canTransition={canTransition}
+          onOpenIssue={onOpenIssue}
+          onReload={onReload}
+        />
+      )}
       <section className="attachments" aria-labelledby="attachments-heading">
         <div className="comments-heading">
           <h3 id="attachments-heading">Attachments</h3>
@@ -2154,6 +2310,276 @@ function IssueDrawer({
         ))}
       </ol>
     </aside>
+  );
+}
+
+function CompletionActionsSection({
+  issue,
+  canCreate,
+  canEdit,
+  canDelete,
+  canTransition,
+  onOpenIssue,
+  onReload,
+}: {
+  issue: IssueDetailView;
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canTransition: boolean;
+  onOpenIssue: (issueKey: string) => void;
+  onReload: () => Promise<void>;
+}) {
+  const [newSummary, setNewSummary] = useState("");
+  const [summaryDrafts, setSummaryDrafts] = useState<Record<string, string>>(
+    {},
+  );
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const completedCount = issue.completionActions.filter(
+    (action) => action.completed,
+  ).length;
+
+  async function mutate(
+    pendingKey: string,
+    url: string,
+    init: RequestInit,
+    fallback: string,
+  ): Promise<boolean> {
+    setPendingAction(pendingKey);
+    setError("");
+    try {
+      const response = await fetch(url, init);
+      const body: unknown = await response.json();
+      if (!response.ok) throw new Error(apiMessage(body, fallback));
+      await onReload();
+      return true;
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : fallback);
+      return false;
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function patchAction(
+    action: CompletionActionView,
+    change: { summary?: string; position?: number; completed?: boolean },
+    fallback: string,
+  ) {
+    await mutate(
+      action.id,
+      `/api/v1/issues/${issue.key}/completion-actions/${action.id}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...change,
+          version: action.version,
+          storyVersion: issue.version,
+        }),
+      },
+      fallback,
+    );
+  }
+
+  async function addAction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const summary = newSummary.trim();
+    if (!summary) return;
+    const created = await mutate(
+      "create",
+      `/api/v1/issues/${issue.key}/completion-actions`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({ summary, storyVersion: issue.version }),
+      },
+      "Could not add the completion action",
+    );
+    if (created) setNewSummary("");
+  }
+
+  return (
+    <section
+      className="completion-actions"
+      aria-labelledby={`completion-actions-${issue.id}`}
+    >
+      <div className="comments-heading">
+        <h3 id={`completion-actions-${issue.id}`}>Completion actions (COAs)</h3>
+        <span className="count">
+          {completedCount}/{issue.completionActions.length}
+        </span>
+      </div>
+      <p className="muted">
+        Each action is a Task. All actions must be complete before this Story
+        can move to Done.
+      </p>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      {issue.completionActions.length === 0 && (
+        <p className="muted">No completion actions yet.</p>
+      )}
+      {issue.completionActions.length > 0 && (
+        <ol className="completion-action-list">
+          {issue.completionActions.map((action, index) => {
+            const summary = summaryDrafts[action.id] ?? action.summary;
+            const pending = pendingAction !== null;
+            return (
+              <li key={action.id}>
+                <input
+                  type="checkbox"
+                  checked={action.completed}
+                  disabled={!canTransition || pending}
+                  aria-label={`Mark ${action.summary} ${action.completed ? "incomplete" : "complete"}`}
+                  onChange={(event) =>
+                    void patchAction(
+                      action,
+                      { completed: event.target.checked },
+                      `Could not update ${action.summary}`,
+                    )
+                  }
+                />
+                <div className="completion-action-main">
+                  <input
+                    aria-label={`Completion action ${index + 1}`}
+                    disabled={!canEdit || pending}
+                    maxLength={200}
+                    value={summary}
+                    onChange={(event) =>
+                      setSummaryDrafts((current) => ({
+                        ...current,
+                        [action.id]: event.target.value,
+                      }))
+                    }
+                  />
+                  <button
+                    className="text-button completion-task-link"
+                    type="button"
+                    onClick={() => onOpenIssue(action.task.key)}
+                  >
+                    Open Task {action.task.key}
+                  </button>
+                </div>
+                <div className="completion-action-controls">
+                  {canEdit && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={pending || index === 0}
+                        aria-label={`Move ${action.summary} up`}
+                        onClick={() =>
+                          void patchAction(
+                            action,
+                            { position: index - 1 },
+                            `Could not move ${action.summary}`,
+                          )
+                        }
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        disabled={
+                          pending ||
+                          index === issue.completionActions.length - 1
+                        }
+                        aria-label={`Move ${action.summary} down`}
+                        onClick={() =>
+                          void patchAction(
+                            action,
+                            { position: index + 1 },
+                            `Could not move ${action.summary}`,
+                          )
+                        }
+                      >
+                        ↓
+                      </button>
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        disabled={
+                          pending ||
+                          summary.trim().length === 0 ||
+                          summary.trim() === action.summary
+                        }
+                        onClick={() =>
+                          void patchAction(
+                            action,
+                            { summary: summary.trim() },
+                            `Could not rename ${action.summary}`,
+                          )
+                        }
+                      >
+                        Save
+                      </button>
+                    </>
+                  )}
+                  {canDelete && (
+                    <button
+                      className="text-button"
+                      type="button"
+                      disabled={pending}
+                      onClick={() => {
+                        if (!window.confirm(`Remove ${action.summary}?`))
+                          return;
+                        void mutate(
+                          action.id,
+                          `/api/v1/issues/${issue.key}/completion-actions/${action.id}`,
+                          {
+                            method: "DELETE",
+                            headers: { "content-type": "application/json" },
+                            body: JSON.stringify({
+                              version: action.version,
+                              storyVersion: issue.version,
+                            }),
+                          },
+                          `Could not remove ${action.summary}`,
+                        );
+                      }}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+      {canCreate && issue.completionActions.length < 50 && (
+        <form className="completion-action-form" onSubmit={addAction}>
+          <label htmlFor={`completion-action-new-${issue.id}`}>
+            Add completion action
+          </label>
+          <div className="completion-action-add-row">
+            <input
+              id={`completion-action-new-${issue.id}`}
+              disabled={pendingAction !== null}
+              maxLength={200}
+              required
+              value={newSummary}
+              onChange={(event) => setNewSummary(event.target.value)}
+            />
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={
+                pendingAction !== null || newSummary.trim().length === 0
+              }
+            >
+              {pendingAction === "create" ? "Adding…" : "Add action"}
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
   );
 }
 

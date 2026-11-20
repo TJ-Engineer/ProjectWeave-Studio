@@ -48,6 +48,12 @@ Release 1 includes:
 - an issue activity drawer;
 - explicit PostgreSQL migrations, demo seed data, and container health checks.
 
+## Release 2 update
+
+`ISS-08` adds ordered Completion Action (COA) checklists to Stories. Every COA atomically generates one normal board-visible Task in the same project (and the same Epic, when present). Task Done-category status owns the checkbox state. Story create and detail flows expose accessible add, rename, reorder, remove, Task-link, and checkbox controls, while the server rejects every transition or workflow reconfiguration that would leave a Done Story with an incomplete COA.
+
+COA mutations use optimistic concurrency for both the Story and checklist entry and preserve issue history, audit, outbox, idempotency, and soft-delete evidence. A generated Task cannot be independently type-changed, reparented, deleted, restored, or moved out of Done while its Story remains Done. Story deletion/restoration cascades to its generated Tasks as one transaction.
+
 Issue lifecycle endpoints use optimistic concurrency:
 
 - `DELETE /api/v1/issues/{issueKey}` with `{ "version": number }` soft-deletes active work for members/admins;
@@ -141,4 +147,4 @@ Browser journeys cover the complete Release 1 lifecycle, identity and team acces
 
 ## Current boundary
 
-This repository contains the Release 1 candidate described by the implementation plan. Production launch still requires the environment-specific and manual evidence in the release checklist.
+This repository contains the published Release 1 candidate plus the accepted, workspace-only `ISS-08` Story Completion Actions slice for Release 2. Production launch still requires the environment-specific and manual evidence in the release checklist.

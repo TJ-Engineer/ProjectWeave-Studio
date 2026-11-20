@@ -238,6 +238,38 @@ export function assertTransition(
   }
 }
 
+export function assertStoryCompletionActionsDone(
+  issueType: string,
+  destinationCategory: MetricStatusCategory,
+  incompleteTaskKeys: string[],
+): void {
+  if (
+    issueType === "STORY" &&
+    destinationCategory === "DONE" &&
+    incompleteTaskKeys.length > 0
+  ) {
+    throw new DomainError(
+      "STORY_COAS_INCOMPLETE",
+      `Complete ${incompleteTaskKeys.length} remaining COA ${incompleteTaskKeys.length === 1 ? "task" : "tasks"}: ${incompleteTaskKeys.join(", ")}`,
+      409,
+    );
+  }
+}
+
+export function assertCompletionActionTaskCanLeaveDone(
+  destinationCategory: MetricStatusCategory,
+  ownerStoryCategory: MetricStatusCategory | null,
+  ownerStoryKey: string | null,
+): void {
+  if (destinationCategory !== "DONE" && ownerStoryCategory === "DONE") {
+    throw new DomainError(
+      "COA_TASK_REOPEN_REQUIRES_STORY",
+      `Reopen ${ownerStoryKey ?? "the owning Story"} before reopening this COA task`,
+      409,
+    );
+  }
+}
+
 export type IssueHierarchyLevel = -1 | 0 | 1;
 
 export function canParentIssue(
